@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/.vs/
+.git/
+.github/
+.idea/
+*.user
+**/appsettings.*.local.json
+**/state.json
+PlexToJellyfinSync.md
+TestResults/
