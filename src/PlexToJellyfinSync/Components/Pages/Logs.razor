@@ -1,0 +1,92 @@
+@page "/logs"
+@implements IDisposable
+@inject ILogStore LogStore
+
+<PageTitle>PlexToJellyfinSync - Logs</PageTitle>
+
+<h1>Logs</h1>
+
+<div class="log-toolbar">
+    <label>
+        Level:
+        <select @bind="_minLevel">
+            <option value="@LogLevel.Trace">Trace</option>
+            <option value="@LogLevel.Debug">Debug</option>
+            <option value="@LogLevel.Information">Information</option>
+            <option value="@LogLevel.Warning">Warning</option>
+            <option value="@LogLevel.Error">Error</option>
+        </select>
+    </label>
+    <input type="text" placeholder="Filter..." @bind="_filter" @bind:event="oninput" />
+    <label class="pause">
+        <input type="checkbox" @bind="_paused" /> Pause
+    </label>
+</div>
+
+<table class="log-table">
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Level</th>
+            <th>Category</th>
+            <th>Message</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var entry in Filtered())
+        {
+            <tr class="level-@entry.Level">
+                <td>@entry.Timestamp.LocalDateTime.ToString("HH:mm:ss")</td>
+                <td>@entry.Level</td>
+                <td>@ShortCategory(entry.Category)</td>
+                <td>@entry.Message</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<LogEntry> _entries = [];
+    private LogLevel _minLevel = LogLevel.Information;
+    private string _filter = string.Empty;
+    private bool _paused;
+
+    protected override void OnInitialized()
+    {
+        _entries = LogStore.GetEntries().ToList();
+        LogStore.EntryAdded += OnEntryAdded;
+    }
+
+    private void OnEntryAdded(LogEntry entry)
+    {
+        if (_paused)
+        {
+            return;
+        }
+
+        InvokeAsync(() =>
+        {
+            _entries = LogStore.GetEntries().ToList();
+            StateHasChanged();
+        });
+    }
+
+    private IEnumerable<LogEntry> Filtered()
+    {
+        return _entries.Where(e => e.Level >= _minLevel)
+                       .Where(e => string.IsNullOrEmpty(_filter) || e.Message.Contains(_filter, StringComparison.OrdinalIgnoreCase))
+                       .Reverse();
+    }
+
+    private static string ShortCategory(string category)
+    {
+        var index = category.LastIndexOf('.');
+
+        return index >= 0 ? category[(index + 1)..] : category;
+    }
+
+    public void Dispose()
+    {
+        LogStore.EntryAdded -= OnEntryAdded;
+    }
+}

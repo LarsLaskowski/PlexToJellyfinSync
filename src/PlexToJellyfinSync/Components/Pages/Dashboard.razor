@@ -1,0 +1,94 @@
+@page "/"
+@implements IDisposable
+@inject ISyncStatusProvider StatusProvider
+
+<PageTitle>PlexToJellyfinSync - Status</PageTitle>
+
+<h1>Status</h1>
+
+<div class="cards">
+    <div class="card @(_status.PlexConnected ? "ok" : "bad")">
+        <div class="card-label">Plex connection</div>
+        <div class="card-value">@(_status.PlexConnected ? "Connected" : "Disconnected")</div>
+    </div>
+    <div class="card">
+        <div class="card-label">State</div>
+        <div class="card-value">@(_status.IsRunning ? "Running" : "Idle")</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Last poll</div>
+        <div class="card-value">@Format(_status.LastPollAt)</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Next poll</div>
+        <div class="card-value">@Format(_status.NextPollAt)</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Last reconcile</div>
+        <div class="card-value">@Format(_status.LastReconcileAt)</div>
+    </div>
+    <div class="card">
+        <div class="card-label">High-water mark</div>
+        <div class="card-value">@Format(_status.HighWaterMark)</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Items processed</div>
+        <div class="card-value">@_status.ItemsProcessed</div>
+    </div>
+    <div class="card">
+        <div class="card-label">NFO created</div>
+        <div class="card-value">@_status.NfoCreated</div>
+    </div>
+    <div class="card">
+        <div class="card-label">NFO updated</div>
+        <div class="card-value">@_status.NfoUpdated</div>
+    </div>
+    <div class="card @(_status.Errors > 0 ? "bad" : "")">
+        <div class="card-label">Errors</div>
+        <div class="card-value">@_status.Errors</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Uptime</div>
+        <div class="card-value">@Uptime()</div>
+    </div>
+</div>
+
+@if (string.IsNullOrWhiteSpace(_status.LastError) == false)
+{
+    <div class="last-error">
+        <strong>Last error:</strong> @_status.LastError
+    </div>
+}
+
+@code {
+    private SyncStatusViewData _status = new();
+
+    protected override void OnInitialized()
+    {
+        _status = StatusProvider.GetSnapshot();
+        StatusProvider.Changed += OnChanged;
+    }
+
+    private void OnChanged()
+    {
+        _status = StatusProvider.GetSnapshot();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static string Format(DateTimeOffset? value)
+    {
+        return value.HasValue ? value.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") : "-";
+    }
+
+    private string Uptime()
+    {
+        var span = DateTimeOffset.UtcNow - _status.StartedAt;
+
+        return $"{(int)span.TotalHours}h {span.Minutes}m";
+    }
+
+    public void Dispose()
+    {
+        StatusProvider.Changed -= OnChanged;
+    }
+}

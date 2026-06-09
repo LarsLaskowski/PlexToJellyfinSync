@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore PlexToJellyfinSync.slnx
+
+      - name: Format check
+        run: |
+          dotnet tool install -g Reihitsu.Cli
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          reihitsu-format ./
+          git diff --exit-code
+
+      - name: Build
+        run: dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test PlexToJellyfinSync.slnx -c Release --no-build

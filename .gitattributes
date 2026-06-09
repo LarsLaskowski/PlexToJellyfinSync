@@ -1,0 +1,9 @@
+# Enforce consistent CRLF line endings to match .editorconfig and the Reihitsu analyzer
+* text=auto eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
