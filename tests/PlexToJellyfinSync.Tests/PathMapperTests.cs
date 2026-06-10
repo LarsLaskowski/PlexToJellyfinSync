@@ -96,5 +96,39 @@ public sealed class PathMapperTests
         Assert.AreEqual("/media/Movies/x.mkv", result, "Backslashes were not normalized!");
     }
 
+    /// <summary>
+    /// A path containing a traversal sequence in the middle is rejected
+    /// </summary>
+    [TestMethod]
+    public void PathMapperTraversalSequenceInMiddleReturnsNull()
+    {
+        var mapper = CreateMapper(new PathMapping
+                                  {
+                                      Plex = "/data/Movies",
+                                      Local = "/media/Movies"
+                                  });
+
+        var result = mapper.MapToLocal("/data/Movies/../../../etc/passwd");
+
+        Assert.IsNull(result, "Path with traversal sequence should return null!");
+    }
+
+    /// <summary>
+    /// A path ending with a traversal sequence is rejected
+    /// </summary>
+    [TestMethod]
+    public void PathMapperTraversalSequenceAtEndReturnsNull()
+    {
+        var mapper = CreateMapper(new PathMapping
+                                  {
+                                      Plex = "/data/Movies",
+                                      Local = "/media/Movies"
+                                  });
+
+        var result = mapper.MapToLocal("/data/Movies/Heat/..");
+
+        Assert.IsNull(result, "Path ending with traversal sequence should return null!");
+    }
+
     #endregion // Methods
 }
