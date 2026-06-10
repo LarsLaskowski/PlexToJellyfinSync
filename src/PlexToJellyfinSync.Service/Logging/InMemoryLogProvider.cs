@@ -42,7 +42,7 @@ public sealed class InMemoryLogProvider : ILoggerProvider
 
     #endregion // ILoggerProvider
 
-    #region IDisposable implementation
+    #region IDisposable
 
     /// <inheritdoc/>
     public void Dispose()
@@ -50,5 +50,5 @@ public sealed class InMemoryLogProvider : ILoggerProvider
         _loggers.Clear();
     }
 
-    #endregion // IDisposable implementation
+    #endregion // IDisposable
 }

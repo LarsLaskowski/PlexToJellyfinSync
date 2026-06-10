@@ -15,10 +15,10 @@ public sealed class StateStore : IStateStore
 {
     #region Fields
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-                                                                {
-                                                                    WriteIndented = true
-                                                                };
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+                                                                 {
+                                                                     WriteIndented = true
+                                                                 };
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ILogger<StateStore> _logger;
@@ -58,7 +58,7 @@ public sealed class StateStore : IStateStore
         try
         {
             await using var stream = File.OpenRead(_filePath);
-            var state = await JsonSerializer.DeserializeAsync<SyncStateFile>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+            var state = await JsonSerializer.DeserializeAsync<SyncStateFile>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
 
             return state ?? new SyncStateFile();
         }
@@ -110,7 +110,7 @@ public sealed class StateStore : IStateStore
 
             await using var stream = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.None);
 
-            await JsonSerializer.SerializeAsync(stream, state, JsonOptions, cancellationToken).ConfigureAwait(false);
+            await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
         }
         finally
         {

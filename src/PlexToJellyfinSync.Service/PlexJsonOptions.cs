@@ -12,7 +12,7 @@ public static class PlexJsonOptions
 
     /// <summary>
     /// Default options. Case-sensitive on purpose so the lowercase legacy <c>guid</c> string is not
-    /// mistaken for the uppercase <c>Guid</c> array, and numbers may be read from JSON strings.
+    /// mistaken for the uppercase <c>Guid</c> array, and numbers may be read from JSON strings
     /// </summary>
     public static JsonSerializerOptions Default { get; } = new()
                                                            {

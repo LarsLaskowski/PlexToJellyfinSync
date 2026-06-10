@@ -17,7 +17,7 @@ public static partial class Program
     #region Main entry point
 
     /// <summary>
-    /// Main entry point for the application. Configures and starts the web host, which also runs the background sync worker.
+    /// Main entry point for the application. Configures and starts the web host, which also runs the background sync worker
     /// </summary>
     /// <param name="args">An array of command-line arguments used to configure the application at startup</param>
     /// <returns>A task that represents the asynchronous operation of running the web application</returns>
