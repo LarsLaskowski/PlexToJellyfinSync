@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 using PlexToJellyfinSync.Core.Options;
@@ -16,12 +17,18 @@ public sealed class TokenAuthMiddleware
     /// </summary>
     public const string CookieName = "pjf_auth";
 
+    /// <summary>
+    /// Cache key prefix for session identifiers
+    /// </summary>
+    public const string SessionCachePrefix = "pjf_session:";
+
     #endregion // Constants
 
     #region Fields
 
     private readonly RequestDelegate _next;
     private readonly DashboardOptions _options;
+    private readonly IMemoryCache _cache;
 
     #endregion // Fields
 
@@ -32,10 +39,12 @@ public sealed class TokenAuthMiddleware
     /// </summary>
     /// <param name="next">Next middleware in the pipeline</param>
     /// <param name="options">Dashboard options</param>
-    public TokenAuthMiddleware(RequestDelegate next, IOptions<DashboardOptions> options)
+    /// <param name="cache">Memory cache for server-side session validation</param>
+    public TokenAuthMiddleware(RequestDelegate next, IOptions<DashboardOptions> options, IMemoryCache cache)
     {
         _next = next;
         _options = options.Value;
+        _cache = cache;
     }
 
     #endregion // Constructors
@@ -92,7 +101,9 @@ public sealed class TokenAuthMiddleware
             return;
         }
 
-        if (context.Request.Cookies.TryGetValue(CookieName, out var value) && value == "1")
+        if (context.Request.Cookies.TryGetValue(CookieName, out var sessionId)
+            && sessionId is not null
+            && _cache.TryGetValue(SessionCachePrefix + sessionId, out _))
         {
             await _next(context).ConfigureAwait(false);
 
