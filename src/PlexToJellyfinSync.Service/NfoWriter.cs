@@ -20,7 +20,7 @@ public sealed class NfoWriter : INfoWriter
 {
     #region Fields
 
-    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+    private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     private readonly NfoOptions _nfoOptions;
     private readonly SyncOptions _syncOptions;
@@ -128,6 +128,31 @@ public sealed class NfoWriter : INfoWriter
     #endregion // Static methods
 
     #region Methods
+
+    /// <summary>
+    /// Serialize an NFO document to disk
+    /// </summary>
+    /// <param name="document">Document to serialize</param>
+    /// <param name="path">Target path</param>
+    /// <param name="indent">Whether to indent the output</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private static async Task SaveAsync(XDocument document, string path, bool indent, CancellationToken cancellationToken)
+    {
+        var settings = new XmlWriterSettings
+                       {
+                           Async = true,
+                           Encoding = _utf8NoBom,
+                           Indent = indent,
+                           OmitXmlDeclaration = false
+                       };
+
+        await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        await using var writer = XmlWriter.Create(stream, settings);
+
+        await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
+        await writer.FlushAsync().ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Resolve the target NFO file path for an item
@@ -299,31 +324,6 @@ public sealed class NfoWriter : INfoWriter
         ApplyWatchState(root, item.Watch);
 
         return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
-    }
-
-    /// <summary>
-    /// Serialize an NFO document to disk
-    /// </summary>
-    /// <param name="document">Document to serialize</param>
-    /// <param name="path">Target path</param>
-    /// <param name="indent">Whether to indent the output</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private static async Task SaveAsync(XDocument document, string path, bool indent, CancellationToken cancellationToken)
-    {
-        var settings = new XmlWriterSettings
-                       {
-                           Async = true,
-                           Encoding = Utf8NoBom,
-                           Indent = indent,
-                           OmitXmlDeclaration = false
-                       };
-
-        await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        await using var writer = XmlWriter.Create(stream, settings);
-
-        await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
-        await writer.FlushAsync().ConfigureAwait(false);
     }
 
     #endregion // Methods
