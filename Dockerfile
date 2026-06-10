@@ -21,7 +21,6 @@ ARG BASE_RUNTIME_DIGEST
 
 LABEL org.opencontainers.image.base.name="${BASE_RUNTIME}"
 LABEL org.opencontainers.image.base.digest="${BASE_RUNTIME_DIGEST}"
-LABEL org.opencontainers.image.source="https://github.com/LarsLaskowski/PlexToJellyfinSync"
 LABEL org.opencontainers.image.description="Cyclically syncs Plex watch state into Jellyfin NFO files"
 LABEL org.opencontainers.image.licenses="MIT"
 

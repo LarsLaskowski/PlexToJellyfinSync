@@ -1,42 +1,112 @@
 name: Release
 
 on:
-  push:
-    tags: [ 'v*' ]
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   docker:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/files" --paginate \
+            --jq '.[] | [.filename, .additions, .deletions] | @tsv' > changes.tsv
+
+          # Drop files that do not require a new image (docs, CI, tests, repo metadata).
+          relevant=$(awk -F'\t' '
+            tolower($1) ~ /\.md$/        { next }
+            $1 ~ /^docs\//               { next }
+            $1 ~ /^\.github\//           { next }
+            $1 ~ /^\.claude\//           { next }
+            $1 ~ /^tests\//              { next }
+            $1 == "LICENSE"              { next }
+            $1 == ".gitignore"           { next }
+            $1 == ".gitattributes"       { next }
+            $1 == ".editorconfig"        { next }
+            { print }
+          ' changes.tsv)
+
+          if [ -z "$relevant" ]; then
+            echo "No image-relevant changes in this PR, skipping release."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(printf '%s\n' "$relevant" | wc -l)
+          lines=$(printf '%s\n' "$relevant" | awk -F'\t' '{ sum += $2 + $3 } END { print sum + 0 }')
+          echo "Relevant changes: $files file(s), $lines changed line(s)."
+
+          latest=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          if [ -z "$latest" ]; then
+            version="1.0.0"
+          else
+            IFS=. read -r major minor patch <<< "${latest#v}"
+            if [ "$files" -gt 5 ] || [ "$lines" -gt 100 ]; then
+              minor=$((minor + 1))
+              patch=0
+            else
+              patch=$((patch + 1))
+            fi
+            version="$major.$minor.$patch"
+          fi
+
+          echo "New version: $version (previous: ${latest:-none})."
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create version tag
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Set up QEMU
+        if: steps.version.outputs.skip != 'true'
         uses: docker/setup-qemu-action@v4
 
       - name: Set up Buildx
+        if: steps.version.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to GHCR
+      - name: Log in to Docker Hub
+        if: steps.version.outputs.skip != 'true'
         uses: docker/login-action@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker metadata
         id: meta
+        if: steps.version.outputs.skip != 'true'
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/plextojellyfinsync
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest
 
       - name: Build and push
+        if: steps.version.outputs.skip != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
