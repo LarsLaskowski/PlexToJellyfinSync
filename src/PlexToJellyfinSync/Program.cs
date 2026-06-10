@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 using PlexToJellyfinSync.Components;
@@ -29,6 +32,8 @@ public static partial class Program
 
         builder.Services.AddPlexToJellyfinSync(builder.Configuration);
         builder.Services.AddHostedService<Worker>();
+
+        builder.Services.AddMemoryCache();
 
         builder.Services.AddRazorComponents()
                         .AddInteractiveServerComponents();
@@ -74,19 +79,27 @@ public static partial class Program
             app.MapGet("/login", () => Results.Content(LoginPage.Html, "text/html"));
 
             app.MapPost("/login",
-                        async (HttpContext context, IOptions<DashboardOptions> options) =>
+                        async (HttpContext context, IOptions<DashboardOptions> options, IMemoryCache cache) =>
                         {
                             var form = await context.Request.ReadFormAsync();
                             var token = form["token"].ToString();
 
                             if (string.Equals(token, options.Value.Token, StringComparison.Ordinal))
                             {
+                                var sessionId = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+                                cache.Set(TokenAuthMiddleware.SessionCachePrefix + sessionId,
+                                          true,
+                                          TimeSpan.FromHours(8));
+
                                 context.Response.Cookies.Append(TokenAuthMiddleware.CookieName,
-                                                                "1",
+                                                                sessionId,
                                                                 new CookieOptions
                                                                 {
                                                                     HttpOnly = true,
-                                                                    SameSite = SameSiteMode.Lax
+                                                                    Secure = true,
+                                                                    SameSite = SameSiteMode.Strict,
+                                                                    MaxAge = TimeSpan.FromHours(8)
                                                                 });
                                 context.Response.Redirect("/");
 
