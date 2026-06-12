@@ -1,21 +1,21 @@
-# Review-Session 5: Service III (Logging, DI-Registrierung)
+# Review Session 5: Service III (Logging, DI Registration)
 
-Führe ein Code-Review der unten gelisteten 5 Dateien des Projekts `PlexToJellyfinSync.Service`
-durch. Du analysierst nur — **ändere keinen Produktiv-Code**. Die einzige Datei, die du
-bearbeiten darfst, ist `docs/review/ergebnisse/00-report.md`.
+Perform a code review of the 5 files listed below from the `PlexToJellyfinSync.Service` project.
+You only analyze — **do not change any production code**. The only file you may edit is
+`docs/review/results/00-report.md`.
 
-## Vorbereitung
+## Preparation
 
-1. Lies `docs/review/00-vorgehensweise.md` vollständig (Kriterienkatalog A–E, Schweregrade,
-   Befund-Konvention).
-2. Lies `.claude/CLAUDE.md` (Projektregeln, auf die Kriterium B prüft).
-3. Kontext: Der In-Memory-Log-Store speist die Live-Log-Ansicht
-   (`src/PlexToJellyfinSync/Components/Pages/Logs.razor`); die DI-Registrierung wird von
-   `src/PlexToJellyfinSync/Program.cs` aufgerufen. Ziehe beide bei Bedarf lesend hinzu.
+1. Read `docs/review/00-process.md` in full (criteria catalog A–E, severity levels,
+   finding convention).
+2. Read `.claude/CLAUDE.md` (project rules that criterion B checks against).
+3. Context: The in-memory log store feeds the live log view
+   (`src/PlexToJellyfinSync/Components/Pages/Logs.razor`); the DI registration is called by
+   `src/PlexToJellyfinSync/Program.cs`. Read both as needed.
 
-## Zu prüfende Dateien (5 — jede einzelne lesen und bewerten)
+## Files to Review (5 — read and assess each one)
 
-Prüftiefe **tief** (Kriterien A–D), `.csproj` **kurz** (Kriterium E + CPM-Check):
+Review depth **deep** (criteria A–D), `.csproj` **quick** (criterion E + CPM check):
 
 1. `src/PlexToJellyfinSync.Service/Logging/InMemoryLogProvider.cs`
 2. `src/PlexToJellyfinSync.Service/Logging/InMemoryLogStore.cs`
@@ -23,36 +23,36 @@ Prüftiefe **tief** (Kriterien A–D), `.csproj` **kurz** (Kriterium E + CPM-Che
 4. `src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs`
 5. `src/PlexToJellyfinSync.Service/PlexToJellyfinSync.Service.csproj`
 
-## Schwerpunkte dieser Session
+## Focus Areas for This Session
 
-- **A (Logging)**: Thread-Sicherheit des Stores (viele Logger schreiben, Blazor-Circuits
-  lesen), Begrenzung der Einträge (Ringpuffer? Memory-Leak bei Dauerbetrieb?),
-  `IDisposable`/Scope-Handling im Provider, korrekte `ILoggerProvider`-Implementierung
-  (Kategorie-Caching, `IsEnabled`).
-- **C (Logging)**: Können Plex-Token oder andere Secrets über Log-Nachrichten in der
-  Web-Ansicht landen?
-- **A/D (ServiceCollectionExtensions)**: Vollständigkeit der Registrierungen (jedes
-  Core-Interface gegen genau eine Implementierung), korrekte Lifetimes — Singleton für
-  Zustände, die Worker und Blazor teilen; HttpClient via `AddHttpClient`?
-  Options-Bindung und -Validierung (`ValidateOnStart`?).
-- **B**: `#region`-Blöcke, XML-Doku, `== false`, `is null`, `_camelCase`-readonly-Felder.
-- `.csproj`: keine Paketversionen (CPM), Reihitsu.Analyzer eingebunden, Projektreferenzen
-  nur auf Core und Data.
+- **A (Logging)**: Thread safety of the store (many loggers write, Blazor circuits
+  read), bounding of entries (ring buffer? memory leak in long-running operation?),
+  `IDisposable`/scope handling in the provider, correct `ILoggerProvider` implementation
+  (category caching, `IsEnabled`).
+- **C (Logging)**: Can Plex tokens or other secrets end up in the web view via log
+  messages?
+- **A/D (ServiceCollectionExtensions)**: Completeness of registrations (each Core interface
+  against exactly one implementation), correct lifetimes — Singleton for state shared by
+  Worker and Blazor; HttpClient via `AddHttpClient`?
+  Options binding and validation (`ValidateOnStart`?).
+- **B**: `#region` blocks, XML docs, `== false`, `is null`, `_camelCase` readonly fields.
+- `.csproj`: no package versions (CPM), Reihitsu.Analyzer wired in, project references
+  only to Core and Data.
 
-## Ergebnis festhalten
+## Record Results
 
-1. Trage jeden Befund unter `## Befunde → ### Session 5 — Service III (Logging & DI)` in
-   `docs/review/ergebnisse/00-report.md` ein. Befund-IDs: `F-501`, `F-502`, …
-   Format gemäß Vorgehensweise (Datei+Zeile, Kriterium, Schweregrad, Beschreibung, Empfehlung).
-2. Setze in der Datei-Checkliste den Status aller 5 Dateien dieser Session auf ✅ und trage
-   die zugehörigen Befund-IDs in die Spalte „Befunde" ein („keine", falls befundfrei).
-3. Entferne den Platzhalter „_Noch nicht durchgeführt._" der Session-Überschrift.
+1. Record each finding under `## Findings → ### Session 5 — Service III (Logging & DI)` in
+   `docs/review/results/00-report.md`. Finding IDs: `F-501`, `F-502`, …
+   Format per the process doc (file+line, criterion, severity, description, recommendation).
+2. In the file checklist, set the status of all 5 files of this session to ✅ and enter the
+   associated finding IDs in the "Findings" column ("none" if there are no findings).
+3. Remove the "_Not yet performed._" placeholder under the session heading.
 
-## Abschluss
+## Wrap-up
 
-1. Selbstkontrolle: Sind alle 5 Dateien aus der Liste oben gelesen, bewertet und in der
-   Checkliste auf ✅? Falls nein, nacharbeiten.
-2. Zeige mir eine kurze Zusammenfassung der Befunde.
-3. Frage mich um Bestätigung und committe erst danach
-   (Commit-Message: `Review Session 5: Service III (Logging & DI)`) und pushe den
-   aktuellen Branch.
+1. Self-check: Have all 5 files in the list above been read, assessed, and marked ✅ in the
+   checklist? If not, follow up.
+2. Show me a short summary of the findings.
+3. Ask me for confirmation and only then commit
+   (commit message: `Review Session 5: Service III (Logging & DI)`) and push the
+   current branch.

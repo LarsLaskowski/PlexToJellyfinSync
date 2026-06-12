@@ -1,18 +1,18 @@
-# Review-Session 1: Core (Abstractions, Enums, Models, Options)
+# Review Session 1: Core (Abstractions, Enums, Models, Options)
 
-Führe ein Code-Review der unten gelisteten 24 Dateien des Projekts `PlexToJellyfinSync.Core`
-durch. Du analysierst nur — **ändere keinen Produktiv-Code**. Die einzige Datei, die du
-bearbeiten darfst, ist `docs/review/ergebnisse/00-report.md`.
+Perform a code review of the 24 files listed below from the `PlexToJellyfinSync.Core` project.
+You only analyze — **do not change any production code**. The only file you may edit is
+`docs/review/results/00-report.md`.
 
-## Vorbereitung
+## Preparation
 
-1. Lies `docs/review/00-vorgehensweise.md` vollständig (Kriterienkatalog A–E, Schweregrade,
-   Befund-Konvention).
-2. Lies `.claude/CLAUDE.md` (Projektregeln, auf die Kriterium B prüft).
+1. Read `docs/review/00-process.md` in full (criteria catalog A–E, severity levels,
+   finding convention).
+2. Read `.claude/CLAUDE.md` (project rules that criterion B checks against).
 
-## Zu prüfende Dateien (24 — jede einzelne lesen und bewerten)
+## Files to Review (24 — read and assess each one)
 
-Prüftiefe **tief** (Kriterien A–D), `.csproj` **kurz** (Kriterium E + CPM-Check):
+Review depth **deep** (criteria A–D), `.csproj` **quick** (criterion E + CPM check):
 
 1. `src/PlexToJellyfinSync.Core/Abstractions/ILogStore.cs`
 2. `src/PlexToJellyfinSync.Core/Abstractions/INfoWriter.cs`
@@ -39,30 +39,30 @@ Prüftiefe **tief** (Kriterien A–D), `.csproj` **kurz** (Kriterium E + CPM-Che
 23. `src/PlexToJellyfinSync.Core/Options/SyncOptions.cs`
 24. `src/PlexToJellyfinSync.Core/PlexToJellyfinSync.Core.csproj`
 
-## Schwerpunkte dieser Session
+## Focus Areas for This Session
 
-- **B**: `#region`-Blöcke, XML-Doku (Englisch, kein `<remarks>`), file-scoped namespaces,
-  ein Typ pro Datei — gerade bei kleinen Interfaces/Models wird das gern verletzt.
-- **D**: Sind die Abstraktionen sinnvoll geschnitten? Referenziert Core wirklich keine andere
-  Schicht (keine Verweise auf Data/Service/Host)? Sind Options-Klassen validierbar
-  (sinnvolle Defaults, Pflichtfelder erkennbar)?
-- **A**: Nullability der Model-Properties (passt `?`-Annotation zur realen Befüllung?),
-  Wertesemantik von `UniqueId`/`WatchInfo` (Equals/GetHashCode nötig?).
-- `.csproj`: keine Paketversionen (CPM), Reihitsu.Analyzer eingebunden.
+- **B**: `#region` blocks, XML docs (English, no `<remarks>`), file-scoped namespaces,
+  one type per file — small interfaces/models are where this is most often violated.
+- **D**: Are the abstractions sensibly scoped? Does Core really reference no other layer
+  (no references to Data/Service/Host)? Are the Options classes validatable
+  (sensible defaults, required fields recognizable)?
+- **A**: Nullability of the model properties (does the `?` annotation match the actual
+  population?), value semantics of `UniqueId`/`WatchInfo` (Equals/GetHashCode needed?).
+- `.csproj`: no package versions (CPM), Reihitsu.Analyzer wired in.
 
-## Ergebnis festhalten
+## Record Results
 
-1. Trage jeden Befund unter `## Befunde → ### Session 1 — Core` in
-   `docs/review/ergebnisse/00-report.md` ein. Befund-IDs: `F-101`, `F-102`, …
-   Format gemäß Vorgehensweise (Datei+Zeile, Kriterium, Schweregrad, Beschreibung, Empfehlung).
-2. Setze in der Datei-Checkliste den Status aller 24 Dateien dieser Session auf ✅ und trage
-   die zugehörigen Befund-IDs in die Spalte „Befunde" ein („keine", falls befundfrei).
-3. Entferne den Platzhalter „_Noch nicht durchgeführt._" der Session-Überschrift.
+1. Record each finding under `## Findings → ### Session 1 — Core` in
+   `docs/review/results/00-report.md`. Finding IDs: `F-101`, `F-102`, …
+   Format per the process doc (file+line, criterion, severity, description, recommendation).
+2. In the file checklist, set the status of all 24 files of this session to ✅ and enter the
+   associated finding IDs in the "Findings" column ("none" if there are no findings).
+3. Remove the "_Not yet performed._" placeholder under the session heading.
 
-## Abschluss
+## Wrap-up
 
-1. Selbstkontrolle: Sind alle 24 Dateien aus der Liste oben gelesen, bewertet und in der
-   Checkliste auf ✅? Falls nein, nacharbeiten.
-2. Zeige mir eine kurze Zusammenfassung der Befunde.
-3. Frage mich um Bestätigung und committe erst danach
-   (Commit-Message: `Review Session 1: Core`) und pushe den aktuellen Branch.
+1. Self-check: Have all 24 files in the list above been read, assessed, and marked ✅ in the
+   checklist? If not, follow up.
+2. Show me a short summary of the findings.
+3. Ask me for confirmation and only then commit
+   (commit message: `Review Session 1: Core`) and push the current branch.

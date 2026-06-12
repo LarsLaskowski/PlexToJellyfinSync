@@ -1,21 +1,21 @@
-# Review-Session 7: Tests (MSTest)
+# Review Session 7: Tests (MSTest)
 
-Führe ein Code-Review der unten gelisteten 6 Dateien des Projekts `PlexToJellyfinSync.Tests`
-durch. Du analysierst nur — **ändere keinen Produktiv- oder Test-Code**. Die einzige Datei,
-die du bearbeiten darfst, ist `docs/review/ergebnisse/00-report.md`.
+Perform a code review of the 6 files listed below from the `PlexToJellyfinSync.Tests` project.
+You only analyze — **do not change any production or test code**. The only file you may edit is
+`docs/review/results/00-report.md`.
 
-## Vorbereitung
+## Preparation
 
-1. Lies `docs/review/00-vorgehensweise.md` vollständig (Kriterienkatalog A–E, Schweregrade,
-   Befund-Konvention).
-2. Lies `.claude/CLAUDE.md`, insbesondere den Abschnitt **Testing** (Namensschema,
-   Assert-Messages, kein FluentAssertions).
-3. Kontext: Die getesteten Klassen liegen in `src/PlexToJellyfinSync.Service/` und
-   `src/PlexToJellyfinSync.Data/`. Ziehe sie bei Bedarf lesend hinzu.
+1. Read `docs/review/00-process.md` in full (criteria catalog A–E, severity levels,
+   finding convention).
+2. Read `.claude/CLAUDE.md`, especially the **Testing** section (naming scheme,
+   assert messages, no FluentAssertions).
+3. Context: The classes under test live in `src/PlexToJellyfinSync.Service/` and
+   `src/PlexToJellyfinSync.Data/`. Read them as needed.
 
-## Zu prüfende Dateien (6 — jede einzelne lesen und bewerten)
+## Files to Review (6 — read and assess each one)
 
-Prüftiefe **tief** (Kriterien A–D), `.csproj` **kurz** (Kriterium E + CPM-Check):
+Review depth **deep** (criteria A–D), `.csproj` **quick** (criterion E + CPM check):
 
 1. `tests/PlexToJellyfinSync.Tests/MSTestSettings.cs`
 2. `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs`
@@ -24,34 +24,34 @@ Prüftiefe **tief** (Kriterien A–D), `.csproj` **kurz** (Kriterium E + CPM-Che
 5. `tests/PlexToJellyfinSync.Tests/WatchAggregatorTests.cs`
 6. `tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj`
 
-## Schwerpunkte dieser Session
+## Focus Areas for This Session
 
-- **B (Testkonventionen)**: Klassennamen `{Feature}Tests`; Methodennamen
-  `{Class}{Scenario}{ExpectedResult}` in PascalCase **ohne Unterstriche**; jede Assertion
-  mit Assert-Message; nur MSTest (kein FluentAssertions); `#region`-Blöcke und XML-Doku
-  auch in Testklassen.
-- **A (Testqualität)**: Testen die Tests das richtige Verhalten oder nur
-  Implementierungsdetails? Aufräumen von Temp-Dateien (`NfoWriterTests` schreibt vermutlich
-  auf Platte — `TestCleanup`?), deterministische Tests (keine Zeitzonen-/Kultur-Abhängigkeit).
-- **D (Abdeckungslücken)**: Dokumentiere als Befunde, welche Service-Klassen **keine** Tests
-  haben (z.B. `SyncOrchestrator`, `StateStore`, `PlexClient`, `SyncStatusService`,
-  Logging-Klassen) und welche Randfälle in bestehenden Testklassen fehlen.
-  **Schreibe keine neuen Tests** — nur dokumentieren.
-- `.csproj`: keine Paketversionen (CPM), korrekte Projektreferenzen.
+- **B (Test conventions)**: Class names `{Feature}Tests`; method names
+  `{Class}{Scenario}{ExpectedResult}` in PascalCase **without underscores**; every assertion
+  with an assert message; MSTest only (no FluentAssertions); `#region` blocks and XML docs
+  in test classes too.
+- **A (Test quality)**: Do the tests test the right behavior or only
+  implementation details? Cleanup of temp files (`NfoWriterTests` presumably writes
+  to disk — `TestCleanup`?), deterministic tests (no time-zone/culture dependency).
+- **D (Coverage gaps)**: Document as findings which service classes have **no** tests
+  (e.g. `SyncOrchestrator`, `StateStore`, `PlexClient`, `SyncStatusService`,
+  logging classes) and which edge cases are missing in existing test classes.
+  **Do not write new tests** — only document.
+- `.csproj`: no package versions (CPM), correct project references.
 
-## Ergebnis festhalten
+## Record Results
 
-1. Trage jeden Befund unter `## Befunde → ### Session 7 — Tests` in
-   `docs/review/ergebnisse/00-report.md` ein. Befund-IDs: `F-701`, `F-702`, …
-   Format gemäß Vorgehensweise (Datei+Zeile, Kriterium, Schweregrad, Beschreibung, Empfehlung).
-2. Setze in der Datei-Checkliste den Status aller 6 Dateien dieser Session auf ✅ und trage
-   die zugehörigen Befund-IDs in die Spalte „Befunde" ein („keine", falls befundfrei).
-3. Entferne den Platzhalter „_Noch nicht durchgeführt._" der Session-Überschrift.
+1. Record each finding under `## Findings → ### Session 7 — Tests` in
+   `docs/review/results/00-report.md`. Finding IDs: `F-701`, `F-702`, …
+   Format per the process doc (file+line, criterion, severity, description, recommendation).
+2. In the file checklist, set the status of all 6 files of this session to ✅ and enter the
+   associated finding IDs in the "Findings" column ("none" if there are no findings).
+3. Remove the "_Not yet performed._" placeholder under the session heading.
 
-## Abschluss
+## Wrap-up
 
-1. Selbstkontrolle: Sind alle 6 Dateien aus der Liste oben gelesen, bewertet und in der
-   Checkliste auf ✅? Falls nein, nacharbeiten.
-2. Zeige mir eine kurze Zusammenfassung der Befunde.
-3. Frage mich um Bestätigung und committe erst danach
-   (Commit-Message: `Review Session 7: Tests`) und pushe den aktuellen Branch.
+1. Self-check: Have all 6 files in the list above been read, assessed, and marked ✅ in the
+   checklist? If not, follow up.
+2. Show me a short summary of the findings.
+3. Ask me for confirmation and only then commit
+   (commit message: `Review Session 7: Tests`) and push the current branch.

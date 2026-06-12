@@ -1,23 +1,22 @@
-# Review-Session 4: Service II (NfoWriter, SyncOrchestrator, State, Status)
+# Review Session 4: Service II (NfoWriter, SyncOrchestrator, State, Status)
 
-Führe ein Code-Review der unten gelisteten 5 Dateien des Projekts `PlexToJellyfinSync.Service`
-durch. Das sind die beiden größten Klassen des Repos (`SyncOrchestrator` ~420 Zeilen,
-`NfoWriter` ~385 Zeilen) — plane entsprechend Sorgfalt ein. Du analysierst nur — **ändere
-keinen Produktiv-Code**. Die einzige Datei, die du bearbeiten darfst, ist
-`docs/review/ergebnisse/00-report.md`.
+Perform a code review of the 5 files listed below from the `PlexToJellyfinSync.Service` project.
+These are the two largest classes in the repo (`SyncOrchestrator` ~420 lines, `NfoWriter`
+~385 lines) — plan for appropriate care. You only analyze — **do not change any production
+code**. The only file you may edit is `docs/review/results/00-report.md`.
 
-## Vorbereitung
+## Preparation
 
-1. Lies `docs/review/00-vorgehensweise.md` vollständig (Kriterienkatalog A–E, Schweregrade,
-   Befund-Konvention).
-2. Lies `.claude/CLAUDE.md` (Projektregeln, auf die Kriterium B prüft).
-3. Kontext: Interfaces in `src/PlexToJellyfinSync.Core/Abstractions/`, Optionen in
-   `src/PlexToJellyfinSync.Core/Options/`, Aufrufer ist `src/PlexToJellyfinSync/Worker.cs`.
-   Ziehe sie bei Bedarf lesend hinzu.
+1. Read `docs/review/00-process.md` in full (criteria catalog A–E, severity levels,
+   finding convention).
+2. Read `.claude/CLAUDE.md` (project rules that criterion B checks against).
+3. Context: Interfaces in `src/PlexToJellyfinSync.Core/Abstractions/`, options in
+   `src/PlexToJellyfinSync.Core/Options/`, the caller is `src/PlexToJellyfinSync/Worker.cs`.
+   Read them as needed.
 
-## Zu prüfende Dateien (5 — jede einzelne lesen und bewerten)
+## Files to Review (5 — read and assess each one)
 
-Prüftiefe **tief** (Kriterien A–D):
+Review depth **deep** (criteria A–D):
 
 1. `src/PlexToJellyfinSync.Service/NfoWriter.cs`
 2. `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs`
@@ -25,41 +24,41 @@ Prüftiefe **tief** (Kriterien A–D):
 4. `src/PlexToJellyfinSync.Service/State/SyncStateFile.cs`
 5. `src/PlexToJellyfinSync.Service/SyncStatusService.cs`
 
-## Schwerpunkte dieser Session
+## Focus Areas for This Session
 
-- **A (NfoWriter)**: Bestehende `.nfo`-Inhalte müssen erhalten bleiben (nur Watch-Felder
-  ändern) — XML-Parsing-Robustheit bei kaputten/fremden NFOs, Encoding/BOM, atomares
-  Schreiben (temp + rename?), Verhalten bei fehlender Zieldatei, `MovieNfoFilenameStrategy`
-  korrekt umgesetzt.
-- **C (NfoWriter/PathMapper-Zusammenspiel)**: Kann ein manipulierter Plex-Pfad zum Schreiben
-  außerhalb der Library-Wurzel führen?
-- **A (SyncOrchestrator)**: Gesamtablauf eines Sync-Zyklus — Fehler in einem Item darf den
-  Zyklus nicht abbrechen; `CancellationToken` überall; `.ConfigureAwait(false)`;
-  Idempotenz (zweiter Lauf ohne Änderungen = keine Schreibvorgänge).
-- **A (StateStore/SyncStateFile)**: Atomares Persistieren, Verhalten bei korrupter
-  State-Datei, Thread-Sicherheit (Worker schreibt, Dashboard liest), Migrations-/
-  Versionsstrategie des Dateiformats.
-- **A (SyncStatusService)**: Thread-Sicherheit der Statusdaten, die Blazor-Circuits parallel
-  lesen, während der Worker sie aktualisiert.
-- **B**: `#region`-Blöcke, XML-Doku, `== false`, `is null`, LINQ-Methodensyntax — bei großen
-  Klassen besonders gründlich prüfen.
-- **D**: Macht `SyncOrchestrator` zu viel (God-Class)? Testlücken dokumentieren: für keine
-  dieser fünf Klassen außer `NfoWriter` existieren Tests?
+- **A (NfoWriter)**: Existing `.nfo` content must be preserved (only change watch fields) —
+  XML-parsing robustness against broken/foreign NFOs, encoding/BOM, atomic
+  writing (temp + rename?), behavior when the target file is missing, `MovieNfoFilenameStrategy`
+  correctly implemented.
+- **C (NfoWriter/PathMapper interplay)**: Can a manipulated Plex path lead to writing
+  outside the library root?
+- **A (SyncOrchestrator)**: Overall flow of a sync cycle — an error in one item must not abort
+  the cycle; `CancellationToken` everywhere; `.ConfigureAwait(false)`;
+  idempotency (a second run without changes = no writes).
+- **A (StateStore/SyncStateFile)**: Atomic persistence, behavior with a corrupt
+  state file, thread safety (Worker writes, dashboard reads), migration/version strategy of the
+  file format.
+- **A (SyncStatusService)**: Thread safety of the status data that Blazor circuits read in
+  parallel while the Worker updates it.
+- **B**: `#region` blocks, XML docs, `== false`, `is null`, LINQ method syntax — check
+  especially thoroughly in large classes.
+- **D**: Does `SyncOrchestrator` do too much (god class)? Document test gaps: do none of these
+  five classes except `NfoWriter` have tests?
 
-## Ergebnis festhalten
+## Record Results
 
-1. Trage jeden Befund unter `## Befunde → ### Session 4 — Service II (Sync & Persistenz)` in
-   `docs/review/ergebnisse/00-report.md` ein. Befund-IDs: `F-401`, `F-402`, …
-   Format gemäß Vorgehensweise (Datei+Zeile, Kriterium, Schweregrad, Beschreibung, Empfehlung).
-2. Setze in der Datei-Checkliste den Status aller 5 Dateien dieser Session auf ✅ und trage
-   die zugehörigen Befund-IDs in die Spalte „Befunde" ein („keine", falls befundfrei).
-3. Entferne den Platzhalter „_Noch nicht durchgeführt._" der Session-Überschrift.
+1. Record each finding under `## Findings → ### Session 4 — Service II (Sync & Persistence)` in
+   `docs/review/results/00-report.md`. Finding IDs: `F-401`, `F-402`, …
+   Format per the process doc (file+line, criterion, severity, description, recommendation).
+2. In the file checklist, set the status of all 5 files of this session to ✅ and enter the
+   associated finding IDs in the "Findings" column ("none" if there are no findings).
+3. Remove the "_Not yet performed._" placeholder under the session heading.
 
-## Abschluss
+## Wrap-up
 
-1. Selbstkontrolle: Sind alle 5 Dateien aus der Liste oben gelesen, bewertet und in der
-   Checkliste auf ✅? Falls nein, nacharbeiten.
-2. Zeige mir eine kurze Zusammenfassung der Befunde.
-3. Frage mich um Bestätigung und committe erst danach
-   (Commit-Message: `Review Session 4: Service II (Sync & Persistenz)`) und pushe den
-   aktuellen Branch.
+1. Self-check: Have all 5 files in the list above been read, assessed, and marked ✅ in the
+   checklist? If not, follow up.
+2. Show me a short summary of the findings.
+3. Ask me for confirmation and only then commit
+   (commit message: `Review Session 4: Service II (Sync & Persistence)`) and push the
+   current branch.

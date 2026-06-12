@@ -1,21 +1,20 @@
-# Review-Session 2: Data (Plex-DTOs)
+# Review Session 2: Data (Plex DTOs)
 
-Führe ein Code-Review der unten gelisteten 14 Dateien des Projekts `PlexToJellyfinSync.Data`
-durch. Du analysierst nur — **ändere keinen Produktiv-Code**. Die einzige Datei, die du
-bearbeiten darfst, ist `docs/review/ergebnisse/00-report.md`.
+Perform a code review of the 14 files listed below from the `PlexToJellyfinSync.Data` project.
+You only analyze — **do not change any production code**. The only file you may edit is
+`docs/review/results/00-report.md`.
 
-## Vorbereitung
+## Preparation
 
-1. Lies `docs/review/00-vorgehensweise.md` vollständig (Kriterienkatalog A–E, Schweregrade,
-   Befund-Konvention).
-2. Lies `.claude/CLAUDE.md` (Projektregeln, auf die Kriterium B prüft).
-3. Kontext: Diese DTOs werden von `src/PlexToJellyfinSync.Service/PlexClient.cs` mit
-   `System.Text.Json` deserialisiert (Optionen in `PlexJsonOptions.cs`). Ziehe beide Dateien
-   bei Bedarf lesend hinzu.
+1. Read `docs/review/00-process.md` in full (criteria catalog A–E, severity levels,
+   finding convention).
+2. Read `.claude/CLAUDE.md` (project rules that criterion B checks against).
+3. Context: These DTOs are deserialized by `src/PlexToJellyfinSync.Service/PlexClient.cs` with
+   `System.Text.Json` (options in `PlexJsonOptions.cs`). Read both files as needed.
 
-## Zu prüfende Dateien (14 — jede einzelne lesen und bewerten)
+## Files to Review (14 — read and assess each one)
 
-Prüftiefe **tief** (Kriterien A–D), `.csproj` **kurz** (Kriterium E + CPM-Check):
+Review depth **deep** (criteria A–D), `.csproj` **quick** (criterion E + CPM check):
 
 1. `src/PlexToJellyfinSync.Data/Plex/PlexAccount.cs`
 2. `src/PlexToJellyfinSync.Data/Plex/PlexAccountsContainer.cs`
@@ -32,31 +31,31 @@ Prüftiefe **tief** (Kriterien A–D), `.csproj` **kurz** (Kriterium E + CPM-Che
 13. `src/PlexToJellyfinSync.Data/Plex/PlexTag.cs`
 14. `src/PlexToJellyfinSync.Data/PlexToJellyfinSync.Data.csproj`
 
-## Schwerpunkte dieser Session
+## Focus Areas for This Session
 
-- **A**: Nullability vs. reale Plex-Antworten — welche Felder können fehlen? Stimmen
-  `JsonPropertyName`-Attribute mit der Plex-API überein (Groß-/Kleinschreibung)? Korrekte
-  Typen für Timestamps (`viewedAt`, `lastViewedAt`), Zähler (`viewCount`) und IDs
-  (`ratingKey` als string vs. int)?
-- **B**: `#region`-Blöcke und XML-Doku auch auf DTO-Properties; file-scoped namespaces;
-  ein Typ pro Datei.
-- **D**: Referenziert Data nur Core (oder gar nichts) — keine Service-/Host-Abhängigkeit?
-  Sind Container/Response-Wrapper konsistent aufgebaut?
-- `.csproj`: keine Paketversionen (CPM), Reihitsu.Analyzer eingebunden.
+- **A**: Nullability vs. real Plex responses — which fields can be missing? Do the
+  `JsonPropertyName` attributes match the Plex API (casing)? Correct types for timestamps
+  (`viewedAt`, `lastViewedAt`), counters (`viewCount`) and IDs
+  (`ratingKey` as string vs. int)?
+- **B**: `#region` blocks and XML docs on DTO properties too; file-scoped namespaces;
+  one type per file.
+- **D**: Does Data reference only Core (or nothing) — no Service/Host dependency?
+  Are the container/response wrappers built consistently?
+- `.csproj`: no package versions (CPM), Reihitsu.Analyzer wired in.
 
-## Ergebnis festhalten
+## Record Results
 
-1. Trage jeden Befund unter `## Befunde → ### Session 2 — Data` in
-   `docs/review/ergebnisse/00-report.md` ein. Befund-IDs: `F-201`, `F-202`, …
-   Format gemäß Vorgehensweise (Datei+Zeile, Kriterium, Schweregrad, Beschreibung, Empfehlung).
-2. Setze in der Datei-Checkliste den Status aller 14 Dateien dieser Session auf ✅ und trage
-   die zugehörigen Befund-IDs in die Spalte „Befunde" ein („keine", falls befundfrei).
-3. Entferne den Platzhalter „_Noch nicht durchgeführt._" der Session-Überschrift.
+1. Record each finding under `## Findings → ### Session 2 — Data` in
+   `docs/review/results/00-report.md`. Finding IDs: `F-201`, `F-202`, …
+   Format per the process doc (file+line, criterion, severity, description, recommendation).
+2. In the file checklist, set the status of all 14 files of this session to ✅ and enter the
+   associated finding IDs in the "Findings" column ("none" if there are no findings).
+3. Remove the "_Not yet performed._" placeholder under the session heading.
 
-## Abschluss
+## Wrap-up
 
-1. Selbstkontrolle: Sind alle 14 Dateien aus der Liste oben gelesen, bewertet und in der
-   Checkliste auf ✅? Falls nein, nacharbeiten.
-2. Zeige mir eine kurze Zusammenfassung der Befunde.
-3. Frage mich um Bestätigung und committe erst danach
-   (Commit-Message: `Review Session 2: Data`) und pushe den aktuellen Branch.
+1. Self-check: Have all 14 files in the list above been read, assessed, and marked ✅ in the
+   checklist? If not, follow up.
+2. Show me a short summary of the findings.
+3. Ask me for confirmation and only then commit
+   (commit message: `Review Session 2: Data`) and push the current branch.
