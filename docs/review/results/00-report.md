@@ -118,7 +118,83 @@ build-reproducibility setting (E).
 
 ### Session 2 — Data
 
-_Not yet performed._
+The Plex DTO layer is clean and disciplined. Criterion B is fully satisfied across all 13 source
+files: each uses a file-scoped namespace, holds exactly one top-level `public sealed class`, wraps
+its members in a single `#region Properties` block, and carries English XML documentation on every
+property without `<remarks>`. `using System.Text.Json.Serialization;` sits outside the namespace,
+files are CRLF with no trailing newline, and Allman braces / 4-space indent are used throughout.
+
+Criterion A is in good shape. Every `[JsonPropertyName]` casing matches the Plex API exactly — which
+matters because `PlexJsonOptions.Default` deserializes with `PropertyNameCaseInsensitive = false`
+(case-sensitive on purpose, so the lowercase scalar `guid` is not confused with the uppercase `Guid`
+array). The PascalCase container/array keys (`MediaContainer`, `Account`, `Directory`, `Metadata`,
+`Part`, `Genre`, `Guid`, `Media`) and the mixed-case scalar keys (`ratingKey`, `titleSort`,
+`grandparentRatingKey`, `accountID`, …) are all correct. Timestamps (`addedAt`, `lastViewedAt`,
+`viewedAt`) are modelled as `long?` epoch seconds, counters (`viewCount`, `year`, `index`) as `int?`,
+and `ratingKey`/`grandparentRatingKey` as `string?` — all consistent with the real Plex payloads and
+with how `PlexClient` consumes them. Pervasive nullability is the right defensive choice for fields
+Plex omits when empty (e.g. `viewCount`/`lastViewedAt` on unwatched items), and
+`NumberHandling.AllowReadingFromString` covers Plex's habit of emitting numbers as JSON strings.
+
+The findings below are minor: an unused project reference (D), the build-determinism setting carried
+over from the template (E, mirrors F-105), and two notes on wrapper duplication and an unmodelled
+field.
+
+#### F-201 — Data references Core but uses nothing from it
+
+> **File:** `src/PlexToJellyfinSync.Data/PlexToJellyfinSync.Data.csproj:18` · **Criterion:** D · **Severity:** 🔵 Low
+>
+> The project declares `<ProjectReference Include="..\PlexToJellyfinSync.Core\..." />`, but no `.cs`
+> file in the Data project references any Core type (`grep -rn "PlexToJellyfinSync.Core"` over the
+> sources is empty). The DTOs are self-contained and depend only on `System.Text.Json`. Criterion D
+> explicitly allows Data to reference "only Core (or nothing)"; here "nothing" is the accurate state,
+> so the reference is dead weight that blurs the layering (it implies a coupling that does not exist).
+>
+> **Recommendation:** Remove the unused `ProjectReference` so Data has zero project dependencies,
+> making the Core ← Data direction explicit and preventing accidental future coupling.
+
+#### F-202 — `Deterministic` disabled in both build configurations
+
+> **File:** `src/PlexToJellyfinSync.Data/PlexToJellyfinSync.Data.csproj:8,13` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> Both the Debug and Release property groups set `<Deterministic>False</Deterministic>`. This is the
+> same pattern flagged for Core in F-105 and confirms the suspicion there that the override is
+> repeated across the project files (likely inherited from a template). Deterministic compilation is
+> the default and is desirable for reproducible/CI builds.
+>
+> **Recommendation:** Remove the override (or set it to `True`) here and project-wide unless a
+> deliberate reason requires non-deterministic builds. Consider centralising the decision in
+> `Directory.Build.props`.
+
+#### F-203 — Three near-identical Response/Container wrapper pairs
+
+> **File:** `src/PlexToJellyfinSync.Data/Plex/PlexAccountsResponse.cs`,
+> `PlexAccountsContainer.cs`, `PlexLibrariesResponse.cs`, `PlexLibrariesContainer.cs`,
+> `PlexMetadataResponse.cs`, `PlexMetadataContainer.cs` · **Criterion:** D · **Severity:** ⚪ Note
+>
+> The Accounts, Libraries and Metadata responses each consist of a `*Response` type with a single
+> `MediaContainer` property plus a `*Container` type holding one inner list. The three pairs differ
+> only in the inner list's property name/type (`Account`/`Directory`/`Metadata`). The pattern is
+> consistent and applied uniformly (good), but it is also six files of boilerplate that could be a
+> single generic `PlexResponse<TContainer>` wrapper.
+>
+> **Recommendation:** Optional. A generic root wrapper would cut the duplication, but the inner array
+> keys differ ("Account" vs "Directory" vs "Metadata") under case-sensitive deserialization, so the
+> container types would still be needed. The current explicit form is clear and low-risk; leave as-is
+> unless the wrapper count grows.
+
+#### F-204 — Resume/partial-watch fields are not modelled
+
+> **File:** `src/PlexToJellyfinSync.Data/Plex/PlexMetadata.cs:78-94` · **Criterion:** A · **Severity:** ⚪ Note
+>
+> `PlexMetadata` models `viewCount` and `lastViewedAt` but not `viewOffset` (the resume position Plex
+> reports for partially-watched items). This is consistent with the current design — `PlexClient`
+> treats `viewCount > 0` as "watched", so an in-progress item is correctly counted as unwatched — and
+> is therefore not a bug. It is noted only so the gap is a conscious choice: if partial-watch state
+> ever needs to be propagated to Jellyfin, the field is not available on the DTO.
+>
+> **Recommendation:** No action required for the current scope. Add `viewOffset` (and possibly the
+> scalar `guid`) only if/when partial-watch propagation becomes a requirement.
 
 ### Session 3 — Service I (Plex Integration)
 
@@ -175,20 +251,20 @@ Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **qui
 | `src/PlexToJellyfinSync.Core/Options/StateOptions.cs` | 1 | deep | ✅ | F-101 |
 | `src/PlexToJellyfinSync.Core/Options/SyncOptions.cs` | 1 | deep | ✅ | F-101 |
 | `src/PlexToJellyfinSync.Core/PlexToJellyfinSync.Core.csproj` | 1 | quick | ✅ | F-105 |
-| `src/PlexToJellyfinSync.Data/Plex/PlexAccount.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexAccountsContainer.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexAccountsResponse.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexDirectory.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexGuid.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexLibrariesContainer.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexLibrariesResponse.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexMedia.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexMetadata.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexMetadataContainer.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexMetadataResponse.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexPart.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/Plex/PlexTag.cs` | 2 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Data/PlexToJellyfinSync.Data.csproj` | 2 | quick | ⬜ | |
+| `src/PlexToJellyfinSync.Data/Plex/PlexAccount.cs` | 2 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Data/Plex/PlexAccountsContainer.cs` | 2 | deep | ✅ | F-203 |
+| `src/PlexToJellyfinSync.Data/Plex/PlexAccountsResponse.cs` | 2 | deep | ✅ | F-203 |
+| `src/PlexToJellyfinSync.Data/Plex/PlexDirectory.cs` | 2 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Data/Plex/PlexGuid.cs` | 2 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Data/Plex/PlexLibrariesContainer.cs` | 2 | deep | ✅ | F-203 |
+| `src/PlexToJellyfinSync.Data/Plex/PlexLibrariesResponse.cs` | 2 | deep | ✅ | F-203 |
+| `src/PlexToJellyfinSync.Data/Plex/PlexMedia.cs` | 2 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Data/Plex/PlexMetadata.cs` | 2 | deep | ✅ | F-204 |
+| `src/PlexToJellyfinSync.Data/Plex/PlexMetadataContainer.cs` | 2 | deep | ✅ | F-203 |
+| `src/PlexToJellyfinSync.Data/Plex/PlexMetadataResponse.cs` | 2 | deep | ✅ | F-203 |
+| `src/PlexToJellyfinSync.Data/Plex/PlexPart.cs` | 2 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Data/Plex/PlexTag.cs` | 2 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Data/PlexToJellyfinSync.Data.csproj` | 2 | quick | ✅ | F-201, F-202 |
 | `src/PlexToJellyfinSync.Service/PlexClient.cs` | 3 | deep | ⬜ | |
 | `src/PlexToJellyfinSync.Service/PlexJsonOptions.cs` | 3 | deep | ⬜ | |
 | `src/PlexToJellyfinSync.Service/WatchAggregator.cs` | 3 | deep | ⬜ | |
