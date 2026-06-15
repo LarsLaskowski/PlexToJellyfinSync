@@ -198,7 +198,185 @@ field.
 
 ### Session 3 — Service I (Plex Integration)
 
-_Not yet performed._
+The Plex integration layer is in good shape on the criteria that matter most for an HTTP client.
+**Async correctness is exemplary:** every `await` in `PlexClient` carries `.ConfigureAwait(false)`,
+the `CancellationToken` is threaded all the way through (`GetAsync` → `HttpClient.GetAsync` →
+`ReadAsStreamAsync` → `JsonSerializer.DeserializeAsync`), there is no `async void` and no blocking
+`.Result`/`.Wait()`. **Resource disposal is correct:** the `HttpResponseMessage` is `using` and the
+content stream is `await using`. **Security (criterion C) is clean for the token:** the
+`X-Plex-Token` is sent as an HTTP *header* (configured in `ServiceCollectionExtensions`, not in
+Session 3's files) and never appears in a request URL, log message, or exception — the only error
+log (`GetOwnerAccountIdAsync`) logs the framework exception, which carries the status code but not
+the request URI or headers, so the token does not leak. `PlexJsonOptions` is deliberately
+case-sensitive (so the lowercase scalar `guid` is not confused with the uppercase `Guid` array) and
+the shared frozen `JsonSerializerOptions` instance is the recommended pattern — it is clean and
+carries no findings. Criterion B is satisfied across all four files (`#region` grouping, interface
+region named `IPlexClient`, English XML docs, `== false`, `is null`/`is not null`, LINQ method
+syntax, `_camelCase` readonly fields).
+
+The findings below concern pagination/large-library handling and an over-broad `catch` in
+`PlexClient` (A), the HttpClient lifetime when the typed client is captured by a singleton (A/D),
+cross-platform path matching and the textual traversal guard in `PathMapper` (A/C), the
+information-collapsing aggregation in `WatchAggregator` (A), and the test coverage gaps for this
+layer (D).
+
+#### F-301 — `GetHistorySinceAsync` hard-caps the history at 500 entries with no pagination
+
+> **File:** `src/PlexToJellyfinSync.Service/PlexClient.cs:305` · **Criterion:** A · **Severity:** 🟠 High
+>
+> The history URL hardcodes `X-Plex-Container-Start=0&X-Plex-Container-Size=500` and the method never
+> loops to fetch further pages. Results are sorted `viewedAt:desc`, so when more than 500 history
+> entries exist after `since`, only the **500 most recent** are returned and the *oldest* ones — the
+> entries closest to `since` — are silently dropped. Because the incremental sync advances its
+> watermark past the processed window, those dropped watch events are never reprocessed, so the
+> corresponding items keep a stale (unwatched) state in Jellyfin. The periodic full reconcile
+> (`GetLibraryItemsAsync`) mitigates this only partially and on a long interval, and it has its own
+> pagination caveat (F-302). This is realistic after downtime or on the first run with an early
+> `since`.
+>
+> **Recommendation:** Page through the history with `X-Plex-Container-Start`/`-Size` until fewer than
+> a full page is returned (or until `viewedAt <= since`), or sort ascending and page forward from
+> `since`. At minimum, detect a full 500-row page and log a warning that history may be truncated.
+
+#### F-302 — Library/episode reads have no pagination and load the full result set into memory
+
+> **File:** `src/PlexToJellyfinSync.Service/PlexClient.cs:343,357` · **Criterion:** A · **Severity:** 🟡 Medium
+>
+> `GetEpisodesAsync` (`/library/metadata/{key}/allLeaves`) and `GetLibraryItemsAsync`
+> (`/library/sections/{key}/all`) send no container-size/start parameters and do not page. They rely
+> on the Plex server returning the *entire* section in a single response and then materialize it with
+> `entries.Select(MapMediaItem).ToList()`. For large libraries this both risks truncation (if a server
+> applies a default container size) and forces the whole library into memory at once, which scales
+> poorly for the explicitly in-scope "large libraries" case.
+>
+> **Recommendation:** Page these endpoints with `X-Plex-Container-Start`/`-Size` and, ideally, stream
+> results to the caller (e.g. `IAsyncEnumerable<MediaItem>`) so the orchestrator processes items in
+> batches rather than holding the full library in memory.
+
+#### F-303 — `GetOwnerAccountIdAsync` catches `Exception` broadly and swallows cancellation
+
+> **File:** `src/PlexToJellyfinSync.Service/PlexClient.cs:273-278` · **Criterion:** A · **Severity:** 🟡 Medium
+>
+> The auto-detect path wraps the HTTP call in `catch (Exception ex)` and, on any failure, logs a
+> warning and returns the fallback id `1`. This also catches `OperationCanceledException` /
+> `TaskCanceledException`: when the host is shutting down (or the per-request timeout fires), the
+> cancellation is swallowed, logged as a generic warning, and the method returns a *real* account id
+> of `1` instead of propagating the cancellation. A genuinely cancelled sync then proceeds with a
+> guessed owner id. The broad catch also masks configuration errors (e.g. 401 from a bad token) as a
+> benign "could not auto-detect" warning.
+>
+> **Recommendation:** Re-throw on cancellation (`catch (OperationCanceledException) { throw; }` first,
+> or check `cancellationToken.IsCancellationRequested`) and narrow the remaining catch to
+> `HttpRequestException`/`JsonException`. Consider distinguishing an auth failure (401/403) from a
+> "no accounts returned" case so a misconfiguration is visible rather than silently defaulting to `1`.
+
+#### F-304 — Typed `HttpClient` client is captured by a singleton consumer (captive dependency)
+
+> **File:** `src/PlexToJellyfinSync.Service/PlexClient.cs:24,38`
+> (consumer: `SyncOrchestrator` registered `AddSingleton` in
+> `ServiceCollectionExtensions.cs:42,44`) · **Criterion:** A/D · **Severity:** 🔵 Low
+>
+> `PlexClient` is registered as a typed client via `AddHttpClient<IPlexClient, PlexClient>` (transient)
+> and injected into `SyncOrchestrator`, which is a **singleton** (`SyncOrchestrator.cs:18` holds
+> `IPlexClient _plexClient`). The single `PlexClient`/`HttpClient` instance is therefore captured for
+> the application's lifetime, so `IHttpClientFactory`'s handler rotation (`HandlerLifetime`) never
+> takes effect and a `PrimaryHttpMessageHandler`/DNS-refresh policy would not apply. For a long-running
+> worker talking to one fixed internal Plex host the practical impact is small, but it defeats the
+> reason for using the typed-client factory in the first place. (Registration belongs to Session 5;
+> recorded here because it governs `PlexClient`'s HttpClient lifetime, a focus area of this session.)
+>
+> **Recommendation:** Either inject `IHttpClientFactory`/an `IPlexClient` factory and create a
+> short-lived client per sync cycle, or accept the captive lifetime deliberately and drop the
+> handler-rotation expectation (document it). Confirm the final call in Session 5.
+
+#### F-305 — `PathMapper` prefix matching is always case-sensitive (Ordinal)
+
+> **File:** `src/PlexToJellyfinSync.Service/PathMapper.cs:76-77` · **Criterion:** A · **Severity:** 🔵 Low
+>
+> Prefix comparison uses `StringComparison.Ordinal`, so a mapping whose casing differs from the path
+> Plex reports will not match. On case-insensitive sources (Plex running on Windows reporting e.g.
+> `D:\Media\…` while the mapping is configured as `d:\media`) the lookup returns `null` and the item is
+> treated as unmapped. The project targets Linux/Docker, where case-sensitive matching is correct,
+> which keeps this Low — but the behavior is silent (an unmapped path just yields `null`).
+>
+> **Recommendation:** Make the comparison platform-aware (`OrdinalIgnoreCase` when the source is
+> case-insensitive) or document explicitly that mapping prefixes must match Plex's exact casing. Add a
+> case-mismatch test to pin the chosen behavior.
+
+#### F-306 — Traversal guard is textual and misses a leading `..` segment
+
+> **File:** `src/PlexToJellyfinSync.Service/PathMapper.cs:59` · **Criterion:** C · **Severity:** 🔵 Low
+>
+> The guard rejects `"/../"` in the middle and a trailing `"/.."`, but a path that *starts* with a
+> traversal segment (`"../etc/passwd"`, or the bare input `".."`) is not caught — neither substring
+> matches. Such inputs are only stopped incidentally because they fail to match an absolute mapping
+> prefix; with a relative mapping prefix they could slip through. The check is purely textual and does
+> not canonicalize (`.` segments, symlinks) the result, so it cannot by itself prove the mapped path
+> stays under the local root.
+>
+> **Recommendation:** Also reject `StartsWith("../", Ordinal)` and an input equal to `".."`, and treat
+> path-traversal defense as defense-in-depth — have `NfoWriter` (Session 4) verify the *resolved*
+> output path is rooted under the configured Local prefix before writing.
+
+#### F-307 — Mapped output is always forward-slash and never converted to the OS separator
+
+> **File:** `src/PlexToJellyfinSync.Service/PathMapper.cs:91-94` · **Criterion:** A · **Severity:** ⚪ Note
+>
+> Both the local prefix and the remainder are normalized to `/`, and the result
+> (`localPrefix + remainder`) is returned with forward slashes regardless of platform. A `Local`
+> prefix configured with backslashes (`C:\media`) comes back as `C:/media/…`. On the Linux/Docker
+> target this is correct and harmless; on Windows it relies on the .NET IO layer accepting forward
+> slashes. It is noted so the single-target assumption is explicit.
+>
+> **Recommendation:** No action for the current Linux/Docker scope. If Windows hosting is ever
+> supported, convert the result with `Path.DirectorySeparatorChar` (or build it via `Path.Combine`).
+
+#### F-308 — `WatchAggregator` collapses play count and reports `LastPlayed` for unwatched aggregates
+
+> **File:** `src/PlexToJellyfinSync.Service/WatchAggregator.cs:30-37` · **Criterion:** A · **Severity:** ⚪ Note
+>
+> `PlayCount` is set to `allWatched ? 1 : 0`, discarding the children's actual counts — an item
+> watched many times and one watched once both aggregate to `1`, and any partially-watched season
+> reports `PlayCount = 0` even though some episodes were played. Independently, `LastPlayed` is the max
+> over *all* children, so a not-fully-watched season still surfaces a `LastPlayed` timestamp
+> (`Watched = false`, `PlayCount = 0`, `LastPlayed = <date>`). This appears intentional (a season/series
+> is "watched" only when every child is), but the information loss and the watched/last-played
+> mismatch are worth confirming against how `NfoWriter` consumes them. The `lastPlayed == default`
+> sentinel also conflates "no child had a value" with the (in practice unreachable) `DateTimeOffset.MinValue`.
+>
+> **Recommendation:** Confirm the intended season/series semantics. If a meaningful play count is
+> wanted, derive it from the children (e.g. min/most-common). Consider only emitting `LastPlayed` when
+> `allWatched`, and replace the `== default` sentinel with the nullable returned by
+> `Where(...).Select(...).Max()` over a nullable projection.
+
+#### F-309 — Test coverage gaps in the Plex integration layer
+
+> **File:** `src/PlexToJellyfinSync.Service/PlexClient.cs`,
+> `WatchAggregator.cs`, `PathMapper.cs` · **Criterion:** D · **Severity:** 🔵 Low
+>
+> `PlexClient` has **no** unit tests (only DTO deserialization is covered in
+> `PlexMetadataDeserializationTests`, Session 7): the mapping logic (`MapMediaItem`, `MapKind`,
+> `ParseUniqueIds`, the `FromEpoch` epoch→`DateTimeOffset` conversion, the runtime `/60000` division),
+> the history filtering/ordering, and the owner-detection fallback are untested. The private static
+> helpers are not reachable for testing as written. `WatchAggregatorTests` covers all-watched,
+> partially-watched and empty, but not the `LastPlayed` max with mixed `null` values, the
+> `PlayCount` collapse, or the `== default` branch. `PathMapperTests` is solid but does not cover
+> casing (F-305), a leading-`..` input (F-306), an empty/whitespace `Plex` prefix being skipped, or
+> equal-length competing prefixes.
+>
+> **Recommendation:** Add `PlexClient` tests behind a mocked `HttpMessageHandler` for the mapping and
+> history paths (this also pins F-301/F-303), and extend the aggregator/mapper tests for the edge
+> cases above. Per the process doc, do not write the tests as part of this review — track them as gaps.
+
+#### F-310 — `PathMapper` uses `new List<PathMapping>()` instead of a collection expression
+
+> **File:** `src/PlexToJellyfinSync.Service/PathMapper.cs:27` · **Criterion:** B · **Severity:** 🔵 Low
+>
+> The constructor falls back to `new List<PathMapping>()` for a null options value, whereas the rest of
+> the service layer uses the collection-expression form `[]` for empty collections (e.g. the `return []`
+> paths in `PlexClient`). This is a small internal-consistency nit, not a rule in `.claude/CLAUDE.md`.
+>
+> **Recommendation:** Use `mappings.Value ?? []` for consistency with the surrounding code.
 
 ### Session 4 — Service II (Sync & Persistence)
 
@@ -265,10 +443,10 @@ Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **qui
 | `src/PlexToJellyfinSync.Data/Plex/PlexPart.cs` | 2 | deep | ✅ | none |
 | `src/PlexToJellyfinSync.Data/Plex/PlexTag.cs` | 2 | deep | ✅ | none |
 | `src/PlexToJellyfinSync.Data/PlexToJellyfinSync.Data.csproj` | 2 | quick | ✅ | F-201, F-202 |
-| `src/PlexToJellyfinSync.Service/PlexClient.cs` | 3 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/PlexJsonOptions.cs` | 3 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/WatchAggregator.cs` | 3 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/PathMapper.cs` | 3 | deep | ⬜ | |
+| `src/PlexToJellyfinSync.Service/PlexClient.cs` | 3 | deep | ✅ | F-301, F-302, F-303, F-304, F-309 |
+| `src/PlexToJellyfinSync.Service/PlexJsonOptions.cs` | 3 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Service/WatchAggregator.cs` | 3 | deep | ✅ | F-308, F-309 |
+| `src/PlexToJellyfinSync.Service/PathMapper.cs` | 3 | deep | ✅ | F-305, F-306, F-307, F-309, F-310 |
 | `src/PlexToJellyfinSync.Service/NfoWriter.cs` | 4 | deep | ⬜ | |
 | `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs` | 4 | deep | ⬜ | |
 | `src/PlexToJellyfinSync.Service/State/StateStore.cs` | 4 | deep | ⬜ | |
