@@ -392,7 +392,121 @@ _Not yet performed._
 
 ### Session 7 — Tests
 
-_Not yet performed._
+The MSTest suite is small but disciplined and conforms to criterion B almost completely. All four
+test classes follow the `{Feature}Tests` naming scheme (`NfoWriterTests`, `PathMapperTests`,
+`PlexMetadataDeserializationTests`, `WatchAggregatorTests`) and every test method is PascalCase
+**without underscores** in the `{Class}{Scenario}{ExpectedResult}` form
+(`WatchAggregatorAllWatchedReturnsWatched`, `PathMapperOverlappingPrefixesUsesLongestMatch`, …).
+**Every single assertion carries an assert message** — including the `Assert.HasCount` / `Assert.IsNull`
+/ `StringAssert.Contains` calls — so the assert-message rule is fully satisfied. The suite is pure
+MSTest with no FluentAssertions (the `Microsoft.VisualStudio.TestTools.UnitTesting` namespace is a
+global `Using` in the `.csproj`), each class is `sealed`, carries an English XML class summary, and
+wraps its members in `#region` blocks. Determinism is good: `PathMapperTests`, `WatchAggregatorTests`
+and `PlexMetadataDeserializationTests` use fixed inputs (`DateTimeOffset.UnixEpoch`, literal paths, an
+inline JSON constant) with no culture/time-zone coupling, and `NfoWriterTests` isolates disk I/O in a
+per-test `Guid`-named temp directory that is removed in `[TestCleanup]` — which also makes the
+method-level parallelization configured in `MSTestSettings.cs` safe (state is per-instance, the only
+shared statics are immutable). `NfoWriterExistingNfoPreservesOtherNodes` is a genuine
+behavior test (it pins the data-integrity guarantee that unrelated NFO nodes survive a write) rather
+than an implementation-detail test.
+
+One stylistic note (not a `.claude/CLAUDE.md` rule, so recorded here rather than as a finding): the
+production code separates `#region Static methods` from `#region Methods`, but the test classes place
+their `private static` factory helpers (`CreateWriter`, `CreateMapper`) inside the same
+`#region Methods` as the instance test methods. The CLAUDE.md region rule groups by member *kind*, and
+"Methods" is a single kind there, so this is internal inconsistency rather than a violation.
+
+The findings below are a missing XML doc on a test constant (B), the broad service-layer test-coverage
+gaps and the edge-case gaps inside the existing test classes (D/A), and the build-determinism setting
+carried over from the project template (E, mirrors F-105/F-202).
+
+#### F-701 — `MetadataJson` test constant has no XML documentation
+
+> **File:** `tests/PlexToJellyfinSync.Tests/PlexMetadataDeserializationTests.cs:16` · **Criterion:** B · **Severity:** 🟡 Medium
+>
+> Inside `#region Constants` the `private const string MetadataJson` is declared without an XML doc
+> comment, whereas every other member in the test project (classes, test methods, the `Initialize`/
+> `Cleanup` lifecycle methods, the `CreateWriter`/`CreateMapper` helpers) carries one. `.claude/CLAUDE.md`
+> requires "XML docs on all members" without exempting test code or private members, and the test
+> project sets `<GenerateDocumentationFile>true</GenerateDocumentationFile>`. This is the single
+> member-documentation gap in the session.
+>
+> **Recommendation:** Add a one-line `/// <summary>` describing the sample payload (e.g. "Sample Plex
+> metadata response carrying both the legacy lowercase `guid` and the uppercase `Guid` array"). Confirm
+> whether the Reihitsu analyzer is configured to enforce docs on private members; if it is, this is also
+> a build (`RH####`) gap.
+
+#### F-702 — Core sync, persistence, status and logging classes have no tests at all
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs`,
+> `src/PlexToJellyfinSync.Service/State/StateStore.cs`,
+> `src/PlexToJellyfinSync.Service/SyncStatusService.cs`,
+> `src/PlexToJellyfinSync.Service/Logging/InMemoryLogStore.cs`,
+> `src/PlexToJellyfinSync.Service/Logging/InMemoryLogProvider.cs`,
+> `src/PlexToJellyfinSync.Service/Logging/InMemoryLogger.cs`,
+> `src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs`,
+> `src/PlexToJellyfinSync.Service/PlexClient.cs` · **Criterion:** D · **Severity:** 🟡 Medium
+>
+> The suite covers `NfoWriter`, `PathMapper`, `WatchAggregator` and (indirectly) `PlexJsonOptions`, but
+> the highest-risk classes are entirely untested. `SyncOrchestrator` (the central orchestration logic,
+> watermark advancement, the history→aggregation→write pipeline) has **no** tests, so the very behavior
+> the process doc lists as critical — "sync writes wrong watch states", history truncation (F-301),
+> cancellation handling (F-303) — is unverified. `StateStore` is untested even though it owns the
+> state-file persistence whose **atomic write / data integrity** is a criterion-A focus area. The
+> concurrency-sensitive `InMemoryLogStore`/`SyncStatusService` (written by the Worker, read by Blazor
+> circuits) have no tests pinning their thread-safety. `PlexClient` has no tests beyond DTO
+> deserialization (already noted as F-309). The DI registration in `ServiceCollectionExtensions` is
+> unverified (no test asserting the container resolves the graph with the intended lifetimes — relevant
+> to the captive-dependency F-304).
+>
+> **Recommendation:** Prioritise tests for `SyncOrchestrator` (behind mocked `IPlexClient`/`INfoWriter`/
+> `IStateStore`) and `StateStore` (round-trip + atomic-write/corrupt-file behavior), then the
+> log-store/status concurrency. Per the process doc, do **not** write the tests as part of this review —
+> tracked here as a coverage gap for the relevant sessions (4/5).
+
+#### F-703 — Edge-case gaps inside the existing test classes
+
+> **File:** `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs`,
+> `tests/PlexToJellyfinSync.Tests/PathMapperTests.cs`,
+> `tests/PlexToJellyfinSync.Tests/WatchAggregatorTests.cs`,
+> `tests/PlexToJellyfinSync.Tests/PlexMetadataDeserializationTests.cs` · **Criterion:** A/D · **Severity:** 🔵 Low
+>
+> Each existing class verifies the happy path but leaves notable branches uncovered:
+> - **`NfoWriterTests`** exercises only `MediaKind.Movie`. The other root names and target-path rules
+>   (`episodedetails`, `season.nfo`, `tvshow.nfo`) and the `MovieFilenameStrategy` branches
+>   (`MovieNfo` / `VideoFileName` / `Auto`-picks-`movie.nfo`-when-present) are untested. The
+>   **idempotent "no change → `Skipped`"** path (an existing NFO whose watch state already matches, so
+>   `ApplyWatchState` returns `false`) is never asserted — only `Created`, `Updated` and
+>   "missing + creation disabled → `Skipped`" are. The malformed-XML branch (`document.Root is null`,
+>   `NfoWriter.cs:344`) and the `lastplayed`/`dateadded` formatting are also uncovered. Minor smell:
+>   `NfoWriterMovieWithoutNfoCreatesFile` seeds `LastPlayed = DateTimeOffset.Now`; it does not assert on
+>   the rendered timestamp so it is not flaky, but a fixed instant would make intent clearer.
+> - **`PathMapperTests`** does not cover a leading `..` segment / bare `".."` input (F-306), the
+>   `Ordinal` case-sensitivity behavior (F-305), an empty/whitespace `Plex` prefix being skipped, or
+>   two equal-length competing prefixes.
+> - **`WatchAggregatorTests`** never asserts `PlayCount` (the `allWatched ? 1 : 0` collapse, F-308),
+>   the `LastPlayed` max across **mixed null/non-null** children, or the single-child case.
+> - **`PlexMetadataDeserializationTests`** covers only the `guid`/`Guid` case-sensitivity. The
+>   `NumberHandling.AllowReadingFromString` path (Plex emitting numbers as JSON strings), an
+>   unwatched item (`viewCount`/`lastViewedAt` absent → `null`), and the Accounts/Libraries responses
+>   are untested.
+>
+> **Recommendation:** Extend the four classes with the branches above (this overlaps the production-side
+> gaps in F-309). Analysis only for this review — do not add the tests here.
+
+#### F-704 — `Deterministic` disabled in both build configurations of the test project
+
+> **File:** `tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj:10,15` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> Both the Debug and Release `PropertyGroup`s set `<Deterministic>False</Deterministic>`, the same
+> template-inherited override flagged for Core (F-105) and Data (F-202). It is undesirable for
+> reproducible/CI builds and is now confirmed across a third project, reinforcing the suggestion to
+> centralise the setting. Otherwise the `.csproj` is clean under criterion E: the single
+> `PackageReference Include="MSTest"` carries **no inline version** (CPM-compliant), and the three
+> `ProjectReference`s (Core, Data, Service) are correct for what the tests consume.
+>
+> **Recommendation:** Remove the override (or set `True`), ideally by centralising the decision in
+> `Directory.Build.props` together with F-105/F-202.
 
 ### Session 8 — Infrastructure
 
@@ -479,12 +593,12 @@ Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **qui
 | `src/PlexToJellyfinSync/appsettings.Development.json` | 6 | quick | ⬜ | |
 | `src/PlexToJellyfinSync/Properties/launchSettings.json` | 6 | quick | ⬜ | |
 | `src/PlexToJellyfinSync/PlexToJellyfinSync.csproj` | 6 | quick | ⬜ | |
-| `tests/PlexToJellyfinSync.Tests/MSTestSettings.cs` | 7 | deep | ⬜ | |
-| `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs` | 7 | deep | ⬜ | |
-| `tests/PlexToJellyfinSync.Tests/PathMapperTests.cs` | 7 | deep | ⬜ | |
-| `tests/PlexToJellyfinSync.Tests/PlexMetadataDeserializationTests.cs` | 7 | deep | ⬜ | |
-| `tests/PlexToJellyfinSync.Tests/WatchAggregatorTests.cs` | 7 | deep | ⬜ | |
-| `tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj` | 7 | quick | ⬜ | |
+| `tests/PlexToJellyfinSync.Tests/MSTestSettings.cs` | 7 | deep | ✅ | none |
+| `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs` | 7 | deep | ✅ | F-703 |
+| `tests/PlexToJellyfinSync.Tests/PathMapperTests.cs` | 7 | deep | ✅ | F-703 |
+| `tests/PlexToJellyfinSync.Tests/PlexMetadataDeserializationTests.cs` | 7 | deep | ✅ | F-701, F-703 |
+| `tests/PlexToJellyfinSync.Tests/WatchAggregatorTests.cs` | 7 | deep | ✅ | F-703 |
+| `tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj` | 7 | quick | ✅ | F-702, F-704 |
 | `.claude/CLAUDE.md` | 8 | quick | ⬜ | |
 | `.claude/hooks/sonar-secrets/build-scripts/pretool-secrets.ps1` | 8 | quick | ⬜ | |
 | `.claude/hooks/sonar-secrets/build-scripts/prompt-secrets.ps1` | 8 | quick | ⬜ | |
