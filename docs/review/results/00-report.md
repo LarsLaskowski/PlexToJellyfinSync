@@ -29,7 +29,92 @@ Format per finding:
 
 ### Session 1 — Core
 
-_Not yet performed._
+The Core project is clean with respect to criterion B: every type uses a file-scoped namespace,
+holds exactly one top-level type, wraps its members in `#region` blocks grouped by member kind, and
+carries English XML documentation without `<remarks>`. `using` directives sit outside the namespace
+and `ImplicitUsings` covers the `System` imports. The `.csproj` is correct under CPM (no inline
+package versions) and the Reihitsu.Analyzer is wired in centrally via `Directory.Build.props`. The
+abstractions are sensibly scoped and Core references no sibling layer (Data/Service/Host); its only
+external coupling is `Microsoft.Extensions.Logging.Abstractions` (see F-104). The findings below
+concern options validatability (D), value semantics of the models (A), a security default (C) and a
+build-reproducibility setting (E).
+
+#### F-101 — Options classes are not self-validating; required fields and value ranges are unguarded
+
+> **File:** `src/PlexToJellyfinSync.Core/Options/PlexOptions.cs:22-27`,
+> `src/PlexToJellyfinSync.Core/Options/SyncOptions.cs:22-27`,
+> `src/PlexToJellyfinSync.Core/Options/StateOptions.cs:22`,
+> `src/PlexToJellyfinSync.Core/Options/DashboardOptions.cs:32` · **Criterion:** D · **Severity:** 🟡 Medium
+>
+> The options types carry no way to distinguish required from optional settings and no value-range
+> constraints. `PlexOptions.BaseUrl` and `PlexOptions.Token` are de-facto mandatory but default to
+> `string.Empty`, so a missing configuration is only discovered when the first HTTP call fails rather
+> than at startup. Numeric settings (`SyncOptions.PollIntervalSeconds`,
+> `SyncOptions.FullReconcileIntervalHours`, `DashboardOptions.LogBufferSize`) accept zero or negative
+> values that would break the polling timer or the ring buffer. `StateOptions.Directory` is likewise
+> unvalidated. There are no DataAnnotations and the process doc (criterion D) explicitly asks for
+> options that are validatable at startup.
+>
+> **Recommendation:** Annotate mandatory/ranged members with DataAnnotations
+> (`[Required]`, `[Url]`, `[Range(1, …)]`) and have the host register them with
+> `ValidateDataAnnotations().ValidateOnStart()` (the wiring itself belongs to Session 6 / Host). At
+> minimum, document and enforce minimum values for the numeric settings.
+
+#### F-102 — Domain models used as value carriers lack value equality
+
+> **File:** `src/PlexToJellyfinSync.Core/Models/UniqueId.cs:6`,
+> `src/PlexToJellyfinSync.Core/Models/WatchInfo.cs:6`,
+> `src/PlexToJellyfinSync.Core/Models/MediaItem.cs:8` · **Criterion:** A · **Severity:** 🔵 Low
+>
+> `UniqueId`, `WatchInfo` and `MediaItem` are mutable `sealed class`es without `Equals`/`GetHashCode`,
+> so they compare by reference. If any consumer compares a `WatchInfo` (or the `UniqueIds` list)
+> against a previously written value to decide whether the NFO content changed — a natural pattern for
+> the "no change required → Skipped" path in `NfoWriteOutcome` — reference equality will report a
+> difference even when the values are identical, causing redundant writes (or, for set/dictionary use,
+> subtle lookup bugs). This needs confirmation against the Service layer (Sessions 3–4).
+>
+> **Recommendation:** If these types are ever compared by value, give them structural equality (e.g.
+> convert `UniqueId`/`WatchInfo` to `record class` with `set`/`init` accessors, or implement
+> `Equals`/`GetHashCode`). If they are only ever data carriers, leave them as-is — the point is to make
+> the intent explicit so a value comparison is not introduced later by accident.
+
+#### F-103 — Dashboard is publicly reachable by default (empty token)
+
+> **File:** `src/PlexToJellyfinSync.Core/Options/DashboardOptions.cs:27` · **Criterion:** C · **Severity:** 🔵 Low
+>
+> `Token` defaults to `string.Empty`, and the XML doc states that an empty token means the dashboard
+> is publicly reachable. The dashboard exposes live logs and sync status, which can include
+> operational detail. An insecure-by-default posture means a misconfiguration silently leaves the UI
+> open rather than failing closed.
+>
+> **Recommendation:** Consider defaulting to authentication-required (or at least surface a prominent
+> startup warning when `Dashboard.Enabled` is true and `Token` is empty). The enforcement lives in the
+> Host (`TokenAuthMiddleware`, Session 6); this finding flags the default that originates here.
+
+#### F-104 — Core couples to the logging framework via `LogEntry.Level`
+
+> **File:** `src/PlexToJellyfinSync.Core/Models/LogEntry.cs:1,20` · **Criterion:** D · **Severity:** ⚪ Note
+>
+> `LogEntry` is a Core domain model but exposes `LogLevel` from `Microsoft.Extensions.Logging`,
+> pulling `Microsoft.Extensions.Logging.Abstractions` into the Core project. This is not a layer
+> violation (it is a framework abstraction, not Data/Service/Host) and is a pragmatic choice, but it
+> does mean the otherwise dependency-free Core carries a logging-infrastructure reference for a single
+> property.
+>
+> **Recommendation:** Acceptable as-is. If strict Core purity is desired, model the level as a
+> Core-owned enum and map at the logging boundary. No action required otherwise.
+
+#### F-105 — `Deterministic` disabled in both build configurations
+
+> **File:** `src/PlexToJellyfinSync.Core/PlexToJellyfinSync.Core.csproj:8,13` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> Both the Debug and Release property groups set `<Deterministic>False</Deterministic>`. Deterministic
+> compilation is the default and is desirable for reproducible/CI builds; disabling it is unusual and
+> appears to be inherited from a project template (the same pattern is likely repeated across the
+> other `.csproj` files — to be confirmed in Session 8).
+>
+> **Recommendation:** Remove the override (or set it to `True`) unless there is a deliberate reason
+> (e.g. wildcard assembly versions) that requires non-deterministic builds.
 
 ### Session 2 — Data
 
@@ -66,30 +151,30 @@ Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **qui
 
 | File | Session | Depth | Status | Findings |
 |---|---|---|---|---|
-| `src/PlexToJellyfinSync.Core/Abstractions/ILogStore.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Abstractions/INfoWriter.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Abstractions/IPathMapper.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Abstractions/IPlexClient.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Abstractions/IStateStore.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Abstractions/ISyncOrchestrator.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Abstractions/ISyncStatusProvider.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Enums/MediaKind.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Enums/MovieNfoFilenameStrategy.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Enums/NfoWriteOutcome.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Models/LogEntry.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Models/MediaItem.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Models/PlexHistoryEntry.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Models/PlexLibrary.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Models/SyncStatusViewData.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Models/UniqueId.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Models/WatchInfo.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Options/DashboardOptions.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Options/NfoOptions.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Options/PathMapping.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Options/PlexOptions.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Options/StateOptions.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/Options/SyncOptions.cs` | 1 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Core/PlexToJellyfinSync.Core.csproj` | 1 | quick | ⬜ | |
+| `src/PlexToJellyfinSync.Core/Abstractions/ILogStore.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Abstractions/INfoWriter.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Abstractions/IPathMapper.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Abstractions/IPlexClient.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Abstractions/IStateStore.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Abstractions/ISyncOrchestrator.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Abstractions/ISyncStatusProvider.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Enums/MediaKind.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Enums/MovieNfoFilenameStrategy.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Enums/NfoWriteOutcome.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Models/LogEntry.cs` | 1 | deep | ✅ | F-104 |
+| `src/PlexToJellyfinSync.Core/Models/MediaItem.cs` | 1 | deep | ✅ | F-102 |
+| `src/PlexToJellyfinSync.Core/Models/PlexHistoryEntry.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Models/PlexLibrary.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Models/SyncStatusViewData.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Models/UniqueId.cs` | 1 | deep | ✅ | F-102 |
+| `src/PlexToJellyfinSync.Core/Models/WatchInfo.cs` | 1 | deep | ✅ | F-102 |
+| `src/PlexToJellyfinSync.Core/Options/DashboardOptions.cs` | 1 | deep | ✅ | F-101, F-103 |
+| `src/PlexToJellyfinSync.Core/Options/NfoOptions.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Options/PathMapping.cs` | 1 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Core/Options/PlexOptions.cs` | 1 | deep | ✅ | F-101 |
+| `src/PlexToJellyfinSync.Core/Options/StateOptions.cs` | 1 | deep | ✅ | F-101 |
+| `src/PlexToJellyfinSync.Core/Options/SyncOptions.cs` | 1 | deep | ✅ | F-101 |
+| `src/PlexToJellyfinSync.Core/PlexToJellyfinSync.Core.csproj` | 1 | quick | ✅ | F-105 |
 | `src/PlexToJellyfinSync.Data/Plex/PlexAccount.cs` | 2 | deep | ⬜ | |
 | `src/PlexToJellyfinSync.Data/Plex/PlexAccountsContainer.cs` | 2 | deep | ⬜ | |
 | `src/PlexToJellyfinSync.Data/Plex/PlexAccountsResponse.cs` | 2 | deep | ⬜ | |
