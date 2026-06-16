@@ -832,7 +832,304 @@ listed against `ServiceCollectionExtensions.cs` in the checklist.
 
 ### Session 6 — Host (Blazor, Worker, Security)
 
-_Not yet performed._
+Criterion B compliance is mixed for the Host project. The non-Razor C# files
+(`GlobalSuppressions.cs`, `Worker.cs`, `LoginPage.cs`, `TokenAuthMiddleware.cs`) are fully
+conformant: file-scoped namespaces, one top-level type, `#region` blocks grouped by member kind
+(`Constants`, `Fields`, `Constructors`, `Static methods`, `Methods`), English XML docs on every
+member, `== false` (`Program.cs:48`, `Worker.cs:58`), `is not null`
+(`TokenAuthMiddleware.cs:105`), constructor injection with `_camelCase` readonly fields, and
+CRLF/4-space/Allman throughout. `Program.cs` is a `static partial class` with a single `Main`
+method wrapped in `#region Main entry point`, consistent with the minimal-hosting-model shape
+every ASP.NET Core 8+ template produces. The three Razor pages with non-trivial `@code` blocks
+(`Dashboard.razor`, `Logs.razor`, `Error.razor`) do **not** follow the region/XML-doc rules at all
+(F-609); the markup-only files (`App.razor`, `Routes.razor`, `_Imports.razor`, `MainLayout.razor`,
+`ReconnectModal.razor`, `NotFound.razor`) carry no `@code` and are not subject to the rule.
+
+Functionally, the Worker's resilience matches the focus area: `ExecuteAsync`'s calls to
+`ProcessHistoryAsync`/`ReconcileAsync` are not wrapped in a local `try`/`catch`, but this is safe
+because `SyncOrchestrator.ProcessHistoryAsync`/`ReconcileAsync` (Session 4) already catch
+`Exception` internally and only re-throw `OperationCanceledException` — exactly what
+`BackgroundService.ExecuteAsync` is expected to surface on host shutdown, so neither a sync-cycle
+error nor a graceful shutdown crashes the Worker. `Task.Delay(pollInterval, stoppingToken)` is
+correctly wrapped in its own `try`/`catch (OperationCanceledException) { break; }` for a clean loop
+exit. The config files carry no real secrets: `appsettings.json`/`appsettings.Development.json`/
+`launchSettings.json` use empty placeholders for every credential-shaped field (`Plex:Token`,
+`Dashboard:Token`), consistent with the project's documented `PLEXSYNC__` environment-variable
+injection model. `PlexToJellyfinSync.csproj` has zero `PackageReference`s — `IMemoryCache` and the
+Razor Components/SignalR stack ship in the ASP.NET Core shared framework via
+`Microsoft.NET.Sdk.Web` — so the CPM rule (no inline package versions) is trivially satisfied.
+`wwwroot/app.css` and `MainLayout.razor.css` raise no concerns, and the two
+`ReconnectModal.razor.*` files are the unmodified Microsoft Blazor template defaults.
+
+The findings below cluster around the dashboard's security posture, which carries the most
+consequential issues of this session: the `Secure` cookie flag is fundamentally incompatible with
+the project's own documented plain-HTTP Docker deployment (F-602), the token comparison is not
+timing-safe and there is no brute-force protection (F-601), and the auth-bypass allowlist is
+broader than the static-file/health-check intent it was written for (F-604). The remainder cover
+an exception-handler/endpoint-mapping mismatch when the dashboard is disabled (F-603), missing
+CSRF/rate-limiting/logout on the login flow (F-605), a cross-thread state-mutation inconsistency
+between `Dashboard.razor` and `Logs.razor` (F-606), two small Worker robustness/design notes
+(F-607, F-608), the Razor `@code` style gap (F-609), the non-traceable `GlobalSuppressions.cs`
+justifications (F-610), an unused project reference (F-611), and the recurring `Deterministic`
+build setting (F-612).
+
+#### F-601 — Dashboard token comparison is not timing-safe, and there is no brute-force protection
+
+> **File:** `src/PlexToJellyfinSync/Program.cs:102` · **Criterion:** C · **Severity:** 🟠 High
+>
+> The login handler authenticates with `string.Equals(token, options.Value.Token,
+> StringComparison.Ordinal)`. Ordinal string comparison short-circuits on the first mismatching
+> character, so the time taken to reject a guess leaks how many leading characters were correct —
+> a textbook timing side channel. There is no rate limiting, lockout, or delay on `POST /login`, so
+> an attacker has unlimited attempts to statistically refine timing measurements (or simply brute
+> force the token outright, since nothing throttles repeated submissions). `System.Security.
+> Cryptography` is already imported in this file (for `RandomNumberGenerator.GetBytes` a few lines
+> below), so a constant-time comparison is a one-line fix away.
+>
+> **Recommendation:** Compare with `CryptographicOperations.FixedTimeEquals` over the UTF-8 bytes
+> of both values (pad/hash to a fixed length first, since `FixedTimeEquals` itself still leaks
+> length via input size unless both spans are equal length — e.g. compare SHA-256 hashes of both
+> strings, or compare against a fixed-length encoding). Add a basic throttle (e.g. a short delay or
+> a per-IP/per-process attempt counter with exponential backoff) on `POST /login` to remove the
+> unlimited-attempts amplification.
+
+#### F-602 — `Secure` cookie flag is incompatible with the project's own documented HTTP-only Docker deployment
+
+> **File:** `src/PlexToJellyfinSync/Program.cs:110-118` (cookie options); `Dockerfile:29`
+> (`ENV ASPNETCORE_URLS=http://+:8080`); `README.md:26-40` (quick start) · **Criterion:** A/C ·
+> **Severity:** 🟠 High
+>
+> The auth cookie is issued with `Secure = true`. Modern browsers refuse to store (or will refuse
+> to send) a `Secure` cookie received over a plain HTTP connection. The Dockerfile hardcodes
+> `ASPNETCORE_URLS=http://+:8080` with no Kestrel HTTPS endpoint, and the README's quick-start
+> documents exactly that — `docker run -p 8080:8080 ...` and "Dashboard:
+> `http://<host>:8080/`" — with no reverse proxy or TLS termination mentioned anywhere. In that
+> documented default deployment, `POST /login` will appear to succeed (it redirects to `/`), but
+> the browser silently drops the `Secure` cookie, so `TokenAuthMiddleware` immediately bounces the
+> next request back to `/login` — the token-protected dashboard is **unusable** out of the box
+> whenever `Dashboard:Token` is set. Compounding this, the app never calls
+> `UseForwardedHeaders()`/configures `ForwardedHeadersOptions`, so even a user who *does* put a
+> TLS-terminating reverse proxy in front of the container would have `HttpContext.Request.Scheme`
+> permanently report `http`, and any code that branched on it (none currently does, but
+> `Strict-Transport-Security` is sent unconditionally per response, which is at least harmless over
+> plain HTTP since browsers ignore HSTS headers received that way) would be wrong.
+>
+> **Recommendation:** Either (a) make the cookie's `Secure` flag conditional
+> (`CookieSecurePolicy`-style: `Secure = context.Request.IsHttps`) and document that operators
+> exposing the dashboard beyond localhost should put TLS in front of it, or (b) keep `Secure = true`
+> unconditionally and update the README/Dockerfile to make a TLS-terminating reverse proxy a
+> documented prerequisite for `Dashboard:Token`, adding `app.UseForwardedHeaders()` with an
+> explicit `ForwardedHeadersOptions` (trusted proxy IPs/header names) so `Request.IsHttps` reflects
+> the proxy's original scheme. Either way, the current combination silently breaks the one
+> authentication feature the project has.
+
+#### F-603 — `UseExceptionHandler` targets `/Error`, but the endpoint is only mapped when the dashboard is enabled
+
+> **File:** `src/PlexToJellyfinSync/Program.cs:48-51,84-93` · **Criterion:** A · **Severity:** 🟡 Medium
+>
+> `app.UseExceptionHandler("/Error", createScopeForErrors: true)` is registered unconditionally
+> (outside the `if (dashboardOptions.Enabled)` block) whenever the app is not running in
+> Development. The `/Error` page (`Components/Pages/Error.razor`) is only reachable because
+> `MapRazorComponents<App>().AddInteractiveServerRenderMode()` is called — and that call sits
+> **inside** the `if (dashboardOptions.Enabled)` block. When `Dashboard:Enabled` is `false` and an
+> unhandled exception occurs in production, the exception-handler middleware re-executes the
+> request against `/Error`, finds no matching endpoint, and the client receives a bare 404 instead
+> of the intended error response. The same applies to `UseStatusCodePagesWithReExecute("/not-found",
+> ...)`, which is registered only inside the conditional block — consistent with `NotFound.razor`
+> also being unreachable in that configuration, so that one is not a bug, only the exception-handler
+> mismatch is.
+>
+> **Recommendation:** Move `app.UseExceptionHandler(...)` inside the `if (dashboardOptions.Enabled)`
+> block (next to `UseStatusCodePagesWithReExecute`), or register a minimal-API fallback error
+> handler that works regardless of whether the Razor Components endpoints are mapped.
+
+#### F-604 — `TokenAuthMiddleware`'s bypass allowlist is broader than its static-file/health-check intent
+
+> **File:** `src/PlexToJellyfinSync/Security/TokenAuthMiddleware.cs:59-75` · **Criterion:** C/D ·
+> **Severity:** 🟡 Medium
+>
+> `IsAllowedPath` exempts every path starting with `/_` from authentication. Per Microsoft's Blazor
+> SignalR documentation, the interactive-server hub that
+> `MapRazorComponents<App>().AddInteractiveServerRenderMode()` configures listens at the
+> conventional path `/_blazor`, so the negotiate/connect/WebSocket endpoint that drives every
+> interactive component is itself unauthenticated by this rule — not just `/_framework`/`/_content`
+> static assets, which appear to be the intent. The practical exploitation window is narrow today
+> (a circuit can only be created by first reaching an authenticated render of a protected page, so
+> an attacker without a valid circuit id gains little by reaching `/_blazor` directly), but the rule
+> is a blanket prefix match rather than an explicit allowlist, so it silently widens to cover any
+> future `/_...` endpoint without anyone having to decide that endpoint should be public. The second
+> rule — any path whose last segment contains a `.` is allowed unauthenticated — is similarly a
+> heuristic rather than an allowlist: it is meant for static assets (`.css`, `.js`, images) but would
+> just as readily exempt a future endpoint like `/logs/export.csv` without anyone noticing.
+>
+> **Recommendation:** Replace the blanket `/_` prefix with an explicit allowlist of the known public
+> prefixes (`/_framework/`, `/_content/`, the specific Blazor hub path), and replace the
+> dot-in-last-segment heuristic with a check against `MapStaticAssets()`'s known extensions or an
+> explicit allowlist. At minimum, add a code comment recording that the SignalR hub is deliberately
+> included and why, so a future change does not narrow it by accident and break interactivity.
+
+#### F-605 — Login flow has no CSRF protection, no rate limiting, and no logout
+
+> **File:** `src/PlexToJellyfinSync/Program.cs:96-126`; `src/PlexToJellyfinSync/Security/LoginPage.cs` ·
+> **Criterion:** C · **Severity:** 🟡 Medium
+>
+> `POST /login` is registered with `.DisableAntiforgery()` — necessary because `LoginPage.Html` is
+> static markup with no antiforgery token field, but the net effect is that the login endpoint
+> accepts cross-site POSTs. Combined with no rate limiting (see F-601) this allows unlimited
+> cross-origin or scripted submission attempts. Separately, the token field posts to a plain
+> `<form method="post">` (not the URL), so the token itself does not leak via the address bar,
+> history, or referrer — that part is sound. There is also no logout endpoint or UI control: once a
+> session cookie is issued, the only way to end it from the browser side is to wait out the 8-hour
+> `MaxAge`/cache expiry (the cookie is `HttpOnly`, so client script cannot clear it either), and the
+> `/login?error=1` redirect on a wrong token is never actually surfaced to the user (the static login
+> page never inspects `location.search`), so a failed attempt looks identical to a slow page load.
+>
+> **Recommendation:** Add a basic per-IP or per-process throttle on `POST /login` (mitigates both
+> the CSRF-amplified brute force here and the timing attack in F-601). Add a `POST /logout` route
+> that removes the cache entry and clears the cookie. Wire the login page's error state to actually
+> render a message for `?error=1`.
+
+#### F-606 — `Dashboard.razor` mutates component state outside the `InvokeAsync` callback, unlike the equivalent code in `Logs.razor`
+
+> **File:** `src/PlexToJellyfinSync/Components/Pages/Dashboard.razor:72-76` (compare
+> `Logs.razor:60-72`) · **Criterion:** A · **Severity:** 🟡 Medium
+>
+> `Dashboard.razor`'s `OnChanged` handler is:
+> ```csharp
+> private void OnChanged()
+> {
+>     _status = StatusProvider.GetSnapshot();
+>     InvokeAsync(StateHasChanged);
+> }
+> ```
+> `SyncStatusService.Changed` (Session 4) is raised synchronously from whatever thread called
+> `Update` — typically the Worker's background thread, not the Blazor renderer's synchronization
+> context. `_status = StatusProvider.GetSnapshot()` therefore runs on that foreign thread and
+> mutates component state *before* the call is dispatched into the renderer via `InvokeAsync`. The
+> equivalent code in `Logs.razor` does this correctly — the read and the mutation both happen
+> **inside** the `InvokeAsync` delegate:
+> ```csharp
+> InvokeAsync(() =>
+> {
+>     _entries = LogStore.GetEntries().ToList();
+>     StateHasChanged();
+> });
+> ```
+> The `Dashboard.razor` version is benign in practice today (`GetSnapshot()` is internally
+> lock-protected and a reference-field assignment is atomic, so there is no torn read), but it
+> violates the documented Blazor threading contract that all component-state mutation should be
+> dispatched through the renderer's synchronization context, and is inconsistent with the sibling
+> page doing the same job the recommended way.
+>
+> **Recommendation:** Move `_status = StatusProvider.GetSnapshot();` inside the `InvokeAsync`
+> lambda in `Dashboard.razor`, mirroring `Logs.razor`.
+
+#### F-607 — `Worker.SafeReconcileAsync`'s generic `catch` is unreachable, and its log message is mislabeled for periodic calls
+
+> **File:** `src/PlexToJellyfinSync/Worker.cs:90-104` (called at `:54` and `:77`) · **Criterion:** A ·
+> **Severity:** 🔵 Low
+>
+> `SafeReconcileAsync` wraps `_orchestrator.ReconcileAsync(cancellationToken)` in
+> `catch (Exception ex) { _logger.LogError(ex, "Initial reconcile failed"); }`. Per Session 4,
+> `SyncOrchestrator.ReconcileAsync` already catches `Exception` internally and routes it to
+> `HandleError`, re-throwing only `OperationCanceledException` — so the generic branch in
+> `SafeReconcileAsync` can, as written today, never execute; only the (re-thrown, by-design)
+> cancellation path reaches the call site, and that is not caught here. Independently of
+> reachability, the message "Initial reconcile failed" is also wrong for the second call site
+> (`:77`), which runs on every periodic full-reconcile cycle, not just at startup.
+>
+> **Recommendation:** Either drop the now-redundant `try`/`catch` from `SafeReconcileAsync` (relying
+> explicitly on the orchestrator's documented swallow-and-report contract) or keep it as deliberate
+> defense-in-depth against a future change to that contract — but in the latter case fix the message
+> to not say "Initial" (e.g. "Reconcile failed") so it is accurate for both call sites.
+
+#### F-608 — `Worker` captures `SyncOptions` once at construction; poll/reconcile intervals cannot be changed without a restart
+
+> **File:** `src/PlexToJellyfinSync/Worker.cs:17,33,38,49-50` · **Criterion:** D · **Severity:** 🔵 Low
+>
+> The constructor takes `IOptions<SyncOptions> options` and stores `_options = options.Value;` once;
+> `ExecuteAsync` computes `pollInterval`/`reconcileInterval` from that frozen snapshot a single time
+> before entering the loop. `PollIntervalSeconds` and `FullReconcileIntervalHours` are exactly the
+> kind of operational tuning knob a self-hosted operator would want to adjust without restarting the
+> container (the project supports live `appsettings.json` reload by default via the standard JSON
+> file provider, but `Worker` never observes it). The `Math.Max(5, ...)`/`Math.Max(1, ...)` clamps are
+> a reasonable defensive measure against the unvalidated options noted in F-101/F-504, but they only
+> run once.
+>
+> **Recommendation:** If live tuning is desired, switch to `IOptionsMonitor<SyncOptions>` and read
+> `.CurrentValue` at the top of each loop iteration instead of caching a single snapshot. If a
+> restart-to-apply model is intentional (simplest, and arguably fine for a single-operator tool),
+> document that explicitly so it is not mistaken for an oversight.
+
+#### F-609 — `@code` blocks in `Dashboard.razor`, `Logs.razor` and `Error.razor` carry no XML docs and are not wrapped in `#region` blocks
+
+> **File:** `src/PlexToJellyfinSync/Components/Pages/Dashboard.razor:63-94`,
+> `src/PlexToJellyfinSync/Components/Pages/Logs.razor:48-92`,
+> `src/PlexToJellyfinSync/Components/Pages/Error.razor:27-36` · **Criterion:** B · **Severity:** 🟡 Medium
+>
+> `.claude/CLAUDE.md`'s `#region`/XML-doc rules ("wrap every type's members ... as you write the
+> code", "XML docs on all members") are stated without a carve-out for Razor `@code` blocks, but none
+> of the three pages with non-trivial code-behind follow them: `Dashboard.razor`'s `_status` field
+> and `OnInitialized`/`OnChanged`/`Format`/`Uptime`/`Dispose` members, `Logs.razor`'s `_entries`/
+> `_minLevel`/`_filter`/`_paused` fields and `OnInitialized`/`OnEntryAdded`/`Filtered`/
+> `ShortCategory`/`Dispose` members, and `Error.razor`'s `HttpContext`/`RequestId`/`ShowRequestId`
+> members are all undocumented and ungrouped. This is consistent across all three files (so at least
+> it is not an isolated slip), suggesting it may be a deliberate, unstated convention that Razor
+> `@code` blocks are exempt — but as written it is a clear-cut violation of the letter of the rule.
+>
+> **Recommendation:** Confirm with the team whether Razor `@code` blocks are intended to be exempt
+> from the region/XML-doc rules; if not, add `#region Fields`/`#region Methods` and XML docs to the
+> three files for consistency with every C# file in the rest of the codebase. If they are meant to be
+> exempt, say so explicitly in `.claude/CLAUDE.md` so the rule's scope is unambiguous (relevant to
+> Session 8's consistency check).
+
+#### F-610 — `GlobalSuppressions.cs`: all four suppressions share the same generic, non-traceable justification and are scoped module-wide
+
+> **File:** `src/GlobalSuppressions.cs:8-13` · **Criterion:** B · **Severity:** 🟡 Medium
+>
+> Every `[assembly: SuppressMessage(...)]` carries `Justification = "SonarCloud"` — that names the
+> tool that raised the diagnostic, not why it is acceptable to suppress it project-wide. Plausible,
+> traceable reasons exist for at least two of the four (S1125 "Boolean literals should not be
+> redundant" is suppressed because `.claude/CLAUDE.md` mandates the `== false` pattern that this rule
+> flags as redundant; S6968 "Actions ... annotated with ProducesResponseType" is suppressed because
+> the project's minimal-API endpoints in `Program.cs` don't use OpenAPI/Swagger), but none of that
+> reasoning is captured in the suppression itself. All four are also `Scope = "module"` (whole
+> assembly) rather than scoped to the specific member/type that motivated them — most notably
+> S1244 "Floating point numbers should not be tested for equality" (a *Major Bug* category), which
+> now silences that diagnostic everywhere in the Host project, not just at whatever call site
+> originally needed it, so a genuinely risky future float-equality bug elsewhere in this project would
+> be silently masked.
+>
+> **Recommendation:** Replace the generic justification text with a one-line explanation of *why* each
+> rule is suppressed in this codebase (the two inferred above, plus the actual reasons for S2325 and
+> S1244). Narrow `Scope`/`Target` to the specific member or file that needs the suppression wherever
+> feasible, especially for the Major Bug-category S1244.
+
+#### F-611 — Host project references `PlexToJellyfinSync.Data` but uses no type from it
+
+> **File:** `src/PlexToJellyfinSync/PlexToJellyfinSync.csproj:24` · **Criterion:** D · **Severity:** 🔵 Low
+>
+> `<ProjectReference Include="..\PlexToJellyfinSync.Data\..." />` is declared, but no `.cs`/`.razor`
+> file under `src/PlexToJellyfinSync` references the `PlexToJellyfinSync.Data` namespace (`grep -rn
+> "PlexToJellyfinSync\.Data" src/PlexToJellyfinSync` matches only the `.csproj` itself). The Host
+> consumes Plex data exclusively through the Core abstractions/models (`SyncStatusViewData`,
+> `LogEntry`, …) and the Service layer's orchestrator — never the raw DTOs. This mirrors F-201 from
+> Session 2 (Data → Core has the same kind of unused reference) and blurs the intended
+> Core ← Data ← Service ← Host layering by implying a coupling that does not exist.
+>
+> **Recommendation:** Remove the unused `ProjectReference` to `PlexToJellyfinSync.Data`.
+
+#### F-612 — `Deterministic` disabled in both build configurations
+
+> **File:** `src/PlexToJellyfinSync/PlexToJellyfinSync.csproj:9,14` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> Both the Debug and Release `PropertyGroup`s set `<Deterministic>False</Deterministic>` — the same
+> template-inherited override already flagged for Core (F-105), Data (F-202), Service (F-507) and the
+> test project (F-704), now confirmed in the Host project as well (a fifth occurrence). Deterministic
+> compilation is the default and desirable for reproducible/CI builds.
+>
+> **Recommendation:** Remove the override (or set it to `True`), ideally by centralising the decision
+> in `Directory.Build.props` together with the other four occurrences.
 
 ### Session 7 — Tests
 
@@ -1015,28 +1312,28 @@ Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **qui
 | `src/PlexToJellyfinSync.Service/Logging/InMemoryLogger.cs` | 5 | deep | ✅ | F-501, F-503 |
 | `src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs` | 5 | deep | ✅ | F-304, F-504, F-505, F-506 |
 | `src/PlexToJellyfinSync.Service/PlexToJellyfinSync.Service.csproj` | 5 | quick | ✅ | F-507 |
-| `src/GlobalSuppressions.cs` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Program.cs` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Worker.cs` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Security/LoginPage.cs` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Security/TokenAuthMiddleware.cs` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/App.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Routes.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/_Imports.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Layout/MainLayout.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Layout/MainLayout.razor.css` | 6 | quick | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Layout/ReconnectModal.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Layout/ReconnectModal.razor.css` | 6 | quick | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Layout/ReconnectModal.razor.js` | 6 | quick | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Pages/Dashboard.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Pages/Error.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Pages/Logs.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/Components/Pages/NotFound.razor` | 6 | deep | ⬜ | |
-| `src/PlexToJellyfinSync/wwwroot/app.css` | 6 | quick | ⬜ | |
-| `src/PlexToJellyfinSync/appsettings.json` | 6 | quick | ⬜ | |
-| `src/PlexToJellyfinSync/appsettings.Development.json` | 6 | quick | ⬜ | |
-| `src/PlexToJellyfinSync/Properties/launchSettings.json` | 6 | quick | ⬜ | |
-| `src/PlexToJellyfinSync/PlexToJellyfinSync.csproj` | 6 | quick | ⬜ | |
+| `src/GlobalSuppressions.cs` | 6 | deep | ✅ | F-610 |
+| `src/PlexToJellyfinSync/Program.cs` | 6 | deep | ✅ | F-601, F-602, F-603 |
+| `src/PlexToJellyfinSync/Worker.cs` | 6 | deep | ✅ | F-607, F-608 |
+| `src/PlexToJellyfinSync/Security/LoginPage.cs` | 6 | deep | ✅ | F-605 |
+| `src/PlexToJellyfinSync/Security/TokenAuthMiddleware.cs` | 6 | deep | ✅ | F-604 |
+| `src/PlexToJellyfinSync/Components/App.razor` | 6 | deep | ✅ | none |
+| `src/PlexToJellyfinSync/Components/Routes.razor` | 6 | deep | ✅ | none |
+| `src/PlexToJellyfinSync/Components/_Imports.razor` | 6 | deep | ✅ | none |
+| `src/PlexToJellyfinSync/Components/Layout/MainLayout.razor` | 6 | deep | ✅ | none |
+| `src/PlexToJellyfinSync/Components/Layout/MainLayout.razor.css` | 6 | quick | ✅ | none |
+| `src/PlexToJellyfinSync/Components/Layout/ReconnectModal.razor` | 6 | deep | ✅ | none |
+| `src/PlexToJellyfinSync/Components/Layout/ReconnectModal.razor.css` | 6 | quick | ✅ | none |
+| `src/PlexToJellyfinSync/Components/Layout/ReconnectModal.razor.js` | 6 | quick | ✅ | none |
+| `src/PlexToJellyfinSync/Components/Pages/Dashboard.razor` | 6 | deep | ✅ | F-606, F-609 |
+| `src/PlexToJellyfinSync/Components/Pages/Error.razor` | 6 | deep | ✅ | F-609 |
+| `src/PlexToJellyfinSync/Components/Pages/Logs.razor` | 6 | deep | ✅ | F-609 |
+| `src/PlexToJellyfinSync/Components/Pages/NotFound.razor` | 6 | deep | ✅ | none |
+| `src/PlexToJellyfinSync/wwwroot/app.css` | 6 | quick | ✅ | none |
+| `src/PlexToJellyfinSync/appsettings.json` | 6 | quick | ✅ | none |
+| `src/PlexToJellyfinSync/appsettings.Development.json` | 6 | quick | ✅ | none |
+| `src/PlexToJellyfinSync/Properties/launchSettings.json` | 6 | quick | ✅ | none |
+| `src/PlexToJellyfinSync/PlexToJellyfinSync.csproj` | 6 | quick | ✅ | F-611, F-612 |
 | `tests/PlexToJellyfinSync.Tests/MSTestSettings.cs` | 7 | deep | ✅ | none |
 | `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs` | 7 | deep | ✅ | F-703 |
 | `tests/PlexToJellyfinSync.Tests/PathMapperTests.cs` | 7 | deep | ✅ | F-703 |
