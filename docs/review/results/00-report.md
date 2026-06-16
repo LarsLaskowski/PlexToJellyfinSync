@@ -662,7 +662,173 @@ tests at all (F-416).
 
 ### Session 5 — Service III (Logging & DI)
 
-_Not yet performed._
+The logging sink and the DI registration are small, disciplined and clean against criterion B: all
+four C# files use file-scoped namespaces, hold exactly one top-level `public sealed class` /
+`static class`, wrap their members in `#region` blocks grouped by kind (`Fields`, `Constructors`,
+`Events`, the interface regions `ILoggerProvider`/`ILogStore`/`ILogger` named after the interface and
+not ending in "implementation", and `IDisposable`), carry English XML docs on every member, use
+`== false` (`IsEnabled(logLevel) == false`, `string.IsNullOrWhiteSpace(...) == false`), `var`,
+LINQ method syntax and `_camelCase` readonly fields, and have no primary constructors. `using`
+directives sit outside the namespace, System first (`System.Collections.Concurrent` before the
+`Microsoft.*` / `PlexToJellyfinSync.*` groups), files are CRLF with no trailing newline — **no B
+findings**.
+
+The core mechanics are sound. **The ring buffer is correctly bounded and thread-safe:**
+`InMemoryLogStore` guards a `Queue<LogEntry>` with a `Lock`, enqueues under the lock and dequeues
+down to `Math.Max(1, LogBufferSize)` so memory is hard-capped (default 1000) with no leak, and
+`GetEntries` returns a `ToList` snapshot taken under the lock — so the Worker writing and the Blazor
+circuits reading never tear. `InMemoryLogProvider` caches one `InMemoryLogger` per category in a
+`ConcurrentDictionary` (the `GetOrAdd` factory may run twice under a race but only one instance is
+stored — harmless), carries `[ProviderAlias("InMemory")]` so configuration can target it by alias,
+and `Dispose` clears the cache; it holds no unmanaged/disposable resources, so the trivial `Dispose`
+is correct. **Registration is complete:** every Core abstraction is bound to exactly one
+implementation — `ILogStore`→`InMemoryLogStore`, `ISyncStatusProvider`→`SyncStatusService`,
+`IPathMapper`→`PathMapper`, `INfoWriter`→`NfoWriter`, `IStateStore`→`StateStore`,
+`ISyncOrchestrator`→`SyncOrchestrator`, `IPlexClient`→`PlexClient` (typed client) — plus the
+concrete `WatchAggregator`. **Lifetimes are right for the Worker/Blazor interplay:** all shared
+state is `Singleton`, and the `X-Plex-Token` is attached as an HTTP *header* on the typed client
+(not a query string), consistent with the Session 3 token-handling note.
+
+The findings below concern: the logger's hardcoded level floor that ignores logging configuration
+(A); the unguarded, un-coalesced `EntryAdded` event (A/D); the store being an unredacted mirror of
+all log text on a dashboard that is public by default (C); the absence of options validation /
+`ValidateOnStart` on the registration (D); a magic-string options binding (B/D); the split
+registration site for the logger provider (D); and the template build-determinism setting (E). The
+typed-client **captive dependency** is the focus-area item raised as **F-304** in Session 3 — this
+session **confirms** it from the registration side: `AddHttpClient<IPlexClient, PlexClient>`
+(transient handler, default 2-minute rotation) is consumed only by singletons
+(`SyncOrchestrator`), so `IHttpClientFactory`'s handler rotation never takes effect. For the single
+fixed internal Plex host this is acceptable if adopted deliberately; otherwise inject
+`IHttpClientFactory` and create a per-cycle client (see F-304). No new ID is assigned; F-304 is
+listed against `ServiceCollectionExtensions.cs` in the checklist.
+
+#### F-501 — `InMemoryLogger.IsEnabled` hardcodes an Information floor and ignores logging configuration
+
+> **File:** `src/PlexToJellyfinSync.Service/Logging/InMemoryLogger.cs:45-48` · **Criterion:** A · **Severity:** 🔵 Low
+>
+> `IsEnabled` returns `logLevel >= LogLevel.Information` unconditionally. The framework's composite
+> logger applies the configured `Logging:LogLevel` filters (including any rule for the `InMemory`
+> alias) *before* calling this sink, so configuration can only ever raise the threshold — this
+> hardcoded floor means `Debug`/`Trace` can **never** reach the in-memory store even when explicitly
+> enabled in configuration. As a direct consequence the live log view
+> (`Components/Pages/Logs.razor:13-14`) offers `Trace` and `Debug` options in its level dropdown that
+> can never display anything, because the store never captures below `Information`. The sink also
+> ignores per-category configuration of its own (it relies entirely on the upstream filter), which is
+> acceptable, but the fixed floor is a silent limitation rather than a configurable one.
+>
+> **Recommendation:** Drop the hardcoded comparison and let the configured filter decide
+> (`return true;`, or honor a `DashboardOptions`-supplied minimum level), so the dashboard can surface
+> `Debug`/`Trace` when configured and the UI's level options are meaningful. If an Information floor is
+> intended, make it explicit/configurable and align the `Logs.razor` dropdown to it.
+
+#### F-502 — `EntryAdded` is raised per entry with no exception isolation and no coalescing
+
+> **File:** `src/PlexToJellyfinSync.Service/Logging/InMemoryLogStore.cs:66` · **Criterion:** A/D · **Severity:** 🔵 Low
+>
+> `Add` raises `EntryAdded?.Invoke(entry)` (correctly outside the lock, and the delegate is captured to
+> a local so concurrent subscribe/unsubscribe is safe), but with two weaknesses. First, **no exception
+> isolation:** if a subscriber throws synchronously, the exception unwinds back through `Add` into
+> `InMemoryLogger.Log` and thus into *whatever code emitted the log line* — most often the Worker /
+> `SyncOrchestrator`, where it is caught by the cycle-level handler and counted as a sync failure
+> (the same class of problem as F-413 for `SyncStatusService.Changed`). The current Blazor subscriber
+> (`Logs.razor:60-72`) marshals via `InvokeAsync`, so it does not throw synchronously today, but the
+> contract is unguarded. Second, **the event fires on every single entry:** a full reconcile of a large
+> library emits thousands of log lines, each raising `EntryAdded`, and the dashboard handler re-reads
+> the full snapshot and re-renders on each — the logging analogue of the status-notification flooding
+> in F-415, a scalability concern for the in-scope "large libraries" case.
+>
+> **Recommendation:** Invoke subscribers defensively (iterate `GetInvocationList()` / wrap in
+> `try`/`catch` that logs-and-continues) so a faulty UI handler cannot disrupt the Worker, and consider
+> coalescing/throttling notifications (e.g. at most one per N ms) — or let the consumer poll — so log
+> bursts do not flood the Blazor circuits.
+
+#### F-503 — The in-memory store mirrors all log text unredacted into a dashboard that is public by default
+
+> **File:** `src/PlexToJellyfinSync.Service/Logging/InMemoryLogger.cs:58-67`,
+> `src/PlexToJellyfinSync.Service/Logging/InMemoryLogStore.cs:54-67` · **Criterion:** C · **Severity:** 🔵 Low
+>
+> The logger copies `Message = formatter(state, exception)` and `Exception = exception?.ToString()`
+> verbatim into the store, which feeds the live log view. The sink is **category-agnostic** — it
+> captures every category at `Information`+, including framework logs (e.g. `Microsoft.Extensions.Http`)
+> — and performs **no scrubbing/redaction**. Today the Plex token does not reach the logs (it is sent as
+> a header and never logged — Session 3), so there is no active leak. But the design is leak-prone by
+> construction: anything a future log statement or a more verbose logging configuration (e.g. enabling
+> HttpClient request/header logging) puts into a message or exception is surfaced unfiltered in a web UI
+> that, per F-103, is **publicly reachable when `Dashboard.Token` is empty** (the default). The two
+> defaults compound: an unauthenticated dashboard plus an unredacted full-fidelity log mirror.
+>
+> **Recommendation:** Treat the log view as a potential exfiltration surface: keep the dashboard
+> authenticated by default (F-103), and consider a redaction pass (mask known secret patterns / the
+> configured token) at the sink before storing, or restrict captured categories. At minimum, document
+> that operators must not enable secret-bearing log categories while the dashboard is exposed.
+
+#### F-504 — Options are bound without DataAnnotations validation or `ValidateOnStart`
+
+> **File:** `src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs:29-34` · **Criterion:** D · **Severity:** 🟡 Medium
+>
+> Every options type is registered with a plain `services.Configure<T>(section)` and **no validation**:
+> there is no `AddOptions<T>().Bind(...).ValidateDataAnnotations().ValidateOnStart()`. This is the
+> registration-side counterpart to F-101 (the options classes carry no constraints): a missing
+> `Plex:BaseUrl`/`Plex:Token`, a zero/negative `Sync:PollIntervalSeconds` /
+> `Sync:FullReconcileIntervalHours`, or a bad `State:Directory` is not caught at startup and only
+> surfaces later as a runtime failure (first HTTP call, a broken timer, or a write error). The process
+> doc's criterion D explicitly asks for options "validatable at startup", and since this method is the
+> single place the options are registered, the validation wiring belongs here.
+>
+> **Recommendation:** Switch to `AddOptions<T>().Bind(configuration.GetSection(T.SectionName))
+> .ValidateDataAnnotations().ValidateOnStart()` for the options that have required/ranged members
+> (pairs with the DataAnnotations recommended in F-101), so misconfiguration fails fast at boot rather
+> than mid-run.
+
+#### F-505 — `PathMappings` is bound via a magic-string section name and as a bare `List<PathMapping>`
+
+> **File:** `src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs:34` · **Criterion:** B/D · **Severity:** 🔵 Low
+>
+> Every other options binding uses the type's `SectionName` constant
+> (`PlexOptions.SectionName`, `SyncOptions.SectionName`, …), but the path mappings are bound with a raw
+> string literal `configuration.GetSection("PathMappings")` and as `IOptions<List<PathMapping>>` rather
+> than a dedicated options class. The magic string is the kind of un-checked constant the
+> `SectionName` convention exists to avoid (a typo here or in `appsettings.json` silently yields an
+> empty list and every item becomes "unmapped"), and binding a bare collection skips the place where a
+> `SectionName` constant and any validation would naturally live.
+>
+> **Recommendation:** Introduce a small options type (e.g. `PathMappingOptions` with a
+> `List<PathMapping> Mappings` and a `SectionName` constant) or at least hoist the `"PathMappings"`
+> literal into a shared constant, so the section name is defined once and is consistent with the other
+> options.
+
+#### F-506 — The in-memory logger provider is wired in the Host, separate from its `ILogStore`
+
+> **File:** `src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs:36`,
+> `src/PlexToJellyfinSync/Program.cs:41-42` · **Criterion:** D · **Severity:** ⚪ Note
+>
+> `AddPlexToJellyfinSync` registers `ILogStore` (the buffer), but the `InMemoryLogProvider` that feeds
+> it is registered separately in `Program.cs` as `AddSingleton<ILoggerProvider>(...)`. The two halves
+> of one logging pipeline therefore live in two registration sites, so a consumer who calls
+> `AddPlexToJellyfinSync` gets the store but **no** provider populating it unless they also remember the
+> Host wiring. This is a cohesion observation, not a bug (an `ILoggerProvider` can be added to a plain
+> `IServiceCollection`, exactly as the Host does).
+>
+> **Recommendation:** Optionally move the `ILoggerProvider`/`InMemoryLogProvider` registration into
+> `AddPlexToJellyfinSync` (or a dedicated `AddInMemoryLogging` extension) so the store and its provider
+> are wired together and the logging pipeline is self-contained.
+
+#### F-507 — `Deterministic` disabled in both build configurations
+
+> **File:** `src/PlexToJellyfinSync.Service/PlexToJellyfinSync.Service.csproj:8,13` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> Both the Debug and Release `PropertyGroup`s set `<Deterministic>False</Deterministic>` — the same
+> template-inherited override flagged for Core (F-105), Data (F-202) and the test project (F-704), now
+> confirmed in a fourth project. Deterministic compilation is the default and is desirable for
+> reproducible/CI builds. Otherwise the `.csproj` is clean under criterion E: the two
+> `PackageReference`s (`Microsoft.Extensions.Hosting`, `Microsoft.Extensions.Http`) carry **no inline
+> versions** (CPM-compliant via `Directory.Packages.props`), the Reihitsu.Analyzer is wired in centrally
+> via `Directory.Build.props` (no per-project analyzer reference needed), and the `ProjectReference`s
+> point only to **Core and Data** as required — both of which the Service actually consumes (unlike the
+> dead Data→Core reference in F-201).
+>
+> **Recommendation:** Remove the override (or set `True`), ideally by centralising the decision in
+> `Directory.Build.props` together with F-105/F-202/F-704.
 
 ### Session 6 — Host (Blazor, Worker, Security)
 
@@ -844,11 +1010,11 @@ Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **qui
 | `src/PlexToJellyfinSync.Service/State/StateStore.cs` | 4 | deep | ✅ | F-411, F-412, F-416 |
 | `src/PlexToJellyfinSync.Service/State/SyncStateFile.cs` | 4 | deep | ✅ | F-412, F-416 |
 | `src/PlexToJellyfinSync.Service/SyncStatusService.cs` | 4 | deep | ✅ | F-413, F-414, F-415, F-416 |
-| `src/PlexToJellyfinSync.Service/Logging/InMemoryLogProvider.cs` | 5 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/Logging/InMemoryLogStore.cs` | 5 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/Logging/InMemoryLogger.cs` | 5 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs` | 5 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/PlexToJellyfinSync.Service.csproj` | 5 | quick | ⬜ | |
+| `src/PlexToJellyfinSync.Service/Logging/InMemoryLogProvider.cs` | 5 | deep | ✅ | none |
+| `src/PlexToJellyfinSync.Service/Logging/InMemoryLogStore.cs` | 5 | deep | ✅ | F-502, F-503 |
+| `src/PlexToJellyfinSync.Service/Logging/InMemoryLogger.cs` | 5 | deep | ✅ | F-501, F-503 |
+| `src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs` | 5 | deep | ✅ | F-304, F-504, F-505, F-506 |
+| `src/PlexToJellyfinSync.Service/PlexToJellyfinSync.Service.csproj` | 5 | quick | ✅ | F-507 |
 | `src/GlobalSuppressions.cs` | 6 | deep | ⬜ | |
 | `src/PlexToJellyfinSync/Program.cs` | 6 | deep | ⬜ | |
 | `src/PlexToJellyfinSync/Worker.cs` | 6 | deep | ⬜ | |
