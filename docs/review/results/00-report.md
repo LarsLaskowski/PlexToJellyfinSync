@@ -380,7 +380,285 @@ layer (D).
 
 ### Session 4 — Service II (Sync & Persistence)
 
-_Not yet performed._
+The sync and persistence core is functionally coherent and its async hygiene is excellent: every
+`await` in `SyncOrchestrator`, `StateStore` and `NfoWriter` carries `.ConfigureAwait(false)`, the
+`CancellationToken` is threaded through every method and checked with `ThrowIfCancellationRequested()`
+inside each loop, there is no `async void` and no blocking `.Result`/`.Wait()`. `SyncOrchestrator`
+re-throws `OperationCanceledException` before its broad `catch` so shutdown is not masked, and
+**idempotency holds at the disk level**: a second incremental run with no new history performs no
+writes (the watermark is only advanced when `maxViewed > since`), and the full reconcile re-visits
+every item but relies on `NfoWriter` returning `Skipped` when the watch fields already match — so an
+unchanged library produces zero file writes. `NfoWriter` correctly preserves unrelated NFO content
+(it parses the existing file with `LoadOptions.PreserveWhitespace` and only touches `watched`/
+`playcount`/`lastplayed`), and `MovieNfoFilenameStrategy` is implemented correctly (the `default`
+switch arm maps `PreferExistingMovieNfo = 0` to "movie.nfo if present, else video-named"). Thread
+safety of the dashboard-facing status is sound: `SyncStatusService` guards a single mutable instance
+with a `Lock` and returns deep-copied snapshots, and `StateStore` serialises all file access through a
+`SemaphoreSlim`.
+
+The findings below cluster around one recurring theme — **non-atomic in-place writes** (F-401 for the
+NFO files, F-411 for the state file), which can corrupt or empty a user's existing data on a crash or
+cancellation mid-write — plus the **per-item error handling in `SyncOrchestrator`** (F-406), where a
+single bad item aborts the whole cycle and, because the watermark never advances past it, can
+permanently stall the incremental sync. The remainder are robustness (malformed-NFO handling,
+folder-layout assumptions, owner-id caching), a god-class observation (F-407), two `#region`
+grouping slips (F-404, F-410), and the test-coverage gap that four of these five classes have no
+tests at all (F-416).
+
+#### F-401 — NFO files are written in place and non-atomically; a crash mid-write can empty an existing NFO
+
+> **File:** `src/PlexToJellyfinSync.Service/NfoWriter.cs:150` (write), `:359`, `:347`, `:379` (callers) · **Criterion:** A · **Severity:** 🟠 High
+>
+> `SaveAsync` opens the **target** path directly with `new FileStream(path, FileMode.Create, …)`, which
+> truncates the existing file to zero length *before* the new content is serialised. If the process is
+> killed, the host shuts down, or the passed `CancellationToken` fires while `document.SaveAsync` is
+> still running, the user's existing `.nfo` is left truncated or empty — the very metadata the project
+> promises to preserve is lost. This is the data-integrity concern called out in criterion A
+> ("Is existing NFO content preserved on write?") and it applies to the update path (`:359`), the
+> rebuild path (`:347`) and the create path (`:379`).
+>
+> **Recommendation:** Write to a sibling temp file (e.g. `path + ".tmp"`) and atomically replace the
+> target via `File.Move(temp, path, overwrite: true)` (or `File.Replace`) only after the stream has
+> flushed and disposed successfully. That way a partial write never overwrites a good file.
+
+#### F-402 — Malformed or foreign NFO content throws an unhandled `XmlException`; the defensive `root is null` branch is unreachable
+
+> **File:** `src/PlexToJellyfinSync.Service/NfoWriter.cs:341,344` · **Criterion:** A · **Severity:** 🟡 Medium
+>
+> When the target file exists, `XDocument.Parse(xml, …)` is called with no surrounding `try`/`catch`.
+> A broken or non-XML `.nfo` (truncated by an earlier crash, hand-edited, or written by another tool in
+> a different shape) makes `Parse` throw `XmlException`, which propagates out of `WriteAsync`. Because
+> `SyncOrchestrator` has no per-item guard (see F-406), that single malformed file aborts the entire
+> sync cycle. Separately, the defensive `if (root is null)` rebuild branch at line 344 is effectively
+> **dead code**: `XDocument.Parse` either returns a document with a root element or throws "Root element
+> is missing", so `document.Root` is never null after a successful parse. The real failure mode
+> (a parse exception) is therefore unhandled while the handled case cannot occur.
+>
+> **Recommendation:** Wrap the read/parse in a `try`/`catch (XmlException)` and, on failure, either skip
+> the item with a warning or rebuild the document from scratch (the behaviour the unreachable branch was
+> presumably meant to provide). This both makes the file robust against foreign/broken NFOs and removes
+> the dead branch.
+
+#### F-403 — `NfoWriter` does not verify the resolved target stays under the library root
+
+> **File:** `src/PlexToJellyfinSync.Service/NfoWriter.cs:163-192,334-336` · **Criterion:** C · **Severity:** 🔵 Low
+>
+> `WriteAsync` writes to whatever `ResolveTargetPath` produces from the `localPath` handed in by
+> `SyncOrchestrator`, which is the raw output of `PathMapper.MapToLocal`. `NfoWriter` performs no
+> containment check that the resolved path is rooted under the configured Local prefix. Session 3 found
+> that `PathMapper`'s traversal guard is purely textual and misses a leading `..` segment (F-306), so a
+> manipulated Plex file path could in principle steer a write outside the intended library root. The
+> practical risk is low (single trusted Plex owner, Linux/Docker target), but the write side currently
+> relies entirely on the mapper's incomplete guard with no defence-in-depth at the point of writing.
+>
+> **Recommendation:** As recommended in F-306, have `NfoWriter` canonicalise the resolved target
+> (`Path.GetFullPath`) and assert it is rooted under the mapped Local prefix before opening the stream;
+> reject and log anything that escapes.
+
+#### F-404 — The static `SaveAsync` lives in `#region Methods` instead of `#region Static methods`
+
+> **File:** `src/PlexToJellyfinSync.Service/NfoWriter.cs:130,140` · **Criterion:** B · **Severity:** 🔵 Low
+>
+> `GetRootName`, `SetChild` and `AddIfNotEmpty` are correctly grouped under `#region Static methods`,
+> but `SaveAsync` — which is also `private static` — sits at the top of `#region Methods` alongside the
+> instance methods. `.claude/CLAUDE.md` requires `#region` blocks grouped by member kind, so a static
+> method belongs in the static-methods region.
+>
+> **Recommendation:** Move `SaveAsync` into the `#region Static methods` block (or merge the two method
+> regions if the split is not wanted), keeping member-kind grouping consistent.
+
+#### F-405 — On update, the original encoding/BOM is not preserved and appended elements are unindented
+
+> **File:** `src/PlexToJellyfinSync.Service/NfoWriter.cs:23,145,340,359` · **Criterion:** A · **Severity:** ⚪ Note
+>
+> The existing file is read with `File.ReadAllTextAsync` (which auto-detects a BOM and decodes
+> accordingly) but always rewritten as UTF-8 **without** a BOM via the shared `_utf8NoBom` encoder. An
+> NFO that originally carried a UTF-8/UTF-16 BOM (common for Kodi/Windows-authored files) silently loses
+> it, and a file declaring a non-UTF-8 encoding in its XML declaration is re-emitted as UTF-8. Also, the
+> update path saves with `indent: false` while preserving existing whitespace, so the newly added
+> `watched`/`playcount`/`lastplayed` elements are appended without indentation and can look misaligned
+> against the surrounding pretty-printed content. Neither affects correctness — Jellyfin parses both —
+> so this is recorded as a note on output fidelity.
+>
+> **Recommendation:** If byte-for-byte fidelity matters, detect and re-emit the original BOM/encoding;
+> otherwise document UTF-8-no-BOM as the canonical output. The indentation cosmetics are acceptable
+> given the deliberate choice to preserve existing whitespace.
+
+#### F-406 — An error on a single item aborts the whole sync cycle and can permanently stall the watermark
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs:270-285,297-312` (also `:377-384`, `:397-416`) · **Criterion:** A · **Severity:** 🟠 High
+>
+> The per-entry loop in `ProcessHistoryAsync` (and the per-item loops in `ReconcileMovieLibraryAsync` /
+> `ReconcileSeriesLibraryAsync`) call `ProcessRatingKeyAsync` / `WriteItemAsync` /
+> `UpdateSeriesAggregatesAsync` with **no per-item `try`/`catch`**. Any exception from one item — a
+> malformed existing NFO (F-402), an I/O error, a transient Plex hiccup on one `GetMediaItemAsync` —
+> propagates straight to the cycle-level `catch (Exception ex) { HandleError(ex); }`, so every remaining
+> item in the batch is skipped. The process doc lists exactly this as a focus area: "an error in one
+> item must not abort the cycle." Worse, in the incremental path the high-water mark is only persisted
+> *after* the loop completes (`:297-301`); when the loop aborts, the watermark is never advanced, so the
+> next poll re-fetches the same window and fails on the same poison entry again — the incremental sync
+> can be stuck indefinitely behind one bad item.
+>
+> **Recommendation:** Wrap each item's processing in its own `try`/`catch` (re-throwing
+> `OperationCanceledException`), log-and-continue on failure, and increment an error counter so the
+> cycle completes and the watermark can advance past entries that cannot be processed. Consider tracking
+> the watermark as "min unprocessed" so a mid-batch failure does not silently skip earlier successes.
+
+#### F-407 — `SyncOrchestrator` concentrates too many responsibilities
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs:14-420` · **Criterion:** D · **Severity:** 🟡 Medium
+>
+> At ~420 lines the class owns owner-account resolution and caching, the incremental history pipeline,
+> the full reconcile for both movie and series libraries, the season/series aggregate computation and
+> writing, path-mapping orchestration, status mutation, and error handling. These are several distinct
+> concerns; the aggregation logic (`UpdateSeriesAggregatesAsync`) and the reconcile-by-library-kind
+> logic in particular could be separate collaborators. The monolith is hard to unit-test in isolation
+> (see F-416) and makes the per-item error-handling gap (F-406) easy to miss.
+>
+> **Recommendation:** Extract at least the series/season aggregation and the reconcile strategy into
+> their own types behind small interfaces, leaving `SyncOrchestrator` as a thin coordinator. This also
+> opens each piece to focused unit tests.
+
+#### F-408 — The Plex owner account id is cached for the process lifetime and never refreshed
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs:28,76-81` · **Criterion:** A/D · **Severity:** 🔵 Low
+>
+> `ResolveOwnerAsync` memoises the owner id in `_ownerAccountId` with `??=` and never re-resolves it.
+> Combined with F-303 (where `GetOwnerAccountIdAsync` swallows any failure and returns the fallback id
+> `1`), a transient error or a not-yet-ready Plex server on the very first call permanently pins the
+> orchestrator to account `1`. If that guess is wrong, the history filter uses the wrong account for the
+> entire process lifetime and the sync silently processes the wrong user's (or no) history until restart.
+>
+> **Recommendation:** Only cache a *successfully* resolved id (let failures stay un-cached so the next
+> cycle retries), or invalidate the cache when a cycle reports `PlexConnected = false`. At minimum,
+> document that the owner id is resolved exactly once per process.
+
+#### F-409 — Season/series NFO directories are derived from a fixed folder-layout assumption
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs:192,212-213` · **Criterion:** A · **Severity:** 🔵 Low
+>
+> `UpdateSeriesAggregatesAsync` infers the season directory as `Path.GetDirectoryName(firstEpisodeLocal)`
+> and the show directory as `GetDirectoryName(GetDirectoryName(episodeLocal))` — i.e. it assumes episode
+> files sit one level under a per-season folder, which in turn sits one level under the show folder. For
+> libraries that do not use per-season subfolders (all episodes directly under the show folder), flat
+> layouts, or specials in non-standard locations, `season.nfo`/`tvshow.nfo` are written to the wrong
+> directory (or the show NFO lands in the season folder). The watch state is correct but the file may be
+> placed where Jellyfin will not read it.
+>
+> **Recommendation:** Derive the target directories from the item/season metadata where possible, or make
+> the expected layout explicit and skip (with a warning) when the inferred directory does not match the
+> expected structure.
+
+#### F-410 — Two private reconcile helpers are inside `#region ISyncOrchestrator`
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs:236,373,393,419` · **Criterion:** B · **Severity:** 🔵 Low
+>
+> `#region ISyncOrchestrator` (the interface-implementation region) contains the two public interface
+> methods `ProcessHistoryAsync` and `ReconcileAsync`, but also the **private** helpers
+> `ReconcileMovieLibraryAsync` (`:373`) and `ReconcileSeriesLibraryAsync` (`:393`). Under the CLAUDE.md
+> rule, an interface region should hold only that interface's members; private helpers belong in the
+> general `#region Methods` (which ends at `:234`). The region grouping is therefore mixed.
+>
+> **Recommendation:** Move the two private reconcile helpers up into `#region Methods` so the interface
+> region contains only the interface implementation.
+
+#### F-411 — The state file is written non-atomically; a corrupt file silently resets the watermark and re-syncs from "now"
+
+> **File:** `src/PlexToJellyfinSync.Service/State/StateStore.cs:111-113,65-70` · **Criterion:** A · **Severity:** 🟠 High
+>
+> `SetHighWaterMarkAsync` writes `state.json` directly with `new FileStream(_filePath, FileMode.Create,
+> …)`, truncating the existing file before the new JSON is serialised. A crash or cancellation between
+> truncation and flush leaves a zero-length or partial file. On the next start `ReadAsync` catches the
+> resulting `JsonException`, logs a warning, and returns a **fresh** `SyncStateFile` with
+> `HighWaterMark == null` — which sends `ProcessHistoryAsync` down its first-run branch
+> (`SyncOrchestrator.cs:248-261`), resetting the watermark to `DateTimeOffset.UtcNow`. The net effect is
+> that all watch history accumulated between the crash and the restart is silently skipped: the very
+> data-integrity question criterion A asks ("Is the state file written atomically?") is answered "no",
+> and the corrupt-file recovery quietly loses sync position rather than alerting.
+>
+> **Recommendation:** Write to a temp file and atomically rename over `state.json` (mirrors F-401). On a
+> corrupt read, preserve the bad file (rename to `state.json.corrupt`) and surface an error/metric rather
+> than silently restarting from "now", so the watermark reset is visible.
+
+#### F-412 — No schema version or migration strategy for the state file
+
+> **File:** `src/PlexToJellyfinSync.Service/State/SyncStateFile.cs:6-15` · **Criterion:** D · **Severity:** 🔵 Low
+>
+> `SyncStateFile` carries a single `HighWaterMark` property and no version/schema marker. System.Text.Json
+> tolerates missing and (by default) unknown properties, so the format is leniently forward/backward
+> compatible today, but there is no explicit version field to key future migrations off. If the format
+> ever changes shape (renamed/removed fields, semantic changes), there is no way to detect the old
+> version and migrate it deliberately — old files would be reinterpreted under the new schema's defaults.
+>
+> **Recommendation:** Add an explicit `int SchemaVersion` (or similar) now while the file is trivial, and
+> branch on it in `ReadAsync` when/if the format evolves. Low urgency given the single field, but cheap to
+> add before the file shape matters.
+
+#### F-413 — A throwing `Changed` subscriber propagates into the worker
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncStatusService.cs:66-74` · **Criterion:** A · **Severity:** 🔵 Low
+>
+> `Update` invokes `Changed?.Invoke()` (correctly outside the lock) but with no exception isolation. The
+> subscribers are Blazor dashboard components; if any handler throws, the exception unwinds back through
+> `Update` into whatever called it — most often `SyncOrchestrator`, where it is caught by the cycle-level
+> `catch` and treated as a sync failure (incrementing `Errors`, aborting the cycle per F-406). A UI-side
+> bug should not be able to disrupt the background sync.
+>
+> **Recommendation:** Invoke the handlers defensively — iterate `Changed.GetInvocationList()` (or wrap the
+> single `Invoke`) in a `try`/`catch` that logs and continues — so a faulty subscriber cannot break the
+> worker.
+
+#### F-414 — `GetSnapshot` hand-copies every property and silently drops fields added later
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncStatusService.cs:43-63` · **Criterion:** D · **Severity:** ⚪ Note
+>
+> The snapshot is built by manually copying all twelve `SyncStatusViewData` properties into a new
+> instance. This is correct and thread-safe today, but it is a maintenance trap: adding a property to
+> `SyncStatusViewData` without also adding a copy line here makes the dashboard silently miss the new
+> field, with no compiler help.
+>
+> **Recommendation:** Generate the copy from a single source of truth — e.g. make `SyncStatusViewData` a
+> `record` and use `with`/a copy constructor, or implement a `Clone()` on the model — so new properties
+> are included automatically.
+
+#### F-415 — `Changed` fires on every mutation, including per-item counters
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncStatusService.cs:66-74` · **Criterion:** D · **Severity:** 🔵 Low
+>
+> `Update` raises `Changed` unconditionally on each call. The orchestrator calls `Update` very
+> frequently — `s.ItemsProcessed++` runs once per processed item, and `RecordOutcome` once per write — so
+> a full reconcile of a large library raises thousands of change notifications, each of which re-renders
+> the connected Blazor dashboard circuits. This is a scalability concern for the explicitly in-scope
+> "large libraries" case (it also amplifies F-413, since every notification is a chance for a subscriber
+> to throw).
+>
+> **Recommendation:** Debounce/throttle change notifications (e.g. coalesce to at most one render per N
+> milliseconds) or only raise `Changed` for state transitions that matter to the UI, rather than on every
+> counter increment.
+
+#### F-416 — Four of the five sync/persistence classes have no tests
+
+> **File:** `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs`,
+> `src/PlexToJellyfinSync.Service/State/StateStore.cs`,
+> `src/PlexToJellyfinSync.Service/State/SyncStateFile.cs`,
+> `src/PlexToJellyfinSync.Service/SyncStatusService.cs` · **Criterion:** D · **Severity:** 🟡 Medium
+>
+> Of the five files in this session, only `NfoWriter` has a test class (`NfoWriterTests`), and even that
+> covers only the `MediaKind.Movie` happy paths (the idempotent "no change → `Skipped`" path, the other
+> root names, the malformed-XML branch and the filename strategies are untested — see F-703). The
+> orchestration logic (`SyncOrchestrator` — watermark advancement, the history→aggregation→write
+> pipeline, the per-item error path of F-406), the atomic-persistence behaviour of `StateStore`
+> (round-trip, corrupt-file recovery, the watermark reset of F-411), and the concurrency of
+> `SyncStatusService` (parallel Blazor reads vs. worker writes) are entirely unverified — precisely the
+> behaviours the process doc flags as critical ("sync writes wrong watch states", atomic state writes,
+> thread safety). This overlaps F-702 (recorded in Session 7) and is restated here as the test-gap
+> conclusion for this session.
+>
+> **Recommendation:** Prioritise tests for `SyncOrchestrator` (mocked `IPlexClient`/`INfoWriter`/
+> `IStateStore`, asserting one failing item does not abort the cycle and that the watermark advances) and
+> `StateStore` (round-trip plus corrupt-file and atomic-write behaviour), then `SyncStatusService`
+> snapshot/notification concurrency. Per the process doc, do **not** add the tests as part of this
+> review — tracked here as a gap.
 
 ### Session 5 — Service III (Logging & DI)
 
@@ -561,11 +839,11 @@ Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **qui
 | `src/PlexToJellyfinSync.Service/PlexJsonOptions.cs` | 3 | deep | ✅ | none |
 | `src/PlexToJellyfinSync.Service/WatchAggregator.cs` | 3 | deep | ✅ | F-308, F-309 |
 | `src/PlexToJellyfinSync.Service/PathMapper.cs` | 3 | deep | ✅ | F-305, F-306, F-307, F-309, F-310 |
-| `src/PlexToJellyfinSync.Service/NfoWriter.cs` | 4 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs` | 4 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/State/StateStore.cs` | 4 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/State/SyncStateFile.cs` | 4 | deep | ⬜ | |
-| `src/PlexToJellyfinSync.Service/SyncStatusService.cs` | 4 | deep | ⬜ | |
+| `src/PlexToJellyfinSync.Service/NfoWriter.cs` | 4 | deep | ✅ | F-401, F-402, F-403, F-404, F-405 |
+| `src/PlexToJellyfinSync.Service/SyncOrchestrator.cs` | 4 | deep | ✅ | F-406, F-407, F-408, F-409, F-410, F-416 |
+| `src/PlexToJellyfinSync.Service/State/StateStore.cs` | 4 | deep | ✅ | F-411, F-412, F-416 |
+| `src/PlexToJellyfinSync.Service/State/SyncStateFile.cs` | 4 | deep | ✅ | F-412, F-416 |
+| `src/PlexToJellyfinSync.Service/SyncStatusService.cs` | 4 | deep | ✅ | F-413, F-414, F-415, F-416 |
 | `src/PlexToJellyfinSync.Service/Logging/InMemoryLogProvider.cs` | 5 | deep | ⬜ | |
 | `src/PlexToJellyfinSync.Service/Logging/InMemoryLogStore.cs` | 5 | deep | ⬜ | |
 | `src/PlexToJellyfinSync.Service/Logging/InMemoryLogger.cs` | 5 | deep | ⬜ | |
