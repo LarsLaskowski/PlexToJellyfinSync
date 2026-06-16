@@ -6,15 +6,26 @@ heading and sets the status of the reviewed files in the checklist to ✅.
 
 ## Summary
 
-_Filled in after all sessions are complete._
+All 8 sessions are complete. The review produced **70 findings** across the 107-file baseline and **no
+critical issues**. The heaviest concentrations are in the sync/persistence core (Session 4) and the host
+(Session 6); the recurring themes are non-atomic in-place writes (NFO and state file — the only High-rated
+data-integrity risks, F-401/F-411), per-item error handling that can stall the incremental watermark
+(F-406), pagination gaps against large libraries (F-301/F-302), dashboard auth hardening (F-601/F-602/
+F-605), a pervasive template-inherited `<Deterministic>False</Deterministic>` across every project
+(F-105/F-202/F-507/F-612/F-704), and broad test-coverage gaps (F-309/F-416/F-702). Infrastructure
+(Session 8) is secret-clean but adds a root-running container (F-801), a NuGet-blind dependabot config
+(F-803) and a README/registry mismatch (F-804).
 
 | Severity | Count |
 |---|---|
-| 🔴 Critical | – |
-| 🟠 High | – |
-| 🟡 Medium | – |
-| 🔵 Low | – |
-| ⚪ Note | – |
+| 🔴 Critical | 0 |
+| 🟠 High | 6 |
+| 🟡 Medium | 18 |
+| 🔵 Low | 34 |
+| ⚪ Note | 12 |
+| **Total** | **70** |
+
+Per session: S1 = 5, S2 = 4, S3 = 10, S4 = 16, S5 = 7, S6 = 12, S7 = 4, S8 = 12.
 
 ## Findings
 
@@ -1251,12 +1262,218 @@ carried over from the project template (E, mirrors F-105/F-202).
 
 ### Session 8 — Infrastructure
 
-_Not yet performed._
+The infrastructure layer (root configs, `.github/`, `.claude/`) is solid on the points that matter most
+for criterion C: **no secrets are committed anywhere** — `appsettings.json` ships empty `Plex.Token`/
+`Dashboard.Token`, the workflows reference credentials only through `${{ secrets.* }}`, the Dockerfile
+takes no secret build args, and the two PowerShell hooks contain no embedded credentials (they shell out
+to an external `sonar` CLI and exit cleanly when it is absent). `.gitignore`/`.dockerignore` correctly
+exclude build artifacts (`bin/`, `obj/`), local config (`appsettings.*.local.json`), state (`state.json`)
+and `.git`/`.github` from the image context, and `.env` is ignored. The workflows declare scoped
+`permissions:` blocks (CI `contents: read`; CodeQL the minimal `security-events: write` + `actions/contents: read`;
+Release `contents: write` for tag pushes) and pin every action to a major version, which the process doc
+accepts. The `.editorconfig` faithfully encodes the documented style (`end_of_line = crlf`,
+`indent_size = 4`, `insert_final_newline = false`, file-scoped namespaces, `var`, Allman braces, no primary
+constructors, `_camelCase` private fields, usings outside the namespace with System first), `.gitattributes`
+enforces the same CRLF policy, and the README configuration table matches the `Options/` classes and
+`appsettings.json` one-for-one (sections, keys and the `PLEXSYNC__` env prefix all line up with
+`Program.cs:31`). CPM is clean and complete: every `PackageReference` across the six manifests is
+version-less and resolves to a central `PackageVersion`, with transitive pinning enabled and no obviously
+outdated versions for the `net10.0` target. The Debug/Release rulesets are referenced correctly per
+configuration and are mutually consistent.
+
+The findings below concern: the container running as **root** (C); the base image being tag- rather than
+digest-pinned while the digest plumbing goes unused (C); **dependabot not covering NuGet** at all while
+configuring an `npm` ecosystem that has no manifest (E/C); the README quick-start pulling a **GHCR** image
+the release pipeline never publishes (it pushes to Docker Hub) (E); the divergent, `package.json`-oriented
+`publish-pr` skill copies (E); the CLAUDE.md ↔ copilot-instructions drift against their own "keep in sync"
+mandate (E); the unenforced "zero RH warnings" rule (E); unmodified default issue templates (E); a
+SECURITY.md reference to a non-existent Jellyfin API key (E); redundant identical rulesets and overlapping
+PR skills (E); and a Windows-only hook invocation (E).
+
+#### F-801 — Container image runs as root; no non-root `USER`
+
+> **File:** `Dockerfile:18-32` · **Criterion:** C · **Severity:** 🟡 Medium
+>
+> The runtime stage sets `WORKDIR`, `EXPOSE`, `ENV` and `ENTRYPOINT` but never switches to a non-root
+> user. The `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` base defaults to **root**, so the process runs
+> as root inside the container — and it is handed a writable bind mount of the user's media library
+> (`-v /path/to/media:/media`, which "must be writable" per the README) plus the `/config` volume. A
+> compromise or a path-handling bug (cf. the textual-only traversal guard, F-306/F-403) therefore acts
+> with root privileges over mounted host paths. The process doc explicitly lists "Dockerfile: non-root
+> user" under criterion C, and SECURITY.md itself preaches least privilege ("minimum required
+> permissions … no unnecessary host access"), which the image contradicts.
+>
+> **Recommendation:** Add a non-root user before the entrypoint — e.g. `USER $APP_UID` (the Microsoft
+> images predefine `APP_UID=1654`), or create and `chown` a dedicated user — and document that the
+> mounted media/config paths must be writable by that UID.
+
+#### F-802 — Base image is tag-pinned, not digest-pinned, and the digest plumbing is never supplied
+
+> **File:** `Dockerfile:1-3,18-23`, `.github/workflows/release.yml:108-116` · **Criterion:** C · **Severity:** 🔵 Low
+>
+> The `FROM` lines resolve `mcr.microsoft.com/dotnet/{sdk,aspnet}:10.0-alpine`, mutable tags that can
+> change underneath a rebuild, so builds are not reproducible and a poisoned-tag scenario is not guarded.
+> The Dockerfile *declares* a `BASE_RUNTIME_DIGEST` build arg and records it in
+> `org.opencontainers.image.base.digest`, but the runtime `FROM` uses the tag rather than the digest, and
+> the release workflow's `docker/build-push-action` step passes **no** `build-args` at all — so
+> `BASE_RUNTIME_DIGEST` is always empty and the digest label is emitted blank. The intended digest-pinning
+> mechanism is wired but dead.
+>
+> **Recommendation:** Pin the runtime `FROM` to a digest (`aspnet:10.0-alpine@sha256:…`), or have the
+> release workflow resolve the current digest and pass it via `build-args:` so both the `FROM` and the
+> label use it. Keep dependabot's `docker` ecosystem (see F-803) updating the pin.
+
+#### F-803 — Dependabot does not cover NuGet, while configuring an npm ecosystem that has no manifest
+
+> **File:** `.github/dependabot.yml:3-21` · **Criterion:** E · **Severity:** 🟡 Medium
+>
+> The configuration registers two ecosystems: `npm` and `github-actions`. The repository has **no
+> `package.json`** anywhere (the only JS is a single static `ReconnectModal.razor.js`), so the npm updater
+> has nothing to act on, while the project's actual dependency manager — **NuGet**, via
+> `Directory.Packages.props` and six `.csproj`/manifest files — is **not monitored at all**. The runtime
+> and test packages (`Microsoft.Extensions.*`, `MSTest`, `Reihitsu.Analyzer`) therefore receive no
+> automated security/update PRs, even though SECURITY.md lists "Dependency vulnerabilities in NuGet
+> packages" as explicitly in scope. A `docker` ecosystem is also absent, leaving the base image (F-802)
+> unmonitored.
+>
+> **Recommendation:** Replace `npm` with `nuget` (`package-ecosystem: nuget`, `directory: "/"`) so CPM is
+> covered, and add a `docker` ecosystem for the Dockerfile base image. Keep `github-actions`.
+
+#### F-804 — README quick-start pulls a GHCR image, but the release pipeline publishes to Docker Hub
+
+> **File:** `README.md:37`, `.github/workflows/release.yml:91-116` · **Criterion:** E · **Severity:** 🟡 Medium
+>
+> The documented one-liner runs `ghcr.io/larslaskowski/plextojellyfinsync:latest`, but the only release
+> workflow logs in to **Docker Hub** (`docker/login-action` with `DOCKERHUB_*` secrets) and pushes
+> `${{ secrets.DOCKERHUB_USERNAME }}/plextojellyfinsync` with tags `latest` and the computed version. No
+> workflow publishes to GHCR. A user following the README would pull from a registry the project does not
+> populate (a stale or non-existent image), so the primary install path is broken/misleading.
+>
+> **Recommendation:** Make the registry consistent — either publish to GHCR (add a `ghcr.io` tag and
+> `permissions: packages: write` in the release workflow) or change the README to the Docker Hub
+> coordinates the pipeline actually pushes. (Minor, same file: the README lists `Plex:BaseUrl` default
+> `http://plex:32400`, whereas `appsettings.json` ships an empty string — see F-101.)
+
+#### F-805 — The two `publish-pr` skills diverge and the `.claude` copy targets a non-existent `package.json`
+
+> **File:** `.claude/skills/publish-pr/prompt.md:15-20,40`, `.github/skills/publish-pr/SKILL.md` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> The same-named skill exists in two places with different content. `.github/skills/publish-pr/SKILL.md`
+> is a clean 10-step Git/PR workflow, while `.claude/skills/publish-pr/prompt.md` adds a semantic-version
+> bump that **reads and writes `package.json`** ("Read the current version from `package.json` … update
+> `package.json`") — a file this .NET repo does not have, so that step cannot succeed here. The two are
+> therefore not in sync, and the Claude copy is mis-targeted at a Node project. Separately, the Claude
+> skill file is named `prompt.md`; Claude Code discovers skills via `SKILL.md`, so this skill may not be
+> picked up at all.
+>
+> **Recommendation:** Reconcile the two files (drop the `package.json` versioning, or replace it with a
+> .NET-appropriate mechanism), and rename `prompt.md` to `SKILL.md` so the skill is discoverable.
+
+#### F-806 — CLAUDE.md and copilot-instructions.md have drifted despite the "keep both in sync" mandate
+
+> **File:** `.claude/CLAUDE.md:3-4`, `.github/copilot-instructions.md:16-22` · **Criterion:** E · **Severity:** ⚪ Note
+>
+> `.claude/CLAUDE.md` opens with "These rules mirror `.github/copilot-instructions.md`; keep both in
+> sync." The two are substantially aligned on golden rules, build commands, code style and testing, but
+> the copilot file carries a **Commit Messages** section (≤80-char subject, no trailing period, no first
+> person, 3–5-sentence body) and a more detailed Project Structure/Configuration block that CLAUDE.md
+> lacks. The drift is minor but, given the explicit self-imposed mirror requirement, it is a consistency
+> gap the documents ask to be held to.
+>
+> **Recommendation:** Mirror the commit-message conventions (and any other copilot-only guidance) into
+> CLAUDE.md, or factor the shared rules into one referenced source to prevent future divergence.
+
+#### F-807 — The "zero RH warnings" golden rule is not enforced by the build or CI
+
+> **File:** `Directory.Build.props:9`, `.github/workflows/ci.yml:25-36` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> Both CLAUDE.md and copilot-instructions state that a build must finish with "zero Reihitsu (`RH####`)
+> warnings and errors" and to "treat every `RH` diagnostic as a failure." Yet `Directory.Build.props` sets
+> `<TreatWarningsAsErrors>false</TreatWarningsAsErrors>`, and the CI `Build` step runs plain
+> `dotnet build … -c Release` with no `-warnaserror`. The CI `Format check` step only catches what
+> `reihitsu-format` rewrites (formatting) via `git diff --exit-code`; analyzer **warnings** that do not
+> change formatting pass CI silently. So the stated gate is documentation-only, not mechanically enforced.
+>
+> **Recommendation:** If the rule is meant to be a gate, enable `-warnaserror` (at least for `RH*`) in CI
+> or set `TreatWarningsAsErrors=true` for Release; otherwise soften the wording so the docs match the
+> actual (advisory) enforcement.
+
+#### F-808 — Issue templates are the unmodified GitHub defaults, not adapted to the project
+
+> **File:** `.github/ISSUE_TEMPLATE/bug_report.md:26-30`, `.github/ISSUE_TEMPLATE/feature_request.md` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> `bug_report.md` is the stock GitHub starter: it asks for **Desktop OS / Browser / Version** ("e.g. iOS",
+> "chrome, safari") — irrelevant for a headless Docker worker — and omits the fields that actually matter
+> for triaging this project (app/image version/tag, Plex and Jellyfin versions, deployment method,
+> relevant container log excerpt, path-mapping config). `feature_request.md` is likewise the generic
+> default. Neither sets `labels`. The process doc asks whether issue templates are "current"; these are
+> not tailored.
+>
+> **Recommendation:** Replace the Desktop section with deployment-relevant fields (image tag, Plex/Jellyfin
+> versions, run method, logs) and consider a YAML issue form for structured input; set sensible default
+> labels.
+
+#### F-809 — SECURITY.md references a "Jellyfin API key" the project does not use
+
+> **File:** `SECURITY.md:38,48` · **Criterion:** E · **Severity:** 🔵 Low
+>
+> The policy twice mentions storing/leaking "the Jellyfin API key" alongside the Plex token. The project
+> has **no Jellyfin API integration** — it propagates watch state by writing `.nfo` files on a shared
+> volume (the README and architecture are explicit about this), and there is no Jellyfin option anywhere
+> in `Options/` or `appsettings.json` (only `Plex.Token` and `Dashboard.Token`). The reference appears
+> carried over from a generic template and describes a credential that does not exist, which could mislead
+> a reporter or operator.
+>
+> **Recommendation:** Drop the "Jellyfin API key" mentions (or replace with the actual sensitive items:
+> the Plex token and the dashboard token), so the document reflects the file-based design.
+
+#### F-810 — Debug and Release rulesets are byte-identical
+
+> **File:** `PlexToJellyfinSync.Debug.ruleset`, `PlexToJellyfinSync.Release.ruleset` · **Criterion:** E · **Severity:** ⚪ Note
+>
+> The two rulesets suppress the same five Reihitsu rules (`RH0396`, `RH0428`, `RH2102`, `RH7004`,
+> `RH8027`) and differ only in the `Name` attribute. Having them be mutually consistent is exactly what
+> the focus area asks for, so this is not a defect — but maintaining two identical files (each referenced
+> per-configuration by every `.csproj`) invites silent drift, where a change to one is forgotten in the
+> other and Debug/Release analysis quietly diverge.
+>
+> **Recommendation:** Collapse to a single shared ruleset referenced by both configurations (e.g. one
+> `*.ruleset` set via an unconditional `<CodeAnalysisRuleSet>` in `Directory.Build.props`), or keep both
+> but add a note that they must stay in lockstep.
+
+#### F-811 — Three overlapping PR-creation skills with no clear division of labour
+
+> **File:** `.github/skills/create-pr/SKILL.md`, `.github/skills/publish-pr/SKILL.md`,
+> `.claude/skills/publish-pr/prompt.md` · **Criterion:** E · **Severity:** ⚪ Note
+>
+> The repository ships three skills that all "create a branch, commit, push, open a PR, switch back to
+> main": `create-pr` and two `publish-pr` variants (see F-805 for the latter's divergence). Their
+> descriptions overlap almost entirely, so it is ambiguous which one an assistant should invoke, and the
+> behaviours differ in subtle ways (branch reuse, version bumping, PR-template handling, the
+> `<pr-created>` status tag only in `create-pr`).
+>
+> **Recommendation:** Consolidate to one canonical PR skill (the cleanest is `create-pr`) and remove or
+> clearly differentiate the others to avoid ambiguous invocation.
+
+#### F-812 — Claude hooks invoke `powershell` (Windows-only) rather than cross-platform `pwsh`
+
+> **File:** `.claude/settings.json:9,21` · **Criterion:** E · **Severity:** ⚪ Note
+>
+> Both hook commands call `powershell -NoProfile -File …`, i.e. Windows PowerShell, which does not exist
+> on Linux/macOS (where the executable is `pwsh`). The project targets Linux/Docker and contributors on
+> Linux/macOS would have the secret-scanning hooks silently fail to launch. The scripts themselves are
+> clean (no credentials) and degrade gracefully when `sonar` is missing, so the impact is limited to the
+> hook not running on non-Windows dev machines.
+>
+> **Recommendation:** Invoke `pwsh` (PowerShell 7+, cross-platform) instead of `powershell`, or detect the
+> available executable, so the hooks run regardless of contributor OS.
 
 ## File Checklist
 
-Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **quick** = criterion E
-(configs/workflows additionally C).
+Status: ⬜ open · ✅ reviewed · ⚪ outside the review baseline (review-framework files added after the
+baseline was set; not part of the 107-file scope, listed here for completeness — see the Completeness
+Proof). Review depth: **deep** = criteria A–D, **quick** = criterion E (configs/workflows additionally C);
+**baseline+** marks files outside the 107-file baseline.
 
 | File | Session | Depth | Status | Findings |
 |---|---|---|---|---|
@@ -1340,35 +1557,90 @@ Status: ⬜ open · ✅ reviewed. Review depth: **deep** = criteria A–D, **qui
 | `tests/PlexToJellyfinSync.Tests/PlexMetadataDeserializationTests.cs` | 7 | deep | ✅ | F-701, F-703 |
 | `tests/PlexToJellyfinSync.Tests/WatchAggregatorTests.cs` | 7 | deep | ✅ | F-703 |
 | `tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj` | 7 | quick | ✅ | F-702, F-704 |
-| `.claude/CLAUDE.md` | 8 | quick | ⬜ | |
-| `.claude/hooks/sonar-secrets/build-scripts/pretool-secrets.ps1` | 8 | quick | ⬜ | |
-| `.claude/hooks/sonar-secrets/build-scripts/prompt-secrets.ps1` | 8 | quick | ⬜ | |
-| `.claude/settings.json` | 8 | quick | ⬜ | |
-| `.claude/skills/publish-pr/prompt.md` | 8 | quick | ⬜ | |
-| `.dockerignore` | 8 | quick | ⬜ | |
-| `.editorconfig` | 8 | quick | ⬜ | |
-| `.gitattributes` | 8 | quick | ⬜ | |
-| `.gitignore` | 8 | quick | ⬜ | |
-| `.github/ISSUE_TEMPLATE/bug_report.md` | 8 | quick | ⬜ | |
-| `.github/ISSUE_TEMPLATE/feature_request.md` | 8 | quick | ⬜ | |
-| `.github/copilot-instructions.md` | 8 | quick | ⬜ | |
-| `.github/dependabot.yml` | 8 | quick | ⬜ | |
-| `.github/skills/create-pr/SKILL.md` | 8 | quick | ⬜ | |
-| `.github/skills/publish-pr/SKILL.md` | 8 | quick | ⬜ | |
-| `.github/workflows/ci.yml` | 8 | quick | ⬜ | |
-| `.github/workflows/codeql.yml` | 8 | quick | ⬜ | |
-| `.github/workflows/release.yml` | 8 | quick | ⬜ | |
-| `Directory.Build.props` | 8 | quick | ⬜ | |
-| `Directory.Packages.props` | 8 | quick | ⬜ | |
-| `Dockerfile` | 8 | quick | ⬜ | |
-| `LICENSE.md` | 8 | quick | ⬜ | |
-| `PlexToJellyfinSync.Debug.ruleset` | 8 | quick | ⬜ | |
-| `PlexToJellyfinSync.Release.ruleset` | 8 | quick | ⬜ | |
-| `PlexToJellyfinSync.slnx` | 8 | quick | ⬜ | |
-| `README.md` | 8 | quick | ⬜ | |
-| `SECURITY.md` | 8 | quick | ⬜ | |
+| `.claude/CLAUDE.md` | 8 | quick | ✅ | F-806 |
+| `.claude/hooks/sonar-secrets/build-scripts/pretool-secrets.ps1` | 8 | quick | ✅ | none |
+| `.claude/hooks/sonar-secrets/build-scripts/prompt-secrets.ps1` | 8 | quick | ✅ | none |
+| `.claude/settings.json` | 8 | quick | ✅ | F-812 |
+| `.claude/skills/publish-pr/prompt.md` | 8 | quick | ✅ | F-805, F-811 |
+| `.dockerignore` | 8 | quick | ✅ | none |
+| `.editorconfig` | 8 | quick | ✅ | none |
+| `.gitattributes` | 8 | quick | ✅ | none |
+| `.gitignore` | 8 | quick | ✅ | none |
+| `.github/ISSUE_TEMPLATE/bug_report.md` | 8 | quick | ✅ | F-808 |
+| `.github/ISSUE_TEMPLATE/feature_request.md` | 8 | quick | ✅ | F-808 |
+| `.github/copilot-instructions.md` | 8 | quick | ✅ | F-806 |
+| `.github/dependabot.yml` | 8 | quick | ✅ | F-803 |
+| `.github/skills/create-pr/SKILL.md` | 8 | quick | ✅ | F-811 |
+| `.github/skills/publish-pr/SKILL.md` | 8 | quick | ✅ | F-805, F-811 |
+| `.github/workflows/ci.yml` | 8 | quick | ✅ | F-807 |
+| `.github/workflows/codeql.yml` | 8 | quick | ✅ | none |
+| `.github/workflows/release.yml` | 8 | quick | ✅ | F-802, F-804 |
+| `Directory.Build.props` | 8 | quick | ✅ | F-807 |
+| `Directory.Packages.props` | 8 | quick | ✅ | none |
+| `Dockerfile` | 8 | quick | ✅ | F-801, F-802 |
+| `LICENSE.md` | 8 | quick | ✅ | none |
+| `PlexToJellyfinSync.Debug.ruleset` | 8 | quick | ✅ | F-810 |
+| `PlexToJellyfinSync.Release.ruleset` | 8 | quick | ✅ | F-810 |
+| `PlexToJellyfinSync.slnx` | 8 | quick | ✅ | none |
+| `README.md` | 8 | quick | ✅ | F-804 |
+| `SECURITY.md` | 8 | quick | ✅ | F-809 |
+| `docs/review/00-process.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/prompts/session-1-core.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/prompts/session-2-data.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/prompts/session-3-service-plex.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/prompts/session-4-service-sync.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/prompts/session-5-service-infra.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/prompts/session-6-host.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/prompts/session-7-tests.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/prompts/session-8-infrastructure.md` | — | baseline+ | ⚪ | outside the review baseline |
+| `docs/review/results/00-report.md` | — | baseline+ | ⚪ | outside the review baseline (this file) |
 
 ## Completeness Proof
 
-_Filled in during Session 8: reconcile the checklist against `git ls-files` (target: 107/107 files
-of the review baseline, plus handling of files added later per `00-process.md`)._
+**All 8 sessions are complete — no session remains open (zero ⬜ rows in the checklist).** Every one of the
+**107 baseline files** carries status ✅ (S1 = 24, S2 = 14, S3 = 4, S4 = 5, S5 = 5, S6 = 22, S7 = 6,
+S8 = 27 = 107).
+
+Reconciliation against the working tree was done with:
+
+```bash
+git ls-files | sort > /tmp/expected.txt          # 117 tracked files
+# extract the File column from the checklist, unique-sort, and diff
+grep -oP '^\| `\K[^`]+' docs/review/results/00-report.md | sort -u > /tmp/checklist.txt   # 117 rows
+comm -13 /tmp/checklist.txt /tmp/expected.txt     # tracked but missing from checklist → empty
+comm -23 /tmp/checklist.txt /tmp/expected.txt     # in checklist but not tracked       → empty
+```
+
+Both diffs are **empty**: the checklist now lists exactly the 117 version-controlled files.
+
+The repository grew from the original **107-file baseline** to **117 tracked files**; the 10 additional
+files are the review framework itself, created after the baseline was set:
+
+- `docs/review/00-process.md`
+- `docs/review/prompts/session-1-core.md` … `session-8-infrastructure.md` (8 files)
+- `docs/review/results/00-report.md` (this file)
+
+Per `00-process.md`, these are recorded in the checklist and marked **"outside the review baseline"** (⚪);
+they are process/meta documents, not product code, and are not separately re-reviewed (this report would
+be reviewing itself). With them included, checklist coverage is **117/117** of the tracked files
+(107/107 of the review baseline). No `.gitignore`d or untracked files are in scope. The review is complete.
+
+### Overall assessment
+
+PlexToJellyfinSync is a disciplined, well-layered codebase: the Core ← Data ← Service ← Host separation
+holds, criterion B (`#region` grouping, XML docs, file-scoped namespaces, `== false`, CPM) is satisfied
+almost everywhere, async hygiene (`ConfigureAwait(false)`, threaded `CancellationToken`, no `async void`)
+is exemplary across the service layer, and the Plex token is handled safely (header-only, never logged).
+No critical issues were found. The most important risks are concentrated and actionable: the two
+**non-atomic in-place writes** (NFO and `state.json`, F-401/F-411) can lose user data or silently reset the
+sync watermark on a crash, and the **missing per-item error isolation** (F-406) can permanently stall the
+incremental sync behind one poison entry — these three Highs deserve priority. A second tier of robustness
+work covers **pagination for large libraries** (F-301/F-302), **dashboard auth hardening** (timing-safe
+comparison, cookie flags, CSRF/rate-limiting — F-601/F-602/F-605), and closing the **substantial test
+gaps** (the orchestrator, state store and status service are effectively untested — F-416/F-702).
+Infrastructure is secret-clean and the build/CI pipeline matches the documentation, but three pragmatic
+fixes stand out: run the **container as non-root** (F-801), point **dependabot at NuGet** (and Docker)
+instead of the manifest-less npm config (F-803), and resolve the **README GHCR vs Docker Hub** registry
+mismatch so the documented install actually works (F-804). None of the findings block the project's stated
+single-user, home-network scope; addressing the Highs plus the few security/consistency items above would
+make it materially more robust and operationally trustworthy.
