@@ -19,3 +19,14 @@ updates:
       actions:
         patterns:
           - "*"
+      
+  - package-ecosystem: "nuget" # See documentation for possible values
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+    # Bundle all NuGet updates into a single pull request instead of
+    # opening a separate PR per package.
+    groups:
+      nuget-dependencies:
+        patterns:
+          - "*"
