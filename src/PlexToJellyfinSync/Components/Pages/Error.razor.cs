@@ -29,7 +29,7 @@ public partial class Error
     /// <summary>
     /// Gets a value indicating whether the request identifier should be shown
     /// </summary>
-    private bool ShowRequestId => _requestId is { Length: > 0 };
+    private bool ShowRequestId => string.IsNullOrEmpty(_requestId) == false;
 
     #endregion // Properties
 
