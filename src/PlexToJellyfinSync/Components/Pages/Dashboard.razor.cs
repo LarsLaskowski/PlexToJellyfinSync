@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Components;
+
+using PlexToJellyfinSync.Core.Abstractions;
 using PlexToJellyfinSync.Core.Models;
 
 namespace PlexToJellyfinSync.Components.Pages;
@@ -5,7 +8,7 @@ namespace PlexToJellyfinSync.Components.Pages;
 /// <summary>
 /// Code-behind for the status dashboard page
 /// </summary>
-public partial class Dashboard
+public partial class Dashboard : IDisposable
 {
     #region Fields
 
@@ -15,6 +18,16 @@ public partial class Dashboard
     private SyncStatusViewData _status = new();
 
     #endregion // Fields
+
+    #region Properties
+
+    /// <summary>
+    /// Gets or sets the status provider
+    /// </summary>
+    [Inject]
+    private ISyncStatusProvider StatusProvider { get; set; } = default!;
+
+    #endregion // Properties
 
     #region ComponentBase
 

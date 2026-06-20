@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Components;
+
+using PlexToJellyfinSync.Core.Abstractions;
 using PlexToJellyfinSync.Core.Models;
 
 namespace PlexToJellyfinSync.Components.Pages;
@@ -5,7 +8,7 @@ namespace PlexToJellyfinSync.Components.Pages;
 /// <summary>
 /// Code-behind for the live log viewer page
 /// </summary>
-public partial class Logs
+public partial class Logs : IDisposable
 {
     #region Fields
 
@@ -17,12 +20,12 @@ public partial class Logs
     /// <summary>
     /// Minimum level of entries to display
     /// </summary>
-    private LogLevel _minLevel = LogLevel.Information;
+    private LogLevel _minLevel;
 
     /// <summary>
     /// Free text filter applied to the message
     /// </summary>
-    private string _filter = string.Empty;
+    private string? _filter;
 
     /// <summary>
     /// Indicates whether live updates are paused
@@ -31,11 +34,24 @@ public partial class Logs
 
     #endregion // Fields
 
+    #region Properties
+
+    /// <summary>
+    /// Gets or sets the log store
+    /// </summary>
+    [Inject]
+    private ILogStore LogStore { get; set; } = default!;
+
+    #endregion // Properties
+
     #region ComponentBase
 
     /// <inheritdoc/>
     protected override void OnInitialized()
     {
+        _minLevel = LogLevel.Information;
+        _filter = string.Empty;
+        _paused = false;
         _entries = LogStore.GetEntries().ToList();
         LogStore.EntryAdded += OnEntryAdded;
     }
@@ -57,12 +73,12 @@ public partial class Logs
     }
 
     /// <summary>
-    /// Handle a newly added log entry by refreshing the view unless paused
+    /// Handle a newly added log entry by refreshing the view unless paused or filtered out
     /// </summary>
     /// <param name="entry">The added log entry</param>
     private void OnEntryAdded(LogEntry entry)
     {
-        if (_paused)
+        if (_paused || entry.Level < _minLevel)
         {
             return;
         }
