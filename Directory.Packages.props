@@ -12,10 +12,10 @@
     <!-- Runtime -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
 
     <!-- Test -->
-    <PackageVersion Include="MSTest" Version="4.0.2" />
+    <PackageVersion Include="MSTest" Version="4.2.3" />
   </ItemGroup>
 
 </Project>
