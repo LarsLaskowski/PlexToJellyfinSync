@@ -59,36 +59,3 @@
         <strong>Last error:</strong> @_status.LastError
     </div>
 }
-
-@code {
-    private SyncStatusViewData _status = new();
-
-    protected override void OnInitialized()
-    {
-        _status = StatusProvider.GetSnapshot();
-        StatusProvider.Changed += OnChanged;
-    }
-
-    private void OnChanged()
-    {
-        _status = StatusProvider.GetSnapshot();
-        InvokeAsync(StateHasChanged);
-    }
-
-    private static string Format(DateTimeOffset? value)
-    {
-        return value.HasValue ? value.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") : "-";
-    }
-
-    private string Uptime()
-    {
-        var span = DateTimeOffset.UtcNow - _status.StartedAt;
-
-        return $"{(int)span.TotalHours}h {span.Minutes}m";
-    }
-
-    public void Dispose()
-    {
-        StatusProvider.Changed -= OnChanged;
-    }
-}

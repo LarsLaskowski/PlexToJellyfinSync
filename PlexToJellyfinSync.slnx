@@ -7,8 +7,6 @@
     <File Path="Directory.Packages.props" />
     <File Path="Dockerfile" />
     <File Path="LICENSE.md" />
-    <File Path="PlexToJellyfinSync.Debug.ruleset" />
-    <File Path="PlexToJellyfinSync.Release.ruleset" />
     <File Path="README.md" />
     <File Path="src/GlobalSuppressions.cs" />
   </Folder>
