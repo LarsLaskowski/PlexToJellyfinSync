@@ -41,7 +41,7 @@ public sealed class Worker : BackgroundService
 
     #endregion // Constructors
 
-    #region Methods
+    #region BackgroundService
 
     /// <inheritdoc/>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -81,6 +81,10 @@ public sealed class Worker : BackgroundService
 
         _logger.LogInformation("Worker stopping");
     }
+
+    #endregion // BackgroundService
+
+    #region Methods
 
     /// <summary>
     /// Run a reconcile and swallow non-cancellation errors

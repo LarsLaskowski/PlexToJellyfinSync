@@ -1,6 +1,4 @@
 @page "/logs"
-@implements IDisposable
-@inject ILogStore LogStore
 
 <PageTitle>PlexToJellyfinSync - Logs</PageTitle>
 
@@ -44,49 +42,3 @@
         }
     </tbody>
 </table>
-
-@code {
-    private List<LogEntry> _entries = [];
-    private LogLevel _minLevel = LogLevel.Information;
-    private string _filter = string.Empty;
-    private bool _paused;
-
-    protected override void OnInitialized()
-    {
-        _entries = LogStore.GetEntries().ToList();
-        LogStore.EntryAdded += OnEntryAdded;
-    }
-
-    private void OnEntryAdded(LogEntry entry)
-    {
-        if (_paused)
-        {
-            return;
-        }
-
-        InvokeAsync(() =>
-        {
-            _entries = LogStore.GetEntries().ToList();
-            StateHasChanged();
-        });
-    }
-
-    private IEnumerable<LogEntry> Filtered()
-    {
-        return _entries.Where(e => e.Level >= _minLevel)
-                       .Where(e => string.IsNullOrEmpty(_filter) || e.Message.Contains(_filter, StringComparison.OrdinalIgnoreCase))
-                       .Reverse();
-    }
-
-    private static string ShortCategory(string category)
-    {
-        var index = category.LastIndexOf('.');
-
-        return index >= 0 ? category[(index + 1)..] : category;
-    }
-
-    public void Dispose()
-    {
-        LogStore.EntryAdded -= OnEntryAdded;
-    }
-}
