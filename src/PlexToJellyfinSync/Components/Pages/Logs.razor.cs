@@ -8,7 +8,7 @@ namespace PlexToJellyfinSync.Components.Pages;
 /// <summary>
 /// Code-behind for the live log viewer page
 /// </summary>
-public partial class Logs : IDisposable
+public sealed partial class Logs : IDisposable
 {
     #region Fields
 

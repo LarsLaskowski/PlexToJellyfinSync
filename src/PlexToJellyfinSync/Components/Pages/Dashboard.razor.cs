@@ -8,7 +8,7 @@ namespace PlexToJellyfinSync.Components.Pages;
 /// <summary>
 /// Code-behind for the status dashboard page
 /// </summary>
-public partial class Dashboard : IDisposable
+public sealed partial class Dashboard : IDisposable
 {
     #region Fields
 
