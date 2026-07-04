@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Code analysis (added to every project) -->
-    <PackageVersion Include="Reihitsu.Analyzer" Version="1.0.0-beta3" />
+    <PackageVersion Include="Reihitsu.Analyzer" Version="1.0.0-beta4" />
     <!-- Runtime -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.9" />
