@@ -25,8 +25,10 @@ Follow this workflow:
 10. Push the branch to `origin` and set upstream tracking.
 11. Create a pull request with GitHub CLI:
     - base branch: `main`, unless the user explicitly requests a different base
-    - title: concise summary of the change
-    - body: short summary of what changed, including the version bump
+    - title: concise summary of the change, written in English regardless of the conversation language
+    - body: short summary of what changed, including the version bump, written in English; do not
+      mention Claude, Anthropic, Copilot, or any other AI assistant, and do not add "Generated with …",
+      "Co-Authored-By: Claude …", session links, or similar attribution
 12. After the pull request is created, switch back to the `main` branch.
 13. Report the branch name and pull request URL clearly.
 
