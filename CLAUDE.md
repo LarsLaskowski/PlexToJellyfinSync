@@ -25,6 +25,14 @@ runs as a Docker container, and exposes a web dashboard (status + live logs).
   groups a class's interface implementation, name it after the interface (e.g. `#region IPathMapper`);
   the region description must **not** end with the word "implementation".
 
+## Pull requests
+
+- Title and description are always written in **English**, regardless of the language used in the
+  conversation.
+- Never mention Claude, Anthropic, Copilot, or any other AI assistant in the PR title or description.
+  Do not add "Generated with …", "Co-Authored-By: Claude …", session links, or similar attribution —
+  the description only describes the change itself.
+
 ## Commands
 
 ```bash
