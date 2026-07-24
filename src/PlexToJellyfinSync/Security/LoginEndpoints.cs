@@ -33,7 +33,7 @@ public static class LoginEndpoints
     public static async Task HandleLoginAsync(HttpContext context, IMemoryCache cache, IDashboardLoginService loginService)
     {
         var clientKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var form = await context.Request.ReadFormAsync().ConfigureAwait(false);
+        var form = await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);
         var token = form["token"].ToString();
 
         var result = loginService.Authenticate(clientKey, token);
