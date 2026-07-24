@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 
 using Microsoft.Extensions.Caching.Memory;
@@ -9,6 +10,7 @@ using PlexToJellyfinSync.Core.Options;
 using PlexToJellyfinSync.Security;
 using PlexToJellyfinSync.Service;
 using PlexToJellyfinSync.Service.Logging;
+using PlexToJellyfinSync.Service.Security;
 
 namespace PlexToJellyfinSync;
 
@@ -94,13 +96,25 @@ public static partial class Program
             app.MapGet("/login", () => Results.Content(LoginPage.Html, "text/html"));
 
             app.MapPost("/login",
-                        async (HttpContext context, IOptions<DashboardOptions> options, IMemoryCache cache) =>
+                        async (HttpContext context, IOptions<DashboardOptions> options, IMemoryCache cache, ILoginThrottle throttle) =>
                         {
+                            var clientKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                            if (throttle.IsLockedOut(clientKey, out var retryAfter))
+                            {
+                                context.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+                                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+                                return;
+                            }
+
                             var form = await context.Request.ReadFormAsync();
                             var token = form["token"].ToString();
 
-                            if (string.Equals(token, options.Value.Token, StringComparison.Ordinal))
+                            if (TokenComparer.FixedTimeEquals(token, options.Value.Token))
                             {
+                                throttle.RegisterSuccess(clientKey);
+
                                 var sessionId = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
                                 cache.Set(TokenAuthMiddleware.SessionCachePrefix + sessionId,
@@ -121,6 +135,7 @@ public static partial class Program
                                 return;
                             }
 
+                            throttle.RegisterFailure(clientKey);
                             context.Response.Redirect("/login?error=1");
                         })
                .DisableAntiforgery();
