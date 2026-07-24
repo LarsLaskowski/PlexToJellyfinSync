@@ -1,15 +1,5 @@
 version: 2
 updates:
-  - package-ecosystem: npm
-    directory: "/"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
-    groups:
-      types:
-        patterns:
-          - "@types/*"
-
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -28,5 +18,15 @@ updates:
     # opening a separate PR per package.
     groups:
       nuget-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      docker-images:
         patterns:
           - "*"
