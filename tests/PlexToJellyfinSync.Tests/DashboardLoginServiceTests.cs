@@ -25,7 +25,7 @@ public sealed class DashboardLoginServiceTests
         var result = service.Authenticate("10.0.0.1", "s3cr3t");
 
         Assert.AreEqual(LoginResultKind.Succeeded, result.Kind, "A matching token should succeed!");
-        Assert.IsTrue(result.SessionId.Length > 0, "A successful login should issue a session identifier!");
+        Assert.IsGreaterThan(0, result.SessionId.Length, "A successful login should issue a session identifier!");
     }
 
     /// <summary>
@@ -58,7 +58,7 @@ public sealed class DashboardLoginServiceTests
         var result = service.Authenticate("10.0.0.1", "wrong");
 
         Assert.AreEqual(LoginResultKind.LockedOut, result.Kind, "Repeated failures should lock the client out!");
-        Assert.IsTrue(result.RetryAfter > TimeSpan.Zero, "A locked-out result should carry a positive retry-after!");
+        Assert.IsGreaterThan(TimeSpan.Zero, result.RetryAfter, "A locked-out result should carry a positive retry-after!");
     }
 
     /// <summary>

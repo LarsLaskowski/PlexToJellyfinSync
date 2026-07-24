@@ -46,7 +46,7 @@ public sealed class LoginThrottleTests
         var lockedOut = throttle.IsLockedOut("10.0.0.1", out var retryAfter);
 
         Assert.IsTrue(lockedOut, "The client should be locked out after exceeding the free attempts!");
-        Assert.IsTrue(retryAfter > TimeSpan.Zero, "The retry-after should be positive while locked out!");
+        Assert.IsGreaterThan(TimeSpan.Zero, retryAfter, "The retry-after should be positive while locked out!");
     }
 
     /// <summary>
@@ -92,7 +92,7 @@ public sealed class LoginThrottleTests
         var lockedOut = throttle.IsLockedOut("10.0.0.1", out var secondRetryAfter);
 
         Assert.IsTrue(lockedOut, "The client should remain locked out after another failure!");
-        Assert.IsTrue(secondRetryAfter > firstRetryAfter, "The backoff should grow with additional failures!");
+        Assert.IsGreaterThan(firstRetryAfter, secondRetryAfter, "The backoff should grow with additional failures!");
     }
 
     /// <summary>
