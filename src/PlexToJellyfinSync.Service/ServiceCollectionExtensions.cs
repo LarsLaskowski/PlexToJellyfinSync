@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using PlexToJellyfinSync.Core.Abstractions;
 using PlexToJellyfinSync.Core.Options;
 using PlexToJellyfinSync.Service.Logging;
+using PlexToJellyfinSync.Service.Security;
 using PlexToJellyfinSync.Service.State;
 
 namespace PlexToJellyfinSync.Service;
@@ -33,6 +34,9 @@ public static class ServiceCollectionExtensions
         services.Configure<DashboardOptions>(configuration.GetSection(DashboardOptions.SectionName));
         services.Configure<List<PathMapping>>(configuration.GetSection("PathMappings"));
 
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<ILoginThrottle, LoginThrottle>();
+        services.AddSingleton<IDashboardLoginService, DashboardLoginService>();
         services.AddSingleton<ILogStore, InMemoryLogStore>();
         services.AddSingleton<ISyncStatusProvider, SyncStatusService>();
         services.AddSingleton<WatchAggregator>();
