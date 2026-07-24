@@ -1,7 +1,3 @@
-using System.Globalization;
-using System.Security.Cryptography;
-
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 using PlexToJellyfinSync.Components;
@@ -10,7 +6,6 @@ using PlexToJellyfinSync.Core.Options;
 using PlexToJellyfinSync.Security;
 using PlexToJellyfinSync.Service;
 using PlexToJellyfinSync.Service.Logging;
-using PlexToJellyfinSync.Service.Security;
 
 namespace PlexToJellyfinSync;
 
@@ -95,49 +90,7 @@ public static partial class Program
 
             app.MapGet("/login", () => Results.Content(LoginPage.Html, "text/html"));
 
-            app.MapPost("/login",
-                        async (HttpContext context, IOptions<DashboardOptions> options, IMemoryCache cache, ILoginThrottle throttle) =>
-                        {
-                            var clientKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-                            if (throttle.IsLockedOut(clientKey, out var retryAfter))
-                            {
-                                context.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
-                                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-
-                                return;
-                            }
-
-                            var form = await context.Request.ReadFormAsync();
-                            var token = form["token"].ToString();
-
-                            if (TokenComparer.FixedTimeEquals(token, options.Value.Token))
-                            {
-                                throttle.RegisterSuccess(clientKey);
-
-                                var sessionId = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-
-                                cache.Set(TokenAuthMiddleware.SessionCachePrefix + sessionId,
-                                          true,
-                                          TimeSpan.FromHours(8));
-
-                                context.Response.Cookies.Append(TokenAuthMiddleware.CookieName,
-                                                                sessionId,
-                                                                new CookieOptions
-                                                                {
-                                                                    HttpOnly = true,
-                                                                    Secure = true,
-                                                                    SameSite = SameSiteMode.Strict,
-                                                                    MaxAge = TimeSpan.FromHours(8)
-                                                                });
-                                context.Response.Redirect("/");
-
-                                return;
-                            }
-
-                            throttle.RegisterFailure(clientKey);
-                            context.Response.Redirect("/login?error=1");
-                        })
+            app.MapPost("/login", LoginEndpoints.HandleLoginAsync)
                .DisableAntiforgery();
         }
 

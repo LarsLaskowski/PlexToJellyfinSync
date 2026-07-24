@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ILoginThrottle, LoginThrottle>();
+        services.AddSingleton<IDashboardLoginService, DashboardLoginService>();
         services.AddSingleton<ILogStore, InMemoryLogStore>();
         services.AddSingleton<ISyncStatusProvider, SyncStatusService>();
         services.AddSingleton<WatchAggregator>();

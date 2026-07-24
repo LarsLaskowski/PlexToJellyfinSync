@@ -54,5 +54,16 @@ public sealed class TokenComparerTests
         Assert.IsFalse(result, "A null candidate should not match a configured token!");
     }
 
+    /// <summary>
+    /// A candidate never matches a null configured token
+    /// </summary>
+    [TestMethod]
+    public void TokenComparerNullExpectedReturnsFalse()
+    {
+        var result = TokenComparer.FixedTimeEquals("s3cr3t-token", null);
+
+        Assert.IsFalse(result, "A candidate should not match a null configured token!");
+    }
+
     #endregion // Methods
 }

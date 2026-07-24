@@ -135,5 +135,27 @@ public sealed class LoginThrottleTests
         Assert.IsFalse(otherLockedOut, "A different client should not be locked out!");
     }
 
+    /// <summary>
+    /// Idle entries are pruned once the tracked set grows past its bound
+    /// </summary>
+    [TestMethod]
+    public void LoginThrottlePrunesStaleEntries()
+    {
+        var time = new TestTimeProvider(DateTimeOffset.UnixEpoch);
+        var throttle = new LoginThrottle(time);
+
+        for (var index = 0; index < 1100; index++)
+        {
+            throttle.RegisterFailure($"10.1.{index / 256}.{index % 256}");
+        }
+
+        time.Advance(TimeSpan.FromMinutes(20));
+        throttle.RegisterFailure("10.9.9.9");
+
+        var lockedOut = throttle.IsLockedOut("10.1.0.0", out _);
+
+        Assert.IsFalse(lockedOut, "A pruned idle client should no longer be tracked!");
+    }
+
     #endregion // Methods
 }
