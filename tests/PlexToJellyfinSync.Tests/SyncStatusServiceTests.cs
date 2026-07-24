@@ -124,7 +124,7 @@ public sealed class SyncStatusServiceTests
                          {
                              var snapshot = service.GetSnapshot();
 
-                             Assert.IsTrue(snapshot.ItemsProcessed >= snapshot.NfoCreated, "A snapshot should never show more writes than processed items!");
+                             Assert.IsGreaterThanOrEqualTo(snapshot.NfoCreated, snapshot.ItemsProcessed, "A snapshot should never show more writes than processed items!");
                          }
                      });
 

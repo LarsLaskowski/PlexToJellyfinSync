@@ -16,9 +16,24 @@ public sealed class StateStoreTests
 
     private static readonly DateTimeOffset _mark = new(2026, 2, 3, 4, 5, 6, TimeSpan.Zero);
 
+    private readonly TestContext _testContext;
+
     private string _tempDirectory = string.Empty;
 
     #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public StateStoreTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
 
     #region Methods
 
@@ -105,7 +120,7 @@ public sealed class StateStoreTests
         await store.SetHighWaterMarkAsync(later, CancellationToken.None);
 
         var mark = await store.GetHighWaterMarkAsync(CancellationToken.None);
-        var content = await File.ReadAllTextAsync(GetStateFilePath());
+        var content = await File.ReadAllTextAsync(GetStateFilePath(), _testContext.CancellationToken);
 
         Assert.AreEqual(later, mark, "The newest value should be reported!");
         Assert.IsFalse(content.Contains("04:05:06", StringComparison.Ordinal), "The overwritten value should not linger in the file!");
@@ -120,7 +135,7 @@ public sealed class StateStoreTests
     {
         Directory.CreateDirectory(_tempDirectory);
 
-        await File.WriteAllTextAsync(GetStateFilePath(), "{ \"HighWaterMark\": ");
+        await File.WriteAllTextAsync(GetStateFilePath(), "{ \"HighWaterMark\": ", _testContext.CancellationToken);
 
         var store = CreateStore();
 
@@ -138,7 +153,7 @@ public sealed class StateStoreTests
     {
         Directory.CreateDirectory(_tempDirectory);
 
-        await File.WriteAllTextAsync(GetStateFilePath(), "not json at all");
+        await File.WriteAllTextAsync(GetStateFilePath(), "not json at all", _testContext.CancellationToken);
 
         var store = CreateStore();
 
@@ -158,7 +173,7 @@ public sealed class StateStoreTests
     {
         Directory.CreateDirectory(_tempDirectory);
 
-        await File.WriteAllTextAsync(GetStateFilePath(), "null");
+        await File.WriteAllTextAsync(GetStateFilePath(), "null", _testContext.CancellationToken);
 
         var store = CreateStore();
 
@@ -181,8 +196,8 @@ public sealed class StateStoreTests
         {
             var value = _mark.AddMinutes(index);
 
-            tasks.Add(Task.Run(async () => await store.SetHighWaterMarkAsync(value, CancellationToken.None)));
-            tasks.Add(Task.Run(async () => await store.GetHighWaterMarkAsync(CancellationToken.None)));
+            tasks.Add(Task.Run(async () => await store.SetHighWaterMarkAsync(value, CancellationToken.None), _testContext.CancellationToken));
+            tasks.Add(Task.Run(async () => await store.GetHighWaterMarkAsync(CancellationToken.None), _testContext.CancellationToken));
         }
 
         await Task.WhenAll(tasks);

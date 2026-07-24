@@ -150,7 +150,7 @@ public sealed class InMemoryLogStoreTests
                          }
                          else
                          {
-                             Assert.IsTrue(store.GetEntries().Count <= 20, "A snapshot should never exceed the capacity!");
+                             Assert.IsLessThanOrEqualTo(20, store.GetEntries().Count, "A snapshot should never exceed the capacity!");
                          }
                      });
 

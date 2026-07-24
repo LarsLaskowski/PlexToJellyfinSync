@@ -37,13 +37,16 @@ public sealed class InMemoryLoggerTests
         var store = CreateStore();
         var logger = new InMemoryLogger(store, "PlexToJellyfinSync.Service.SyncOrchestrator");
 
-        logger.LogInformation("Processed {Count} items", 3);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation("Processed the {Kind} library", "movie");
+        }
 
         var entries = store.GetEntries();
 
         Assert.HasCount(1, entries, "The message should have been captured!");
         Assert.AreEqual("PlexToJellyfinSync.Service.SyncOrchestrator", entries[0].Category, "The category should be captured!");
-        Assert.AreEqual("Processed 3 items", entries[0].Message, "The formatted message should be captured!");
+        Assert.AreEqual("Processed the movie library", entries[0].Message, "The formatted message should be captured!");
         Assert.AreEqual(LogLevel.Information, entries[0].Level, "The log level should be captured!");
         Assert.IsNull(entries[0].Exception, "A message without exception should not carry exception text!");
     }
