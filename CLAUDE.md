@@ -25,6 +25,13 @@ runs as a Docker container, and exposes a web dashboard (status + live logs).
   groups a class's interface implementation, name it after the interface (e.g. `#region IPathMapper`);
   the region description must **not** end with the word "implementation".
 
+## Commit messages
+
+- Keep the subject line to a single summary of **no more than 80 characters** and do not end it with a
+  period.
+- Do not write the message in the first person.
+- Keep the body to **3–5 sentences**, depending on the number of changes.
+
 ## Pull requests
 
 - Title and description are always written in **English**, regardless of the language used in the
@@ -53,6 +60,17 @@ Single test: `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Test
 - `PlexToJellyfinSync` — Blazor Server host: `Program.cs`, `Worker` (BackgroundService), dashboard
   components (`Dashboard.razor`, `Logs.razor`), optional `TokenAuthMiddleware`
 - `PlexToJellyfinSync.Tests` — MSTest
+
+## Project configuration
+
+- **Target framework** `net10.0`; **nullable reference types**, **implicit usings**, and
+  **documentation XML** generation are all enabled.
+- **Central Package Management** via `Directory.Packages.props`
+  (`<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>`); never put versions in
+  individual `.csproj` files.
+- **Reihitsu.Analyzer** is a dev dependency in every project (via `Directory.Build.props`); there is no
+  StyleCop.Analyzers.
+- **Solution format** is `.slnx` (XML-based) at the repository root.
 
 ## Code style
 
