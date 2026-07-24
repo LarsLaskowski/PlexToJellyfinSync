@@ -1,6 +1,6 @@
 ARG BASE_SDK="mcr.microsoft.com/dotnet/sdk:10.0-alpine"
 ARG BASE_RUNTIME="mcr.microsoft.com/dotnet/aspnet:10.0-alpine"
-ARG BASE_RUNTIME_DIGEST
+ARG BASE_RUNTIME_DIGEST="sha256:27b6b84beeede74fd16886177d360799c8e4299ceadfbd64eef57bafead7878a"
 
 FROM ${BASE_SDK} AS build
 WORKDIR /src
@@ -15,7 +15,7 @@ RUN dotnet restore src/PlexToJellyfinSync/PlexToJellyfinSync.csproj
 COPY . .
 RUN dotnet publish src/PlexToJellyfinSync/PlexToJellyfinSync.csproj -c Release -o /app/publish
 
-FROM ${BASE_RUNTIME}
+FROM ${BASE_RUNTIME}@${BASE_RUNTIME_DIGEST}
 ARG BASE_RUNTIME
 ARG BASE_RUNTIME_DIGEST
 
