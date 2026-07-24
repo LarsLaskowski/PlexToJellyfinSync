@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -File .claude/hooks/sonar-secrets/build-scripts/pretool-secrets.ps1",
+            "command": "pwsh -NoProfile -File .claude/hooks/sonar-secrets/build-scripts/pretool-secrets.ps1",
             "timeout": 60
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -File .claude/hooks/sonar-secrets/build-scripts/prompt-secrets.ps1",
+            "command": "pwsh -NoProfile -File .claude/hooks/sonar-secrets/build-scripts/prompt-secrets.ps1",
             "timeout": 60
           }
         ]
