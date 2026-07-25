@@ -1,32 +1,40 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-title: "[BUG]"
-labels: ''
+about: Report a problem with PlexToJellyfinSync
+title: "[BUG] "
+labels: bug
 assignees: ''
 
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+A clear and concise description of what went wrong.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+1. ...
+2. ...
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Environment**
+ - PlexToJellyfinSync image tag: [e.g. `ghcr.io/larslaskowski/plextojellyfinsync:1.4.0` or `latest`]
+ - Deployment method: [e.g. `docker run`, Docker Compose, Kubernetes]
+ - Plex Media Server version: [e.g. 1.40.x]
+ - Jellyfin version: [e.g. 10.9.x]
+ - Host OS: [e.g. Debian 12, Synology DSM 7]
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+**Configuration**
+ - Relevant `PathMappings` entries (redact real paths if sensitive):
+ - Any non-default `Sync` / `Nfo` settings:
+
+**Logs**
+Paste the relevant excerpt from the container logs or the dashboard "Logs" page (redact your Plex token).
+
+```
+paste logs here
+```
 
 **Additional context**
 Add any other context about the problem here.
