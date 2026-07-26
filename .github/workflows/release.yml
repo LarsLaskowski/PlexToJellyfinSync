@@ -9,6 +9,11 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+# Single source for the published image name; the README documents the same one.
+# DOCKERHUB_USERNAME stays a secret and is only used for the registry login.
+env:
+  IMAGE_NAME: networlddev/plextojellyfinsync
+
 jobs:
   docker:
     if: github.event.pull_request.merged == true
@@ -100,7 +105,7 @@ jobs:
         if: steps.version.outputs.skip != 'true'
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/plextojellyfinsync
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest
@@ -114,3 +119,25 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      # Pushing a tag only lists it under "Tags"; the Releases page stays empty
+      # until a release object exists for that tag. Created after the image push
+      # so a release entry always corresponds to a published image.
+      - name: Create GitHub release
+        if: steps.version.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Auto-generated notes first, then the pull command for this version.
+          {
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="v${VERSION}" --jq '.body'
+            printf '\n## Docker image\n\n```bash\ndocker pull %s:%s\n```\n' \
+              "$IMAGE_NAME" "$VERSION"
+          } > release-notes.md
+
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes-file release-notes.md \
+            --verify-tag
