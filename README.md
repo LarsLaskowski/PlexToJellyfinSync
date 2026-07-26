@@ -34,8 +34,11 @@ docker run -d \
   -v /path/to/media:/media \
   -v /path/to/config:/config \
   -p 8080:8080 \
-  ghcr.io/larslaskowski/plextojellyfinsync:latest
+  networlddev/plextojellyfinsync:latest
 ```
+
+- Image: [`networlddev/plextojellyfinsync`](https://hub.docker.com/r/networlddev/plextojellyfinsync)
+  on Docker Hub – `latest` plus a tag per released version (for example `1.2.2`).
 
 - Dashboard: `http://<host>:8080/` – logs at `/logs`, health at `/health`.
 - The media volume must be **writable** so NFO files can be written next to the media.
