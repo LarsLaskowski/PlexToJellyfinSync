@@ -1,0 +1,40 @@
+name: Backfill releases
+
+# Tags pushed before the release workflow created release objects only show up
+# under "Tags". Run this workflow manually to add the missing release entries;
+# it is idempotent and skips every tag that already has a release.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create missing releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Oldest tag first, so the highest version ends up marked as "Latest".
+          for tag in $(git tag --list 'v*' --sort=v:refname); do
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "$tag: release already exists, skipping."
+              continue
+            fi
+
+            echo "$tag: creating release."
+            gh release create "$tag" \
+              --title "$tag" \
+              --generate-notes \
+              --verify-tag
+          done
