@@ -14,16 +14,12 @@ namespace PlexToJellyfinSync.Tests;
 [TestClass]
 public sealed class SyncOrchestratorTests
 {
-    #region Constants
-
-    private const string SeasonDirectory = "/data/Shows/Breaking Bad/Season 01";
-    private const string ShowDirectory = "/data/Shows/Breaking Bad";
-
-    #endregion // Constants
-
     #region Fields
 
     private static readonly DateTimeOffset _since = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    private readonly string _seasonDirectory = "/data/Shows/Breaking Bad/Season 01".Replace('/', Path.DirectorySeparatorChar);
+    private readonly string _showDirectory = "/data/Shows/Breaking Bad".Replace('/', Path.DirectorySeparatorChar);
 
     private FakePlexClient _plexClient = new();
     private RecordingNfoWriter _nfoWriter = new();
@@ -267,11 +263,11 @@ public sealed class SyncOrchestratorTests
 
         Assert.HasCount(3, _nfoWriter.Writes, "Episode, season and series should have been written!");
         Assert.HasCount(1, seasons, "Exactly one season aggregate should have been written!");
-        Assert.AreEqual(SeasonDirectory, seasons[0].LocalPath, "The season aggregate should target the season directory!");
+        Assert.AreEqual(_seasonDirectory, seasons[0].LocalPath, "The season aggregate should target the season directory!");
         Assert.AreEqual(1, seasons[0].Item.SeasonNumber, "The season number should be taken from the episodes!");
         Assert.IsFalse(seasons[0].Item.Watch.Watched, "A season with an unwatched episode should not be watched!");
         Assert.HasCount(1, series, "Exactly one series aggregate should have been written!");
-        Assert.AreEqual(ShowDirectory, series[0].LocalPath, "The series aggregate should target the show directory!");
+        Assert.AreEqual(_showDirectory, series[0].LocalPath, "The series aggregate should target the show directory!");
         Assert.IsFalse(series[0].Item.Watch.Watched, "A series with an unwatched episode should not be watched!");
     }
 
@@ -641,7 +637,7 @@ public sealed class SyncOrchestratorTests
                         EpisodeNumber = 1,
                         ShowRatingKey = showRatingKey,
                         ShowTitle = "Breaking Bad",
-                        FilePath = SeasonDirectory + "/S01E01.mkv",
+                        FilePath = _seasonDirectory + "/S01E01.mkv",
                         Watch = new WatchInfo
                                 {
                                     Watched = true,
@@ -659,7 +655,7 @@ public sealed class SyncOrchestratorTests
                          EpisodeNumber = 2,
                          ShowRatingKey = showRatingKey,
                          ShowTitle = "Breaking Bad",
-                         FilePath = SeasonDirectory + "/S01E02.mkv"
+                         FilePath = _seasonDirectory + "/S01E02.mkv"
                      };
 
         _plexClient.Items["e1"] = first;
