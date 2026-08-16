@@ -45,22 +45,6 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
-    /// Create an NFO writer with the given options
-    /// </summary>
-    /// <param name="createMissing">Whether missing files are created</param>
-    /// <returns>NFO writer</returns>
-    private static NfoWriter CreateWriter(bool createMissing)
-    {
-        var nfoOptions = Options.Create(new NfoOptions());
-        var syncOptions = Options.Create(new SyncOptions
-                                         {
-                                             CreateMissingNfo = createMissing
-                                         });
-
-        return new NfoWriter(nfoOptions, syncOptions, NullLogger<NfoWriter>.Instance);
-    }
-
-    /// <summary>
     /// A missing movie NFO is created with the watch state
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -150,6 +134,22 @@ public sealed class NfoWriterTests
 
         Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "Outcome should be Skipped!");
         Assert.IsFalse(File.Exists(Path.ChangeExtension(moviePath, ".nfo")), "No NFO file should have been created!");
+    }
+
+    /// <summary>
+    /// Create an NFO writer with the given options
+    /// </summary>
+    /// <param name="createMissing">Whether missing files are created</param>
+    /// <returns>NFO writer</returns>
+    private static NfoWriter CreateWriter(bool createMissing)
+    {
+        var nfoOptions = Options.Create(new NfoOptions());
+        var syncOptions = Options.Create(new SyncOptions
+                                         {
+                                             CreateMissingNfo = createMissing
+                                         });
+
+        return new NfoWriter(nfoOptions, syncOptions, NullLogger<NfoWriter>.Instance);
     }
 
     #endregion // Methods

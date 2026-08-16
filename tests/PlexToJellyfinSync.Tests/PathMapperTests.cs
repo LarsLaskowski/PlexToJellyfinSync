@@ -14,16 +14,6 @@ public sealed class PathMapperTests
     #region Methods
 
     /// <summary>
-    /// Create a path mapper for the given mappings
-    /// </summary>
-    /// <param name="mappings">Mappings</param>
-    /// <returns>Path mapper</returns>
-    private static PathMapper CreateMapper(params PathMapping[] mappings)
-    {
-        return new PathMapper(Options.Create(mappings.ToList()));
-    }
-
-    /// <summary>
     /// Mapping a matching plex path returns the translated local path
     /// </summary>
     [TestMethod]
@@ -128,6 +118,16 @@ public sealed class PathMapperTests
         var result = mapper.MapToLocal("/data/Movies/Heat/..");
 
         Assert.IsNull(result, "Path ending with traversal sequence should return null!");
+    }
+
+    /// <summary>
+    /// Create a path mapper for the given mappings
+    /// </summary>
+    /// <param name="mappings">Mappings</param>
+    /// <returns>Path mapper</returns>
+    private static PathMapper CreateMapper(params PathMapping[] mappings)
+    {
+        return new PathMapper(Options.Create(mappings.ToList()));
     }
 
     #endregion // Methods

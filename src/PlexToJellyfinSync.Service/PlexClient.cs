@@ -157,10 +157,10 @@ public sealed class PlexClient : IPlexClient
     private static MediaItem MapMediaItem(PlexMetadata metadata)
     {
         var kind = MapKind(metadata.Type);
-        var filePath = metadata.Media?.FirstOrDefault()?
-        .Part?
-        .FirstOrDefault()?
-        .File;
+        var filePath = metadata.Media?.FirstOrDefault()
+                                     ?.Part
+                                     ?.FirstOrDefault()
+                                     ?.File;
 
         var item = new MediaItem
                    {

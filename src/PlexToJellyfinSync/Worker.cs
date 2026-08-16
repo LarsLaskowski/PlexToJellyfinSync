@@ -41,6 +41,31 @@ public sealed class Worker : BackgroundService
 
     #endregion // Constructors
 
+    #region Methods
+
+    /// <summary>
+    /// Run a reconcile and swallow non-cancellation errors
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private async Task SafeReconcileAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _orchestrator.ReconcileAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Initial reconcile failed");
+        }
+    }
+
+    #endregion // Methods
+
     #region BackgroundService
 
     /// <inheritdoc/>
@@ -83,29 +108,4 @@ public sealed class Worker : BackgroundService
     }
 
     #endregion // BackgroundService
-
-    #region Methods
-
-    /// <summary>
-    /// Run a reconcile and swallow non-cancellation errors
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async Task SafeReconcileAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _orchestrator.ReconcileAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Initial reconcile failed");
-        }
-    }
-
-    #endregion // Methods
 }

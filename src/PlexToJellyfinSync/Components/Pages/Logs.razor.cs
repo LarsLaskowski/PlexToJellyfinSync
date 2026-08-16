@@ -44,20 +44,6 @@ public sealed partial class Logs : IDisposable
 
     #endregion // Properties
 
-    #region ComponentBase
-
-    /// <inheritdoc/>
-    protected override void OnInitialized()
-    {
-        _minLevel = LogLevel.Information;
-        _filter = string.Empty;
-        _paused = false;
-        _entries = LogStore.GetEntries().ToList();
-        LogStore.EntryAdded += OnEntryAdded;
-    }
-
-    #endregion // ComponentBase
-
     #region Methods
 
     /// <summary>
@@ -102,6 +88,20 @@ public sealed partial class Logs : IDisposable
     }
 
     #endregion // Methods
+
+    #region ComponentBase
+
+    /// <inheritdoc/>
+    protected override void OnInitialized()
+    {
+        _minLevel = LogLevel.Information;
+        _filter = string.Empty;
+        _paused = false;
+        _entries = LogStore.GetEntries().ToList();
+        LogStore.EntryAdded += OnEntryAdded;
+    }
+
+    #endregion // ComponentBase
 
     #region IDisposable
 
