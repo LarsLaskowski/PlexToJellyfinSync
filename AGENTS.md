@@ -1,13 +1,20 @@
 # AGENTS.md — PlexToJellyfinSync
 
 Project guidance for Codex when working in this repository. These rules mirror
-`.github/copilot-instructions.md`; keep both in sync.
+`.github/copilot-instructions.md` and `CLAUDE.md`; keep all three in sync. This file is a summary;
+the binding, detailed references are [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) (how the system is put
+together and why), [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) (workflow, PR conventions, versioning) and
+[`UNIT_TESTS.md`](docs/UNIT_TESTS.md) (test conventions — **unit tests are mandatory for new code**).
+Read those three documents before making a non-trivial change; when this file and one of them
+appear to disagree, treat that as a sync bug to fix, not as license to pick either one.
 
 ## What this project is
 
 A .NET 10 worker with an ASP.NET / Blazor Server host that **cyclically reads the Plex watch state
 and writes it into Jellyfin `.nfo` files**. Polling only (no webhooks), single user (the Plex owner),
-runs as a Docker container, and exposes a web dashboard (status + live logs).
+runs as a Docker container, and exposes a web dashboard (status + live logs). See
+[`ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the sync pipeline, dashboard and deployment fit
+together.
 
 ## Golden rules
 
@@ -56,6 +63,19 @@ XML docs on all members (English, no `<remarks>`); `.ConfigureAwait(false)` in s
 
 ## Testing
 
-MSTest only (no FluentAssertions). Classes `{Feature}Tests`, methods `{Class}{Scenario}{ExpectedResult}`
-in PascalCase **without underscores** (e.g. `WatchAggregatorAllWatchedReturnsWatched`, not
-`WatchAggregator_AllWatched_ReturnsWatched`); always pass an assert message.
+**Unit tests are mandatory for newly written code.** MSTest only (no FluentAssertions, no mocking
+library — use real objects or the hand-written fakes/stubs in `tests/PlexToJellyfinSync.Tests`).
+Classes `{Feature}Tests`, methods `{Class}{Scenario}{ExpectedResult}` in PascalCase **without
+underscores** (e.g. `WatchAggregatorAllWatchedReturnsWatched`, not
+`WatchAggregator_AllWatched_ReturnsWatched`); always pass an assert message. Full conventions,
+including the project's test-double pattern and the checklist to run before committing a new
+test, are in [`UNIT_TESTS.md`](docs/UNIT_TESTS.md).
+
+## Pull requests, contributing and architecture
+
+Follow [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) for branch/PR naming (`[area] Description`), the PR
+checklist in [`.github/pull_request_template.md`](.github/pull_request_template.md), and the
+stability policy. Consult [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing the sync pipeline,
+path mapping, NFO writing, or the dashboard's auth model — several behaviors there (e.g. NFO files
+are only ever touched in their watch fields, an unmapped path is always skipped rather than passed
+through) are deliberate guarantees, not incidental behavior.

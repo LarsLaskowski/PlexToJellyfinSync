@@ -2,6 +2,13 @@
 
 This file describes project-specific conventions and configuration for PlexToJellyfinSync.
 Copilot and other AI assistants must follow these guidelines when working in this repository.
+These rules mirror `CLAUDE.md` and `AGENTS.md`; keep all three in sync. This file is a summary;
+the binding, detailed references are [`ARCHITECTURE.md`](../docs/ARCHITECTURE.md) (how the system is
+put together and why), [`CONTRIBUTING.md`](../docs/CONTRIBUTING.md) (workflow, PR conventions,
+versioning) and [`UNIT_TESTS.md`](../docs/UNIT_TESTS.md) (test conventions — **unit tests are
+mandatory for new code**). Read those three documents before making a non-trivial change; when
+this file and one of them appear to disagree, treat that as a sync bug to fix, not as license to
+pick either one.
 
 ---
 
@@ -9,7 +16,9 @@ Copilot and other AI assistants must follow these guidelines when working in thi
 
 A .NET 10 worker (with an ASP.NET / Blazor Server host) that cyclically reads the Plex watch state
 and writes it into Jellyfin `.nfo` files. Polling only (no webhooks), single user (the Plex owner),
-runs as a Docker container, and exposes a web dashboard for status and logs.
+runs as a Docker container, and exposes a web dashboard for status and logs. See
+[`ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for how the sync pipeline, dashboard and deployment fit
+together.
 
 ---
 
@@ -88,12 +97,30 @@ as a failure and fix it before considering the work done — do not leave analyz
 
 ## Testing
 
+**Unit tests are mandatory for newly written code.** Full conventions — including the project's
+hand-written fake/stub pattern (no mocking library) and a checklist to run before committing a new
+test — are documented in [`UNIT_TESTS.md`](../docs/UNIT_TESTS.md). Summary:
+
 - **Framework**: MSTest (`Microsoft.VisualStudio.TestTools.UnitTesting`)
 - **Assertions**: MSTest `Assert` class only — **do NOT use FluentAssertions**
+- **Mocking**: none — use real objects or a hand-written fake/stub implementing the relevant
+  `Core.Abstractions` interface (see `FakePlexClient`, `StubPathMapper`, `RecordingNfoWriter`,
+  etc. in `tests/PlexToJellyfinSync.Tests`), not NSubstitute/Moq
 - **Test class naming**: `{Feature}Tests`
 - **Test method naming**: `{Class}{Scenario}{ExpectedResult}` in PascalCase **without underscores**
   (e.g. `WatchAggregatorAllWatchedReturnsWatched`, not `WatchAggregator_AllWatched_ReturnsWatched`)
 - **Assert messages** are always provided
+
+---
+
+## Pull requests, contributing and architecture
+
+Follow [`CONTRIBUTING.md`](../docs/CONTRIBUTING.md) for branch/PR naming (`[area] Description`), the PR
+checklist in [`pull_request_template.md`](pull_request_template.md), and the stability policy.
+Consult [`ARCHITECTURE.md`](../docs/ARCHITECTURE.md) before changing the sync pipeline, path mapping,
+NFO writing, or the dashboard's auth model — several behaviors there (e.g. NFO files are only ever
+touched in their watch fields, an unmapped path is always skipped rather than passed through) are
+deliberate guarantees, not incidental behavior.
 
 ---
 

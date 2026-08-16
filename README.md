@@ -112,6 +112,11 @@ dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build
 ```
 
+See [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the full contribution workflow,
+[`ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the sync pipeline, dashboard and deployment are put
+together, and [`UNIT_TESTS.md`](docs/UNIT_TESTS.md) for test conventions (unit tests are mandatory for
+new code).
+
 ## License
 
 [MIT](LICENSE.md) © 2026 Lars Laskowski

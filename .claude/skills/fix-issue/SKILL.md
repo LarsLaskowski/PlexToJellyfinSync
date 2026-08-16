@@ -45,7 +45,11 @@ work to an AI.
 
 ### 4. Implement the fix
 
-- Solve the issue following the conventions in `CLAUDE.md`. In particular: file-scoped namespaces;
+- Solve the issue following the conventions in `CLAUDE.md`, and consult `docs/ARCHITECTURE.md` before
+  touching the sync pipeline, path mapping, NFO writing, or the dashboard's auth model — several
+  behaviors documented there (e.g. NFO files are only ever touched in their watch fields, an
+  unmapped path is always skipped rather than passed through) are deliberate guarantees, not
+  incidental behavior to "fix" away. In particular: file-scoped namespaces;
   `using` outside the namespace (System first); Allman braces; `var` preferred; language keywords over
   BCL types; LINQ method syntax only; `== false` instead of `!`; `is null`/`is not null`; no primary
   constructors; constructor injection with `_camelCase` readonly fields; `.ConfigureAwait(false)` in
@@ -72,9 +76,12 @@ work to an AI.
 - Run `dotnet test PlexToJellyfinSync.slnx -c Release --no-build`. For a tighter loop on a single test,
   use `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj --filter
   "FullyQualifiedName~ClassName.MethodName"`.
-- Add or update MSTest tests (no FluentAssertions): class `{Feature}Tests`, methods
+- **Unit tests are mandatory for this fix.** Add or update MSTest tests (no FluentAssertions, no
+  mocking library — use real objects or the hand-written fakes/stubs in
+  `tests/PlexToJellyfinSync.Tests`): class `{Feature}Tests`, methods
   `{Class}{Scenario}{ExpectedResult}` in PascalCase without underscores (e.g.
-  `WatchAggregatorAllWatchedReturnsWatched`), always with an assert message.
+  `WatchAggregatorAllWatchedReturnsWatched`), always with an assert message. Full conventions are
+  in `docs/UNIT_TESTS.md`.
 - If validation fails, fix the cause before continuing — do not push broken or unformatted code. If you
   cannot make it pass, stop and report clearly.
 
@@ -90,9 +97,11 @@ work to an AI.
 - Push the branch to `origin` with upstream tracking.
 - Open the pull request with GitHub CLI:
   - base branch: `main`, unless the user requested a different base
-  - title: concise English summary of the fix
-  - body: a short English summary of the problem and the fix, and a line `Closes #<number>` so the
-    issue auto-closes on merge
+  - title: `[area] Description` per `docs/CONTRIBUTING.md` (area = affected project/feature, e.g.
+    `Core`, `Data`, `Service`, `Host`, `Dashboard`, `Tests`, `Docker`, `CI`, `Docs`; no period at
+    the end)
+  - body: follow the structure in `.github/pull_request_template.md`, with a `Closes #<number>`
+    line under Issues so the issue auto-closes on merge
   - Do not add any attribution, "Generated with" footer, or other note referencing an AI/assistant in
     the PR title or body.
 

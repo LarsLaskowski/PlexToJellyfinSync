@@ -49,10 +49,20 @@ Evaluate the change against what matters for this project. Focus on:
   code; new packages added via Central Package Management (`Directory.Packages.props`), not per-project
   version numbers; the change would build with **zero Reihitsu (`RH####`) warnings and errors**.
 - **Scope and size** — unrelated changes bundled in, accidental file inclusions, debug leftovers.
-- **Tests and validation** — MSTest only (no FluentAssertions); class names `{Feature}Tests`; method
-  names `{Class}{Scenario}{ExpectedResult}` in PascalCase without underscores; assert messages present;
+- **Tests and validation** (`docs/UNIT_TESTS.md`) — **unit tests are mandatory for newly written
+  code**; flag a PR that adds production code with no accompanying test. MSTest only (no
+  FluentAssertions, no mocking library — real objects or the hand-written fakes/stubs in
+  `tests/PlexToJellyfinSync.Tests`); class names `{Feature}Tests`; method names
+  `{Class}{Scenario}{ExpectedResult}` in PascalCase without underscores; assert messages present;
   whether `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` and
   `dotnet test PlexToJellyfinSync.slnx -c Release --no-build` would plausibly pass.
+- **Architecture conformance** (`docs/ARCHITECTURE.md`) — does the change respect the documented
+  guarantees, e.g. NFO files are only ever touched in their watch fields, `PathMapper` never
+  passes an unmapped path through unchanged, the dashboard stays optional/unauthenticated-by-
+  default unless the PR explicitly intends to change that.
+- **PR hygiene** (`docs/CONTRIBUTING.md`) — title follows `[area] Description`; if the repo's PR
+  template (`.github/pull_request_template.md`) was used, its checklist reflects what was
+  actually done.
 - **Clarity** — naming, dead code, needless complexity, missing or misleading comments.
 
 Do not run builds that modify files unnecessarily; reading the diff and the surrounding code is usually
