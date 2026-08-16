@@ -30,14 +30,14 @@ public sealed class SyncStatusService : ISyncStatusProvider
 
     #endregion // Constructors
 
+    #region ISyncStatusProvider
+
     #region Events
 
     /// <inheritdoc/>
     public event Action? Changed;
 
     #endregion // Events
-
-    #region ISyncStatusProvider
 
     /// <inheritdoc/>
     public SyncStatusViewData GetSnapshot()

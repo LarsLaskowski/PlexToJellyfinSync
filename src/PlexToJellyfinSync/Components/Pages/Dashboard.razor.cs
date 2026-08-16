@@ -29,17 +29,6 @@ public sealed partial class Dashboard : IDisposable
 
     #endregion // Properties
 
-    #region ComponentBase
-
-    /// <inheritdoc/>
-    protected override void OnInitialized()
-    {
-        _status = StatusProvider.GetSnapshot();
-        StatusProvider.Changed += OnChanged;
-    }
-
-    #endregion // ComponentBase
-
     #region Methods
 
     /// <summary>
@@ -73,6 +62,17 @@ public sealed partial class Dashboard : IDisposable
     }
 
     #endregion // Methods
+
+    #region ComponentBase
+
+    /// <inheritdoc/>
+    protected override void OnInitialized()
+    {
+        _status = StatusProvider.GetSnapshot();
+        StatusProvider.Changed += OnChanged;
+    }
+
+    #endregion // ComponentBase
 
     #region IDisposable
 

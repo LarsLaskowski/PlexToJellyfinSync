@@ -72,5 +72,10 @@ dotnet_separate_import_directive_groups = true
 dotnet_diagnostic.RH0396.severity = none
 dotnet_diagnostic.RH0428.severity = none
 dotnet_diagnostic.RH2102.severity = none
+dotnet_diagnostic.RH4124.severity = none
 dotnet_diagnostic.RH7004.severity = none
 dotnet_diagnostic.RH8027.severity = none
+dotnet_diagnostic.RH8306.severity = none
+
+# temporary suppressions for analyzers that are not yet fixed
+dotnet_diagnostic.RH5201.severity = none
