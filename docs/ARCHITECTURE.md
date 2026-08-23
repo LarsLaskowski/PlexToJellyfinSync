@@ -208,8 +208,9 @@ Studio standard for solution files, not a migration artifact.
   port to whatever external port it chooses.
 - The image expects two volumes: a **writable** media volume (so `NfoWriter` can create/update
   `.nfo` files next to the media) and a `/config` volume for `StateStore`'s `state.json`.
-- **CI** (`.github/workflows/ci.yml`) restores, runs `reihitsu-format ./` and fails the build on
-  any resulting diff (`git diff --exit-code`), builds, runs tests with coverage
+- **CI** (`.github/workflows/ci.yml`) restores, runs `reihitsu-format --check ./` (with the CLI
+  installed via `--prerelease` so it matches the pinned analyzer) and fails the build on any
+  unformatted file, builds, runs tests with coverage
   (`XPlat Code Coverage`, OpenCover format), and — when `SONAR_TOKEN` is available (not exposed to
   Dependabot or fork PRs) — feeds the coverage into SonarQube Cloud analysis
   (`networlddev_PlexToJellyfinSync`).

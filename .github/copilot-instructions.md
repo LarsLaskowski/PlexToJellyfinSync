@@ -64,7 +64,9 @@ Use the solution file at the repository root (`.slnx` format):
 - Run one test method: `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj --filter "FullyQualifiedName~Namespace.ClassName.MethodName"`
 
 Run `reihitsu-format ./` after source changes and before running a build. The command is available as
-a .NET tool and can be installed with `dotnet tool install -g Reihitsu.Cli` if it is missing.
+a .NET tool and can be installed with `dotnet tool install -g Reihitsu.Cli --prerelease` if it is
+missing; `--prerelease` keeps the CLI in sync with the prerelease **Reihitsu.Analyzer** pinned in
+`Directory.Packages.props`.
 Static analysis runs during build through the **Reihitsu.Analyzer** (added to every project). There is
 **no StyleCop.Analyzers**.
 

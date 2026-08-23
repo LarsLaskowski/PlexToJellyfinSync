@@ -22,8 +22,11 @@ you are manually verifying an end-to-end change against real data.
 Format checks rely on `reihitsu-format`, a .NET tool. Install it once with:
 
 ```shell
-dotnet tool install -g Reihitsu.Cli
+dotnet tool install -g Reihitsu.Cli --prerelease
 ```
+
+`--prerelease` is required: the repository pins a prerelease **Reihitsu.Analyzer**, and the CLI has
+to match it, otherwise the formatter reverts code the analyzer considers correct.
 
 > [!IMPORTANT]
 > The above steps are a one-time setup for your machine and do not need to be repeated after the

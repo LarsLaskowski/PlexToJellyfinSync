@@ -51,7 +51,7 @@ together.
 
 ```bash
 dotnet restore PlexToJellyfinSync.slnx
-reihitsu-format ./                                          # dotnet tool install -g Reihitsu.Cli
+reihitsu-format ./                                          # dotnet tool install -g Reihitsu.Cli --prerelease
 dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build
 ```
