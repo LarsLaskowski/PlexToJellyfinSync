@@ -43,6 +43,9 @@ docker run -d \
 - Dashboard: `http://<host>:8080/` – logs at `/logs`, health at `/health`.
 - The media volume must be **writable** so NFO files can be written next to the media.
 - The `/config` volume stores `state.json` (the incremental high-water mark).
+- The container runs as the base image's non-root user (not `root`). Make sure the host
+  directories mounted to `/media` and `/config` are writable by that user's UID – check it with
+  `docker run --rm networlddev/plextojellyfinsync:latest id`.
 
 ## Path mappings
 

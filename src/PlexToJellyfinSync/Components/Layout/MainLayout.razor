@@ -1,11 +1,20 @@
 @inherits LayoutComponentBase
 
+@inject IOptions<DashboardOptions> DashboardOptions
+
 <div class="app-shell">
     <header class="app-header">
         <span class="app-brand">PlexToJellyfinSync</span>
         <nav class="app-nav">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Status</NavLink>
             <NavLink class="nav-link" href="logs">Logs</NavLink>
+            @if (string.IsNullOrWhiteSpace(DashboardOptions.Value.Token) == false)
+            {
+                <form method="post" action="/logout" class="logout-form">
+                    <AntiforgeryToken />
+                    <button type="submit" class="nav-link logout-link">Logout</button>
+                </form>
+            }
         </nav>
         <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Toggle light / dark theme" aria-label="Toggle light / dark theme">
             <span class="theme-icon theme-icon-sun">☀</span>

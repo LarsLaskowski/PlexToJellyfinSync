@@ -138,7 +138,12 @@ Studio standard for solution files, not a migration artifact.
   registers `InMemoryLogProvider` as an `ILoggerProvider` so every `ILogger<T>` call in the app
   also lands in the dashboard's log buffer, and always maps `GET /health` (unauthenticated,
   reports `plexConnected`/`isRunning`/`lastPollAt`/`lastReconcileAt`/`errors` from the status
-  snapshot) regardless of whether the dashboard itself is enabled.
+  snapshot) regardless of whether the dashboard itself is enabled. It also logs a startup warning
+  when `Dashboard:Enabled` is `true` and `Dashboard:Token` is empty, since that combination leaves
+  the dashboard reachable by anyone who can reach the host, and calls `UseForwardedHeaders` (with
+  `KnownIPNetworks`/`KnownProxies` cleared, since no reverse proxy address is known upfront in this
+  single-container deployment) so `Request.Scheme`/`IsHttps` reflect a TLS-terminating reverse
+  proxy's `X-Forwarded-Proto` header.
 - Every response gets a small fixed set of security headers (`X-Content-Type-Options`,
   `X-Frame-Options: DENY`, HSTS, and a `Content-Security-Policy`). The CSP allows
   `'unsafe-inline'` for script/style and `wss:`/`ws:` for `connect-src` — both are required for
@@ -148,15 +153,17 @@ Studio standard for solution files, not a migration artifact.
   mapped and nothing else (no Razor components, no login endpoints, no antiforgery/status-code
   middleware) — there is no dashboard to secure in that mode. When `true`, the pipeline adds
   `UseAntiforgery`, `TokenAuthMiddleware`, the Razor component endpoints
-  (`AddInteractiveServerRenderMode`), and the `/login` GET/POST endpoints.
+  (`AddInteractiveServerRenderMode`), and the `/login` GET/POST and `/logout` POST endpoints.
 - **`TokenAuthMiddleware`** (`src/PlexToJellyfinSync/Security/TokenAuthMiddleware.cs`) is a
   no-op pass-through when `Dashboard:Token` is unset — the dashboard is unauthenticated by
   default, consistent with `SECURITY.md`'s framing of this as a home-network tool. When a token
-  is configured, every request except `/health`, `/login`, framework-internal paths (`/_...`,
-  e.g. Blazor's `/_blazor` SignalR endpoint) and requests for a static file (last path segment
-  contains a `.`) must carry a session cookie (`pjf_auth`) that resolves to a live entry in
-  `IMemoryCache`. Sessions are therefore server-side and revocable by cache eviction, not
-  self-contained bearer tokens.
+  is configured, every request except `/health`, `/login`, an explicit allowlist of known public
+  prefixes (`/_framework/`, `/_content/`, and Blazor's `/_blazor` SignalR hub — the hub is
+  deliberately included since it only serves negotiate/connect for a circuit whose initial page
+  render already passed authentication) and requests for a known static-asset extension (`.css`,
+  `.js`, `.map`, image and font formats — not just any path segment containing a `.`) must carry a
+  session cookie (`pjf_auth`) that resolves to a live entry in `IMemoryCache`. Sessions are
+  therefore server-side and revocable by cache eviction, not self-contained bearer tokens.
 - **`DashboardLoginService`** (`src/PlexToJellyfinSync.Service/Security/DashboardLoginService.cs`)
   compares the submitted token to the configured one via `TokenComparer.FixedTimeEquals` — both
   inputs are SHA-256-hashed first (removing any length side-channel) before a constant-time
@@ -170,8 +177,17 @@ Studio standard for solution files, not a migration artifact.
   (`src/PlexToJellyfinSync/Security/LoginEndpoints.cs`) is the HTTP glue: on `LockedOut` it
   returns `429` with a `Retry-After` header; on `Succeeded` it stores the session id in
   `IMemoryCache` under `pjf_session:<id>` with an 8-hour sliding lifetime and sets the
-  `pjf_auth` cookie as `HttpOnly, Secure, SameSite=Strict`; on `Failed` it redirects back to
-  `/login?error=1`.
+  `pjf_auth` cookie as `HttpOnly, SameSite=Strict`, and `Secure` only when the request itself
+  arrived over HTTPS (`Request.IsHttps`) — a hardcoded `Secure` flag would make the cookie silently
+  dropped, and the dashboard therefore unusable, behind the project's own documented plain-HTTP
+  quick start; on `Failed` it redirects back to `/login?error=1`, which the login page renders as
+  a visible error message. **`LoginEndpoints.HandleLogout`** clears the cache entry and the
+  `pjf_auth` cookie and redirects to `/login`; `MainLayout.razor` renders a logout link (posting to
+  `/logout` with an antiforgery token via the `<AntiforgeryToken />` component) whenever a
+  dashboard token is configured. The `GET /login` endpoint no longer serves static HTML: it also
+  mints an antiforgery token pair (`IAntiforgery.GetAndStoreTokens`) and embeds a hidden field for
+  it in the rendered page, and the `POST /login`/`POST /logout` endpoints validate that token like
+  every other endpoint — neither is exempted via `DisableAntiforgery` any more.
 - **`Dashboard.razor`** subscribes to `ISyncStatusProvider.Changed` in `OnInitialized` and
   unsubscribes in `Dispose`, re-rendering via `InvokeAsync(StateHasChanged)` whenever the
   orchestrator updates the status — the dashboard is push-updated, not polling. **`Logs.razor`**
@@ -205,9 +221,11 @@ Studio standard for solution files, not a migration artifact.
   and publishes `src/PlexToJellyfinSync`, then copies the publish output onto
   `dotnet/aspnet:10.0-alpine` (pinned by digest, with the tag kept alongside for readability).
   `ASPNETCORE_URLS` is fixed to `http://+:8080` inside the container; the host maps that internal
-  port to whatever external port it chooses.
+  port to whatever external port it chooses. The final stage runs as the base image's predefined
+  non-root user (`USER $APP_UID`) rather than root.
 - The image expects two volumes: a **writable** media volume (so `NfoWriter` can create/update
-  `.nfo` files next to the media) and a `/config` volume for `StateStore`'s `state.json`.
+  `.nfo` files next to the media) and a `/config` volume for `StateStore`'s `state.json`; both must
+  be writable by the container's non-root UID.
 - **CI** (`.github/workflows/ci.yml`) restores, runs `reihitsu-format --check ./` (with the CLI
   installed via `--prerelease` so it matches the pinned analyzer) and fails the build on any
   unformatted file, builds, runs tests with coverage

@@ -29,4 +29,9 @@ EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
 
 COPY --from=build /app/publish .
+
+# Run as the base image's predefined non-root user instead of root; the mounted media
+# and /config volumes must be writable by this UID (check it with `docker run --rm <image> id`).
+USER $APP_UID
+
 ENTRYPOINT ["dotnet", "PlexToJellyfinSync.dll"]
