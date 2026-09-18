@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace PlexToJellyfinSync.Security;
 
 /// <summary>
@@ -58,6 +60,27 @@ public static class LoginPage
     {
         return HtmlTemplate.Replace("__ANTIFORGERY__", antiforgeryFieldHtml, StringComparison.Ordinal)
                            .Replace("__ERROR__", showError ? ErrorMessageHtml : string.Empty, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Build the hidden input markup carrying an antiforgery token
+    /// </summary>
+    /// <param name="fieldName">Form field name the antiforgery middleware expects</param>
+    /// <param name="requestToken">Antiforgery request token value</param>
+    /// <returns>Hidden input markup embedding the HTML-encoded antiforgery token</returns>
+    public static string BuildAntiforgeryField(string fieldName, string? requestToken)
+    {
+        return $"""<input type="hidden" name="{fieldName}" value="{WebUtility.HtmlEncode(requestToken)}" />""";
+    }
+
+    /// <summary>
+    /// Determine whether the login page should show an error message for the given <c>error</c> query value
+    /// </summary>
+    /// <param name="errorQueryValue">Value of the <c>error</c> query string parameter, if present</param>
+    /// <returns>True when the previous login attempt failed</returns>
+    public static bool ShouldShowError(string? errorQueryValue)
+    {
+        return errorQueryValue == "1";
     }
 
     #endregion // Static methods

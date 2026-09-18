@@ -42,6 +42,61 @@ public sealed class TokenAuthMiddlewareTests
     }
 
     /// <summary>
+    /// The health check path is exempt from authentication
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task TokenAuthMiddlewareHealthPathPassesThrough()
+    {
+        var nextCalled = false;
+
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+
+        var middleware = CreateMiddleware("secret",
+                                          cache,
+                                          _ =>
+                                          {
+                                              nextCalled = true;
+
+                                              return Task.CompletedTask;
+                                          });
+        var context = CreateContext("/health");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.IsTrue(nextCalled, "The health check path should be exempt from authentication!");
+    }
+
+    /// <summary>
+    /// A request with no path set falls back to "/" and still requires authentication
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task TokenAuthMiddlewareNullPathFallsBackToRootAndRedirectsToLogin()
+    {
+        var nextCalled = false;
+
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+
+        var middleware = CreateMiddleware("secret",
+                                          cache,
+                                          _ =>
+                                          {
+                                              nextCalled = true;
+
+                                              return Task.CompletedTask;
+                                          });
+        var context = new DefaultHttpContext();
+
+        context.Request.Path = default;
+
+        await middleware.InvokeAsync(context);
+
+        Assert.IsFalse(nextCalled, "A request with no path should not bypass authentication!");
+        Assert.AreEqual("/login", context.Response.Headers.Location.ToString(), "A request with no path should fall back to \"/\" and redirect to the login page!");
+    }
+
+    /// <summary>
     /// The Blazor Server hub path is exempt from authentication
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>

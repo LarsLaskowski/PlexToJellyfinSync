@@ -25,6 +25,21 @@ public static class LoginEndpoints
     #region Static methods
 
     /// <summary>
+    /// Handle a GET request for the login page, rendering the antiforgery field and any error message
+    /// </summary>
+    /// <param name="context">HTTP context</param>
+    /// <param name="antiforgery">Antiforgery service issuing the request token</param>
+    /// <returns>The rendered login page as an HTML content result</returns>
+    public static IResult HandleGetLogin(HttpContext context, IAntiforgery antiforgery)
+    {
+        var tokens = antiforgery.GetAndStoreTokens(context);
+        var antiforgeryField = LoginPage.BuildAntiforgeryField(tokens.FormFieldName, tokens.RequestToken);
+        var showError = LoginPage.ShouldShowError(context.Request.Query["error"]);
+
+        return Results.Content(LoginPage.Render(antiforgeryField, showError), "text/html");
+    }
+
+    /// <summary>
     /// Handle a login form submission, applying throttling and issuing a session cookie on success
     /// </summary>
     /// <param name="context">HTTP context</param>

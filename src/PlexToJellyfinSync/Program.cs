@@ -1,7 +1,3 @@
-using System.Net;
-
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 
 using PlexToJellyfinSync.Components;
@@ -46,22 +42,12 @@ public static partial class Program
 
         var dashboardOptions = app.Services.GetRequiredService<IOptions<DashboardOptions>>().Value;
 
-        if (dashboardOptions.Enabled && string.IsNullOrWhiteSpace(dashboardOptions.Token))
+        if (DashboardStartup.ShouldWarnAboutMissingToken(dashboardOptions))
         {
             app.Logger.LogWarning("Dashboard is enabled with no access token configured (Dashboard:Token); it is reachable by anyone who can reach this host. Set Dashboard:Token to require authentication.");
         }
 
-        var forwardedHeadersOptions = new ForwardedHeadersOptions
-                                      {
-                                          ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-                                      };
-
-        // No reverse proxy address is known upfront in this single-container deployment; trust
-        // whatever proxy the operator places in front (see README for the reverse-proxy/TLS guidance).
-        forwardedHeadersOptions.KnownIPNetworks.Clear();
-        forwardedHeadersOptions.KnownProxies.Clear();
-
-        app.UseForwardedHeaders(forwardedHeadersOptions);
+        app.UseForwardedHeaders(DashboardStartup.CreateForwardedHeadersOptions());
 
         if (app.Environment.IsDevelopment() == false)
         {
@@ -109,15 +95,7 @@ public static partial class Program
             app.MapRazorComponents<App>()
                .AddInteractiveServerRenderMode();
 
-            app.MapGet("/login",
-                       (HttpContext context, IAntiforgery antiforgery) =>
-                       {
-                           var tokens = antiforgery.GetAndStoreTokens(context);
-                           var antiforgeryField = $"""<input type="hidden" name="{tokens.FormFieldName}" value="{WebUtility.HtmlEncode(tokens.RequestToken)}" />""";
-                           var showError = context.Request.Query["error"] == "1";
-
-                           return Results.Content(LoginPage.Render(antiforgeryField, showError), "text/html");
-                       });
+            app.MapGet("/login", LoginEndpoints.HandleGetLogin);
 
             app.MapPost("/login", LoginEndpoints.HandleLoginAsync);
 

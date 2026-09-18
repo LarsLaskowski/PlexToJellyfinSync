@@ -2,6 +2,7 @@ using System.Net;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 
 using PlexToJellyfinSync.Core.Models;
@@ -16,6 +17,58 @@ namespace PlexToJellyfinSync.Tests;
 public sealed class LoginEndpointsTests
 {
     #region Methods
+
+    /// <summary>
+    /// The GET login handler renders the antiforgery field and omits the error message for a plain request
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LoginEndpointsHandleGetLoginRendersPageWithoutError()
+    {
+        var context = new DefaultHttpContext
+                      {
+                          RequestServices = CreateRequestServices()
+                      };
+
+        using var body = new MemoryStream();
+
+        context.Response.Body = body;
+
+        var result = LoginEndpoints.HandleGetLogin(context, new StubAntiforgery());
+
+        await result.ExecuteAsync(context);
+
+        var html = ReadBody(body);
+
+        Assert.IsTrue(html.Contains("__RequestVerificationToken", StringComparison.Ordinal), "The rendered login page should embed the antiforgery field!");
+        Assert.IsFalse(html.Contains("Invalid access token", StringComparison.Ordinal), "A plain request should not show the error message!");
+    }
+
+    /// <summary>
+    /// The GET login handler shows the error message when the query carries ?error=1
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LoginEndpointsHandleGetLoginWithErrorQueryShowsErrorMessage()
+    {
+        var context = new DefaultHttpContext
+                      {
+                          RequestServices = CreateRequestServices()
+                      };
+
+        using var body = new MemoryStream();
+
+        context.Request.QueryString = new QueryString("?error=1");
+        context.Response.Body = body;
+
+        var result = LoginEndpoints.HandleGetLogin(context, new StubAntiforgery());
+
+        await result.ExecuteAsync(context);
+
+        var html = ReadBody(body);
+
+        Assert.IsTrue(html.Contains("Invalid access token", StringComparison.Ordinal), "A request with ?error=1 should show the error message!");
+    }
 
     /// <summary>
     /// A locked-out result yields a 429 response carrying a Retry-After header
@@ -210,6 +263,30 @@ public sealed class LoginEndpointsTests
     #endregion // Methods
 
     #region Static methods
+
+    /// <summary>
+    /// Create a minimal service provider satisfying what <c>ContentHttpResult.ExecuteAsync</c> resolves from <see cref="HttpContext.RequestServices"/>
+    /// </summary>
+    /// <returns>A service provider carrying logging services</returns>
+    private static ServiceProvider CreateRequestServices()
+    {
+        return new ServiceCollection().AddLogging()
+                                      .BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Read the full text content written to a response body stream
+    /// </summary>
+    /// <param name="body">Response body stream, already written to</param>
+    /// <returns>The text content written to the stream</returns>
+    private static string ReadBody(MemoryStream body)
+    {
+        body.Seek(0, SeekOrigin.Begin);
+
+        using var reader = new StreamReader(body, leaveOpen: true);
+
+        return reader.ReadToEnd();
+    }
 
     /// <summary>
     /// Create an HTTP context carrying the given token in its form body
