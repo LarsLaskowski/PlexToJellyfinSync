@@ -74,8 +74,8 @@ public sealed class DashboardStartupTests
 
         Assert.IsTrue(options.ForwardedHeaders.HasFlag(ForwardedHeaders.XForwardedFor), "X-Forwarded-For should be honored!");
         Assert.IsTrue(options.ForwardedHeaders.HasFlag(ForwardedHeaders.XForwardedProto), "X-Forwarded-Proto should be honored so Request.IsHttps reflects the proxy!");
-        Assert.HasCount(0, options.KnownIPNetworks, "No reverse proxy network is known upfront in this single-container deployment!");
-        Assert.HasCount(0, options.KnownProxies, "No reverse proxy address is known upfront in this single-container deployment!");
+        Assert.IsEmpty(options.KnownIPNetworks, "No reverse proxy network is known upfront in this single-container deployment!");
+        Assert.IsEmpty(options.KnownProxies, "No reverse proxy address is known upfront in this single-container deployment!");
     }
 
     #endregion // Methods

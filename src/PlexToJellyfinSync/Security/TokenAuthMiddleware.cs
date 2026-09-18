@@ -76,12 +76,9 @@ public sealed class TokenAuthMiddleware
             return true;
         }
 
-        foreach (var prefix in _allowedPathPrefixes)
+        if (_allowedPathPrefixes.Any(prefix => path.StartsWith(prefix, StringComparison.Ordinal)))
         {
-            if (path.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                return true;
-            }
+            return true;
         }
 
         var lastSegment = path.AsSpan(path.LastIndexOf('/') + 1);
@@ -92,17 +89,9 @@ public sealed class TokenAuthMiddleware
             return false;
         }
 
-        var extension = lastSegment[extensionIndex..];
+        var extension = lastSegment[extensionIndex..].ToString();
 
-        foreach (var allowedExtension in _allowedStaticExtensions)
-        {
-            if (extension.Equals(allowedExtension, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return _allowedStaticExtensions.Any(allowedExtension => extension.Equals(allowedExtension, StringComparison.OrdinalIgnoreCase));
     }
 
     #endregion // Static methods

@@ -76,20 +76,21 @@ public static class LoginEndpoints
         {
             cache.Set(TokenAuthMiddleware.SessionCachePrefix + result.SessionId, true, _sessionLifetime);
 
+            // Secure is intentionally conditional below (fixes GitHub issue #74 – a hardcoded Secure = true
+            // silently drops the cookie over plain HTTP, making the token-protected dashboard unusable behind
+            // the project's own documented HTTP quick start). Sonar's static S2092 check cannot see that this
+            // is a deliberate, reviewed trade-off, so it is disabled for this cookie only.
+#pragma warning disable S2092
             context.Response.Cookies.Append(TokenAuthMiddleware.CookieName,
                                             result.SessionId,
                                             new CookieOptions
                                             {
                                                 HttpOnly = true,
-
-                                                // Only mark the cookie Secure when the request itself arrived over HTTPS (directly,
-                                                // or via a trusted reverse proxy after UseForwardedHeaders rewrites the scheme) –
-                                                // browsers silently drop a Secure cookie sent over plain HTTP, which would otherwise
-                                                // make the dashboard unusable behind the project's own documented HTTP quick start.
                                                 Secure = context.Request.IsHttps,
                                                 SameSite = SameSiteMode.Strict,
                                                 MaxAge = _sessionLifetime
                                             });
+#pragma warning restore S2092
             context.Response.Redirect("/");
 
             return;
@@ -114,7 +115,7 @@ public static class LoginEndpoints
             return;
         }
 
-        if (context.Request.Cookies.TryGetValue(TokenAuthMiddleware.CookieName, out var sessionId) && sessionId is not null)
+        if (context.Request.Cookies.TryGetValue(TokenAuthMiddleware.CookieName, out var sessionId))
         {
             cache.Remove(TokenAuthMiddleware.SessionCachePrefix + sessionId);
         }
