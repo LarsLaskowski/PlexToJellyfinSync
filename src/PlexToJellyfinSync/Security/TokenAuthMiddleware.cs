@@ -26,6 +26,18 @@ public sealed class TokenAuthMiddleware
 
     #region Fields
 
+    /// <summary>
+    /// Known public path prefixes exempt from authentication. The Blazor Server hub
+    /// (<c>/_blazor</c>) is deliberately included: it only serves negotiate/connect for an
+    /// interactive circuit whose initial page render already passed authentication.
+    /// </summary>
+    private static readonly string[] _allowedPathPrefixes = ["/_framework/", "/_content/", "/_blazor"];
+
+    /// <summary>
+    /// File extensions treated as public static assets, exempt from authentication
+    /// </summary>
+    private static readonly string[] _allowedStaticExtensions = [".css", ".js", ".map", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".woff", ".woff2"];
+
     private readonly RequestDelegate _next;
     private readonly DashboardOptions _options;
     private readonly IMemoryCache _cache;
@@ -64,14 +76,22 @@ public sealed class TokenAuthMiddleware
             return true;
         }
 
-        if (path.StartsWith("/_", StringComparison.Ordinal))
+        if (_allowedPathPrefixes.Any(prefix => path.StartsWith(prefix, StringComparison.Ordinal)))
         {
             return true;
         }
 
         var lastSegment = path.AsSpan(path.LastIndexOf('/') + 1);
+        var extensionIndex = lastSegment.LastIndexOf('.');
 
-        return lastSegment.Contains('.');
+        if (extensionIndex < 0)
+        {
+            return false;
+        }
+
+        var extension = lastSegment[extensionIndex..].ToString();
+
+        return _allowedStaticExtensions.Any(allowedExtension => extension.Equals(allowedExtension, StringComparison.OrdinalIgnoreCase));
     }
 
     #endregion // Static methods

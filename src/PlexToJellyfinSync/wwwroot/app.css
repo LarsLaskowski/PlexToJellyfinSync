@@ -122,6 +122,18 @@ body {
         color: var(--accent-contrast);
     }
 
+.logout-form {
+    margin: 0;
+    display: contents;
+}
+
+.logout-link {
+    background: none;
+    border: none;
+    font: inherit;
+    cursor: pointer;
+}
+
 /* Theme toggle button, pushed to the far right */
 .theme-toggle {
     margin-left: auto;

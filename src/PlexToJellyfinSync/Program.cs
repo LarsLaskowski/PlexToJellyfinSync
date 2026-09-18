@@ -42,6 +42,13 @@ public static partial class Program
 
         var dashboardOptions = app.Services.GetRequiredService<IOptions<DashboardOptions>>().Value;
 
+        if (DashboardStartup.ShouldWarnAboutMissingToken(dashboardOptions))
+        {
+            app.Logger.LogWarning("Dashboard is enabled with no access token configured (Dashboard:Token); it is reachable by anyone who can reach this host. Set Dashboard:Token to require authentication.");
+        }
+
+        app.UseForwardedHeaders(DashboardStartup.CreateForwardedHeadersOptions());
+
         if (app.Environment.IsDevelopment() == false)
         {
             app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -88,10 +95,11 @@ public static partial class Program
             app.MapRazorComponents<App>()
                .AddInteractiveServerRenderMode();
 
-            app.MapGet("/login", () => Results.Content(LoginPage.Html, "text/html"));
+            app.MapGet("/login", LoginEndpoints.HandleGetLogin);
 
-            app.MapPost("/login", LoginEndpoints.HandleLoginAsync)
-               .DisableAntiforgery();
+            app.MapPost("/login", LoginEndpoints.HandleLoginAsync);
+
+            app.MapPost("/logout", LoginEndpoints.HandleLogout);
         }
 
         await app.RunAsync();
