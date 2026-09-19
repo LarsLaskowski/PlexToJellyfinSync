@@ -32,6 +32,10 @@ ENV ASPNETCORE_URLS=http://+:8080
 
 COPY --from=build /app/publish .
 
+# COPY --from leaves everything owned by root; give the non-root user below read/write
+# access to its own app directory before switching to it.
+RUN chown -R "$APP_UID:$APP_UID" /app
+
 # Run as the base image's predefined non-root user instead of root; the mounted media
 # and /config volumes must be writable by this UID (check it with `docker run --rm <image> id`).
 USER $APP_UID
