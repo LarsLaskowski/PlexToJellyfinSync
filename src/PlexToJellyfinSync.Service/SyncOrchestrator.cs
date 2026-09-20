@@ -112,6 +112,22 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     }
 
     /// <summary>
+    /// Handle an error scoped to a single item by logging it and updating the error counter, without aborting the
+    /// current cycle or marking Plex as disconnected
+    /// </summary>
+    /// <param name="ex">Exception</param>
+    /// <param name="ratingKey">Rating key of the item that failed to process</param>
+    private void HandleItemError(Exception ex, string ratingKey)
+    {
+        _logger.LogError(ex, "Processing item {RatingKey} failed, skipping it", ratingKey);
+        _status.Update(s =>
+                       {
+                           s.Errors++;
+                           s.LastError = ex.Message;
+                       });
+    }
+
+    /// <summary>
     /// Write the NFO file for a movie or episode
     /// </summary>
     /// <param name="item">Media item</param>
@@ -271,7 +287,20 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var item = await ProcessRatingKeyAsync(entry.RatingKey, cancellationToken).ConfigureAwait(false);
+                MediaItem? item = null;
+
+                try
+                {
+                    item = await ProcessRatingKeyAsync(entry.RatingKey, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    HandleItemError(ex, entry.RatingKey);
+                }
 
                 if (item is not null && item.Kind == MediaKind.Episode && string.IsNullOrWhiteSpace(item.ShowRatingKey) == false)
                 {
@@ -290,7 +319,18 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    await UpdateSeriesAggregatesAsync(show, cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        await UpdateSeriesAggregatesAsync(show, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        HandleItemError(ex, show);
+                    }
                 }
             }
 
@@ -380,7 +420,18 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
             _status.Update(s => s.ItemsProcessed++);
 
-            await WriteItemAsync(movie, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await WriteItemAsync(movie, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                HandleItemError(ex, movie.RatingKey);
+            }
         }
     }
 
@@ -398,20 +449,42 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var episodes = await _plexClient.GetEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
-
-            foreach (var episode in episodes)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                var episodes = await _plexClient.GetEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
 
-                _status.Update(s => s.ItemsProcessed++);
+                foreach (var episode in episodes)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                await WriteItemAsync(episode, cancellationToken).ConfigureAwait(false);
+                    _status.Update(s => s.ItemsProcessed++);
+
+                    try
+                    {
+                        await WriteItemAsync(episode, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        HandleItemError(ex, episode.RatingKey);
+                    }
+                }
+
+                if (_syncOptions.WriteSeriesSeasonAggregates)
+                {
+                    await UpdateSeriesAggregatesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
+                }
             }
-
-            if (_syncOptions.WriteSeriesSeasonAggregates)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                await UpdateSeriesAggregatesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                HandleItemError(ex, show.RatingKey);
             }
         }
     }

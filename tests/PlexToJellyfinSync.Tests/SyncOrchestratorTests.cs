@@ -370,6 +370,122 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// A single item that fails to process does not abort the cycle, is counted as an error and does not block the
+    /// remaining items or the high-water mark from advancing
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryItemFailureContinuesAndAdvancesWatermark()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv");
+        AddMovie("m2", "Alien", "/data/Movies/Alien (1979)/Alien.mkv");
+        AddHistory("m1", _since.AddMinutes(10));
+        AddHistory("m2", _since.AddMinutes(30));
+
+        _nfoWriter.FailuresByRatingKey["m1"] = new IOException("disk full");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.Writes, "Only the item after the failing one should have been written!");
+        Assert.AreEqual("Alien", _nfoWriter.Writes[0].Item.Title, "The item after the failing one should still be written!");
+        Assert.AreEqual(1L, snapshot.Errors, "The per-item failure should be counted as an error!");
+        Assert.AreEqual("disk full", snapshot.LastError, "The failure message should be recorded!");
+        Assert.IsTrue(snapshot.PlexConnected, "A per-item failure should not mark Plex as disconnected!");
+        Assert.AreEqual(_since.AddMinutes(30), _stateStore.HighWaterMark, "The high-water mark should advance past the failing item!");
+        Assert.AreEqual(_since.AddMinutes(30), snapshot.HighWaterMark, "The status should report the advanced high-water mark!");
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared afterwards!");
+    }
+
+    /// <summary>
+    /// An HttpClient timeout on a single item is treated as an item failure rather than genuine cancellation,
+    /// even though it also throws <see cref="OperationCanceledException"/>
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryItemTimeoutIsTreatedAsItemFailure()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv");
+        AddMovie("m2", "Alien", "/data/Movies/Alien (1979)/Alien.mkv");
+        AddHistory("m1", _since.AddMinutes(10));
+        AddHistory("m2", _since.AddMinutes(30));
+
+        _nfoWriter.FailuresByRatingKey["m1"] = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.Writes, "The item after the timed-out one should still be written!");
+        Assert.AreEqual("Alien", _nfoWriter.Writes[0].Item.Title, "The item after the timed-out one should still be written!");
+        Assert.AreEqual(1L, snapshot.Errors, "An item timeout should be counted as an item failure, not propagated as cancellation!");
+        Assert.AreEqual(_since.AddMinutes(30), _stateStore.HighWaterMark, "The high-water mark should advance past the timed-out item!");
+    }
+
+    /// <summary>
+    /// A failing series aggregate write does not abort the cycle or block the high-water mark from advancing
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryAggregateFailureContinuesAndAdvancesWatermark()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddSeriesWithTwoEpisodes("s1");
+        AddHistory("e1", _since.AddMinutes(10));
+
+        _nfoWriter.FailuresByRatingKey["s1"] = new IOException("disk full");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Season), "The season aggregate should still be written despite the series aggregate failing!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Series), "The failing series aggregate should not be recorded as written!");
+        Assert.AreEqual(1L, snapshot.Errors, "The aggregate failure should be counted as an error!");
+        Assert.IsTrue(snapshot.PlexConnected, "An aggregate failure should not mark Plex as disconnected!");
+        Assert.AreEqual(_since.AddMinutes(10), _stateStore.HighWaterMark, "The high-water mark should still advance despite the aggregate failure!");
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared afterwards!");
+    }
+
+    /// <summary>
+    /// An HttpClient timeout on a series aggregate write is treated as an item failure rather than genuine
+    /// cancellation
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryAggregateTimeoutContinuesAndAdvancesWatermark()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddSeriesWithTwoEpisodes("s1");
+        AddHistory("e1", _since.AddMinutes(10));
+
+        _nfoWriter.FailuresByRatingKey["s1"] = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Series), "The timed-out series aggregate should not be recorded as written!");
+        Assert.AreEqual(1L, snapshot.Errors, "An aggregate timeout should be counted as an item failure, not propagated as cancellation!");
+        Assert.AreEqual(_since.AddMinutes(10), _stateStore.HighWaterMark, "The high-water mark should still advance despite the aggregate timeout!");
+    }
+
+    /// <summary>
     /// Cancellation is propagated to the caller and still clears the run flag
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -507,6 +623,240 @@ public sealed class SyncOrchestratorTests
         Assert.HasCount(1, _plexClient.LibraryItemRequests, "Only the configured library should be read!");
         Assert.AreEqual("1", _plexClient.LibraryItemRequests[0], "The configured library should be the one that is read!");
         Assert.HasCount(1, _nfoWriter.Writes, "Only the item of the configured library should be written!");
+    }
+
+    /// <summary>
+    /// A movie that fails to write during reconcile does not abort the rest of the library
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileMovieFailureContinuesWithRemainingItems()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "1",
+                                      Title = "Movies",
+                                      Kind = MediaKind.Movie
+                                  });
+
+        _plexClient.LibraryItems["1"] = [
+                                            AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv"),
+                                            AddMovie("m2", "Alien", "/data/Movies/Alien (1979)/Alien.mkv")
+                                        ];
+
+        _nfoWriter.FailuresByRatingKey["m1"] = new IOException("disk full");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.Writes, "The movie after the failing one should still be written!");
+        Assert.AreEqual("Alien", _nfoWriter.Writes[0].Item.Title, "The movie after the failing one should still be written!");
+        Assert.AreEqual(1L, snapshot.Errors, "The per-item failure should be counted as an error!");
+        Assert.IsTrue(snapshot.PlexConnected, "A per-item failure should not mark Plex as disconnected!");
+        Assert.IsNotNull(snapshot.LastReconcileAt, "The reconcile should still complete and record its timestamp!");
+    }
+
+    /// <summary>
+    /// An HttpClient timeout on a movie during reconcile is treated as an item failure rather than genuine
+    /// cancellation
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileMovieTimeoutContinuesWithRemainingItems()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "1",
+                                      Title = "Movies",
+                                      Kind = MediaKind.Movie
+                                  });
+
+        _plexClient.LibraryItems["1"] = [
+                                            AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv"),
+                                            AddMovie("m2", "Alien", "/data/Movies/Alien (1979)/Alien.mkv")
+                                        ];
+
+        _nfoWriter.FailuresByRatingKey["m1"] = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.Writes, "The movie after the timed-out one should still be written!");
+        Assert.AreEqual("Alien", _nfoWriter.Writes[0].Item.Title, "The movie after the timed-out one should still be written!");
+        Assert.AreEqual(1L, snapshot.Errors, "A movie timeout should be counted as an item failure, not propagated as cancellation!");
+    }
+
+    /// <summary>
+    /// An episode that fails to write during reconcile does not abort the rest of the series library
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileEpisodeFailureContinuesWithRemainingEpisodesAndAggregates()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithTwoEpisodes("s1");
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+        _nfoWriter.FailuresByRatingKey["e1"] = new IOException("disk full");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Episode), "The episode after the failing one should still be written!");
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Season), "The season aggregate should still be written despite the episode failure!");
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Series), "The series aggregate should still be written despite the episode failure!");
+        Assert.AreEqual(1L, snapshot.Errors, "The per-item failure should be counted as an error!");
+        Assert.IsTrue(snapshot.PlexConnected, "A per-item failure should not mark Plex as disconnected!");
+    }
+
+    /// <summary>
+    /// An HttpClient timeout on an episode during reconcile is treated as an item failure rather than genuine
+    /// cancellation
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileEpisodeTimeoutContinuesWithRemainingEpisodesAndAggregates()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithTwoEpisodes("s1");
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+        _nfoWriter.FailuresByRatingKey["e1"] = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Episode), "The episode after the timed-out one should still be written!");
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Season), "The season aggregate should still be written despite the episode timeout!");
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Series), "The series aggregate should still be written despite the episode timeout!");
+        Assert.AreEqual(1L, snapshot.Errors, "An episode timeout should be counted as an item failure, not propagated as cancellation!");
+    }
+
+    /// <summary>
+    /// A show whose aggregate write fails during reconcile does not abort the rest of the series library
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileShowFailureContinuesWithRemainingShows()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithTwoEpisodes("s1");
+        _nfoWriter.FailuresByRatingKey["s1"] = new IOException("disk full");
+
+        var secondShowDirectory = "/data/Shows/Better Call Saul/Season 01".Replace('/', Path.DirectorySeparatorChar);
+        var secondShowEpisode = new MediaItem
+                                {
+                                    RatingKey = "e3",
+                                    Kind = MediaKind.Episode,
+                                    Title = "Uno",
+                                    SeasonNumber = 1,
+                                    EpisodeNumber = 1,
+                                    ShowRatingKey = "s2",
+                                    ShowTitle = "Better Call Saul",
+                                    FilePath = secondShowDirectory + "/S01E01.mkv"
+                                };
+
+        _plexClient.Items["s2"] = new MediaItem
+                                  {
+                                      RatingKey = "s2",
+                                      Kind = MediaKind.Series,
+                                      Title = "Better Call Saul"
+                                  };
+        _plexClient.Items["e3"] = secondShowEpisode;
+        _plexClient.Episodes["s2"] = [secondShowEpisode];
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"], _plexClient.Items["s2"]];
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Series), "Only the healthy show's series aggregate should have been written!");
+        Assert.AreEqual("Better Call Saul", _nfoWriter.WritesOf(MediaKind.Series)[0].Item.Title, "The show after the failing one should still be aggregated!");
+        Assert.AreEqual(1L, snapshot.Errors, "The per-show failure should be counted as an error!");
+        Assert.IsTrue(snapshot.PlexConnected, "A per-show failure should not mark Plex as disconnected!");
+        Assert.IsNotNull(snapshot.LastReconcileAt, "The reconcile should still complete and record its timestamp!");
+    }
+
+    /// <summary>
+    /// An HttpClient timeout on a show's aggregate write during reconcile is treated as an item failure rather
+    /// than genuine cancellation
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileShowTimeoutContinuesWithRemainingShows()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithTwoEpisodes("s1");
+        _nfoWriter.FailuresByRatingKey["s1"] = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        var secondShowDirectory = "/data/Shows/Better Call Saul/Season 01".Replace('/', Path.DirectorySeparatorChar);
+        var secondShowEpisode = new MediaItem
+                                {
+                                    RatingKey = "e3",
+                                    Kind = MediaKind.Episode,
+                                    Title = "Uno",
+                                    SeasonNumber = 1,
+                                    EpisodeNumber = 1,
+                                    ShowRatingKey = "s2",
+                                    ShowTitle = "Better Call Saul",
+                                    FilePath = secondShowDirectory + "/S01E01.mkv"
+                                };
+
+        _plexClient.Items["s2"] = new MediaItem
+                                  {
+                                      RatingKey = "s2",
+                                      Kind = MediaKind.Series,
+                                      Title = "Better Call Saul"
+                                  };
+        _plexClient.Items["e3"] = secondShowEpisode;
+        _plexClient.Episodes["s2"] = [secondShowEpisode];
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"], _plexClient.Items["s2"]];
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Series), "Only the healthy show's series aggregate should have been written!");
+        Assert.AreEqual("Better Call Saul", _nfoWriter.WritesOf(MediaKind.Series)[0].Item.Title, "The show after the timed-out one should still be aggregated!");
+        Assert.AreEqual(1L, snapshot.Errors, "A show timeout should be counted as an item failure, not propagated as cancellation!");
     }
 
     /// <summary>

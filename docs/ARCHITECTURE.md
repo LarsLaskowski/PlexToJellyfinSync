@@ -74,6 +74,13 @@ Studio standard for solution files, not a migration artifact.
    - Both entry points catch and log unexpected exceptions (`HandleError`) rather than letting
      the `Worker` loop die, and always reset `SyncStatusViewData.IsRunning` in a `finally` block.
      `OperationCanceledException` is re-thrown so host shutdown is not swallowed as an error.
+   - Within a run, every per-item call (writing a history entry's item, a reconciled movie or
+     episode, or a show's season/series aggregates) is additionally wrapped in its own try/catch
+     (`HandleItemError`) so one poisoned item — a malformed NFO, an I/O error, a transient Plex
+     timeout — does not abort the rest of the loop. Such a failure is counted in
+     `SyncStatusViewData.Errors` without clearing `PlexConnected`, and in `ProcessHistoryAsync` the
+     high-water mark still advances past the failing entry; the item's watch state is only
+     recovered on the next `ReconcileAsync` run.
 3. **`WatchAggregator`** (`src/PlexToJellyfinSync.Service/WatchAggregator.cs`) has one job:
    given a collection of `WatchInfo`, return `Watched = true` only if every child is watched, and
    `LastPlayed` as the maximum across children. It is the single source of truth for how season-
