@@ -52,7 +52,7 @@ public sealed class SecretLogRedactor : ILogRedactor
     #region ILogRedactor
 
     /// <inheritdoc/>
-    [return : NotNullIfNotNull(nameof(text))]
+    [return: NotNullIfNotNull(nameof(text))]
     public string? Redact(string? text)
     {
         if (string.IsNullOrEmpty(text))
