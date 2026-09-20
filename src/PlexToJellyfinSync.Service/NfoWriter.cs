@@ -213,9 +213,10 @@ public sealed class NfoWriter : INfoWriter
     private static bool IsWithinRoot(string path, string mappingLocal)
     {
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(mappingLocal));
+        var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
 
         return path.Equals(root, StringComparison.Ordinal)
-               || path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+               || path.StartsWith(prefix, StringComparison.Ordinal);
     }
 
     /// <summary>

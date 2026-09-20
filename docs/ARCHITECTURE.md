@@ -108,7 +108,7 @@ Studio standard for solution files, not a migration artifact.
    the identity-mapping note in `README.md`).
 6. **`NfoWriter`** (`src/PlexToJellyfinSync.Service/NfoWriter.cs`) is the only component that
    touches `.nfo` files on disk:
-   - Before any filesystem access, the resolved target path is canonicalized
+   - Before any file is created or modified, the resolved target path is canonicalized
      (`Path.GetFullPath`) and independently checked against every configured
      `PathMappings:N:Local` root. This does not depend on `PathMapper`'s own traversal guard: even
      if a crafted or corrupted Plex path slipped past it, a resolved target that does not fall
