@@ -238,15 +238,10 @@ Studio standard for solution files, not a migration artifact.
 - **Dependabot** (`.github/dependabot.yml`) checks weekly for `github-actions`, `nuget`, and
   `docker` updates, each grouped into a single PR per ecosystem (capped at 10 open PRs) instead of
   one PR per dependency.
-- **Release** (`.github/workflows/release.yml`) triggers only when a PR closes merged into
-  `main`. It diffs the merged PR's changed files against an exclusion list (`*.md`, `docs/`,
-  `.github/`, `.claude/`, `tests/`, `LICENSE`, `.gitignore`, `.gitattributes`, `.editorconfig`)
-  and skips the release entirely if nothing image-relevant changed — a docs-only or test-only PR
-  does not publish a new image or tag. Otherwise it computes the next semantic version from the
-  latest `v*` tag: **minor** bump (reset patch to 0) when the relevant change touches more than 5
-  files or more than 100 changed lines, **patch** bump otherwise; **the major version is never
-  bumped automatically**. It then tags `main`, builds and pushes a multi-arch
-  (`linux/amd64,linux/arm64`) image to Docker Hub
+- **Release** (`.github/workflows/release.yml`) triggers only on a manually pushed `v<major>.<minor>.<patch>`
+  tag — merging a PR into `main` never publishes a release by itself. The version comes directly
+  from the tag name; there is no automatic version computation. On such a tag push, it builds and
+  pushes a multi-arch (`linux/amd64,linux/arm64`) image to Docker Hub
   (`networlddev/plextojellyfinsync:<version>` and `:latest`), and creates a GitHub release with
   auto-generated notes plus the `docker pull` command for that version.
 

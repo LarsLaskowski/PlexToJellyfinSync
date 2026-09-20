@@ -46,6 +46,11 @@ docker run -d \
 - The container runs as the base image's non-root user (not `root`). Make sure the host
   directories mounted to `/media` and `/config` are writable by that user's UID – check it with
   `docker run --rm networlddev/plextojellyfinsync:latest id`.
+- Prefer the `PLEXSYNC__` environment variables above for configuration. If you bind-mount a custom
+  `appsettings.json` over `/app/appsettings.json` instead, that file must be **readable** by the same
+  non-root UID – a bind mount keeps the host file's ownership/permissions as-is, so the image's own
+  file permissions do not apply to it, and a `600`/root-owned file causes a startup crash
+  (`UnauthorizedAccessException: Access to the path '/app/appsettings.json' is denied`).
 
 ## Path mappings
 
