@@ -20,7 +20,7 @@ public sealed class InMemoryLoggerTests
     [TestMethod]
     public void InMemoryLoggerEnablesInformationAndAbove()
     {
-        var logger = new InMemoryLogger(CreateStore(), "Test");
+        var logger = new InMemoryLogger(CreateStore(), "Test", CreateRedactor());
 
         Assert.IsFalse(logger.IsEnabled(LogLevel.Trace), "Trace should not be enabled!");
         Assert.IsFalse(logger.IsEnabled(LogLevel.Debug), "Debug should not be enabled!");
@@ -35,7 +35,7 @@ public sealed class InMemoryLoggerTests
     public void InMemoryLoggerInformationIsCaptured()
     {
         var store = CreateStore();
-        var logger = new InMemoryLogger(store, "PlexToJellyfinSync.Service.SyncOrchestrator");
+        var logger = new InMemoryLogger(store, "PlexToJellyfinSync.Service.SyncOrchestrator", CreateRedactor());
 
         if (logger.IsEnabled(LogLevel.Information))
         {
@@ -58,7 +58,7 @@ public sealed class InMemoryLoggerTests
     public void InMemoryLoggerDebugIsDiscarded()
     {
         var store = CreateStore();
-        var logger = new InMemoryLogger(store, "Test");
+        var logger = new InMemoryLogger(store, "Test", CreateRedactor());
 
         logger.LogDebug("noise");
         logger.LogTrace("more noise");
@@ -73,7 +73,7 @@ public sealed class InMemoryLoggerTests
     public void InMemoryLoggerExceptionIsCaptured()
     {
         var store = CreateStore();
-        var logger = new InMemoryLogger(store, "Test");
+        var logger = new InMemoryLogger(store, "Test", CreateRedactor());
 
         logger.LogError(new InvalidOperationException("plex is down"), "Synchronization run failed");
 
@@ -86,12 +86,48 @@ public sealed class InMemoryLoggerTests
     }
 
     /// <summary>
+    /// The configured Plex token is masked out of a captured message
+    /// </summary>
+    [TestMethod]
+    public void InMemoryLoggerMessageWithTokenIsRedacted()
+    {
+        var store = CreateStore();
+        var logger = new InMemoryLogger(store, "Test", CreateRedactor("s3cr3t-token"));
+
+        logger.LogInformation("Connecting with token {Token}", "s3cr3t-token");
+
+        var entries = store.GetEntries();
+
+        Assert.HasCount(1, entries, "The message should have been captured!");
+        Assert.IsFalse(entries[0].Message.Contains("s3cr3t-token", StringComparison.Ordinal), "The token should not appear in the stored message!");
+        Assert.IsTrue(entries[0].Message.Contains(SecretLogRedactor.Placeholder, StringComparison.Ordinal), "The message should carry the redaction placeholder!");
+    }
+
+    /// <summary>
+    /// The configured Plex token is masked out of a captured exception
+    /// </summary>
+    [TestMethod]
+    public void InMemoryLoggerExceptionWithTokenIsRedacted()
+    {
+        var store = CreateStore();
+        var logger = new InMemoryLogger(store, "Test", CreateRedactor("s3cr3t-token"));
+
+        logger.LogError(new InvalidOperationException("failed for token s3cr3t-token"), "Request failed");
+
+        var entries = store.GetEntries();
+
+        Assert.HasCount(1, entries, "The message should have been captured!");
+        Assert.IsFalse(entries[0].Exception!.Contains("s3cr3t-token", StringComparison.Ordinal), "The token should not appear in the stored exception text!");
+        Assert.IsTrue(entries[0].Exception!.Contains(SecretLogRedactor.Placeholder, StringComparison.Ordinal), "The exception text should carry the redaction placeholder!");
+    }
+
+    /// <summary>
     /// Scopes are not supported and yield no disposable
     /// </summary>
     [TestMethod]
     public void InMemoryLoggerBeginScopeReturnsNull()
     {
-        var logger = new InMemoryLogger(CreateStore(), "Test");
+        var logger = new InMemoryLogger(CreateStore(), "Test", CreateRedactor());
 
         Assert.IsNull(logger.BeginScope("scope"), "Scopes should not be supported!");
     }
@@ -103,6 +139,20 @@ public sealed class InMemoryLoggerTests
     private static InMemoryLogStore CreateStore()
     {
         return new InMemoryLogStore(Options.Create(new DashboardOptions()));
+    }
+
+    /// <summary>
+    /// Create a redactor configured with an optional Plex token
+    /// </summary>
+    /// <param name="plexToken">Plex token to redact, or <c>null</c> for none configured</param>
+    /// <returns>The redactor</returns>
+    private static SecretLogRedactor CreateRedactor(string? plexToken = null)
+    {
+        return new SecretLogRedactor(Options.Create(new PlexOptions
+                                                    {
+                                                        Token = plexToken ?? string.Empty
+                                                    }),
+                                     Options.Create(new DashboardOptions()));
     }
 
     #endregion // Methods

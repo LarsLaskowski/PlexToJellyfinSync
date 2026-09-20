@@ -20,7 +20,7 @@ public sealed class InMemoryLogProviderTests
     [TestMethod]
     public void InMemoryLogProviderReusesLoggerPerCategory()
     {
-        using var provider = new InMemoryLogProvider(CreateStore());
+        using var provider = new InMemoryLogProvider(CreateStore(), CreateRedactor());
 
         var first = provider.CreateLogger("Category");
         var second = provider.CreateLogger("Category");
@@ -38,7 +38,7 @@ public sealed class InMemoryLogProviderTests
     {
         var store = CreateStore();
 
-        using var provider = new InMemoryLogProvider(store);
+        using var provider = new InMemoryLogProvider(store, CreateRedactor());
 
         provider.CreateLogger("First").LogInformation("one");
         provider.CreateLogger("Second").LogWarning("two");
@@ -56,7 +56,7 @@ public sealed class InMemoryLogProviderTests
     [TestMethod]
     public void InMemoryLogProviderDisposeClearsCachedLoggers()
     {
-        var provider = new InMemoryLogProvider(CreateStore());
+        var provider = new InMemoryLogProvider(CreateStore(), CreateRedactor());
 
         var before = provider.CreateLogger("Category");
 
@@ -75,6 +75,15 @@ public sealed class InMemoryLogProviderTests
     private static InMemoryLogStore CreateStore()
     {
         return new InMemoryLogStore(Options.Create(new DashboardOptions()));
+    }
+
+    /// <summary>
+    /// Create a redactor with no secrets configured, backing the provider under test
+    /// </summary>
+    /// <returns>The redactor</returns>
+    private static SecretLogRedactor CreateRedactor()
+    {
+        return new SecretLogRedactor(Options.Create(new PlexOptions()), Options.Create(new DashboardOptions()));
     }
 
     #endregion // Methods

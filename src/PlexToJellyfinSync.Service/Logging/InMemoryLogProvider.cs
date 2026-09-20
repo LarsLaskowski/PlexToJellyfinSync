@@ -15,6 +15,7 @@ public sealed class InMemoryLogProvider : ILoggerProvider
     #region Fields
 
     private readonly ILogStore _store;
+    private readonly ILogRedactor _redactor;
     private readonly ConcurrentDictionary<string, InMemoryLogger> _loggers = new(StringComparer.Ordinal);
 
     #endregion // Fields
@@ -25,9 +26,11 @@ public sealed class InMemoryLogProvider : ILoggerProvider
     /// Constructor
     /// </summary>
     /// <param name="store">Log store</param>
-    public InMemoryLogProvider(ILogStore store)
+    /// <param name="redactor">Redactor masking known secrets out of captured text</param>
+    public InMemoryLogProvider(ILogStore store, ILogRedactor redactor)
     {
         _store = store;
+        _redactor = redactor;
     }
 
     #endregion // Constructors
@@ -37,7 +40,7 @@ public sealed class InMemoryLogProvider : ILoggerProvider
     /// <inheritdoc/>
     public ILogger CreateLogger(string categoryName)
     {
-        return _loggers.GetOrAdd(categoryName, name => new InMemoryLogger(_store, name));
+        return _loggers.GetOrAdd(categoryName, name => new InMemoryLogger(_store, name, _redactor));
     }
 
     #endregion // ILoggerProvider

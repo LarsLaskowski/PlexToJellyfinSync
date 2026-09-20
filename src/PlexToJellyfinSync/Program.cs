@@ -36,7 +36,7 @@ public static partial class Program
                         .AddInteractiveServerComponents();
 
         builder.Services.AddSingleton<ILoggerProvider>(serviceProvider =>
-        new InMemoryLogProvider(serviceProvider.GetRequiredService<ILogStore>()));
+        new InMemoryLogProvider(serviceProvider.GetRequiredService<ILogStore>(), serviceProvider.GetRequiredService<ILogRedactor>()));
 
         var app = builder.Build();
 
