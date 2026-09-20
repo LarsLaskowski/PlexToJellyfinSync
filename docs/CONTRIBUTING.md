@@ -112,13 +112,11 @@ running the formatter and failing the build on any resulting diff.
 
 ## Versioning and releases
 
-Releases are fully automated (see [`ARCHITECTURE.md`](ARCHITECTURE.md#deployment)): every PR
-merged into `main` that touches image-relevant files triggers a new Docker image build, a
-`v<major>.<minor>.<patch>` tag, and a GitHub release with auto-generated notes. The version bump
-is derived from the size of the merged PR (patch by default, minor once it exceeds 5 files or 100
-changed lines) — the major version only changes on an explicit, manual tag. Docs-only, test-only,
-and CI/config-only PRs do not trigger a release. You do not need to bump any version number
-yourself in a pull request.
+Releases are triggered manually, never by merging a PR (see
+[`ARCHITECTURE.md`](ARCHITECTURE.md#deployment)): push a `v<major>.<minor>.<patch>` tag on `main`
+when you want a new release, and that tag push builds and publishes the Docker image and creates
+the GitHub release with auto-generated notes. Merging a PR into `main` by itself never publishes an
+image or a release.
 
 ## Stability policy
 
