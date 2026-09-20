@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace PlexToJellyfinSync.Core.Abstractions;
 
 /// <summary>
@@ -12,6 +14,7 @@ public interface ILogRedactor
     /// </summary>
     /// <param name="text">Text to redact, or <c>null</c></param>
     /// <returns>The redacted text; <c>null</c> or empty input is returned unchanged</returns>
+    [return : NotNullIfNotNull(nameof(text))]
     string? Redact(string? text);
 
     #endregion // Methods

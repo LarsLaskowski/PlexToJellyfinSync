@@ -53,6 +53,45 @@ public sealed class SecretLogRedactorTests
     }
 
     /// <summary>
+    /// Both configured tokens are masked when they appear in the same text
+    /// </summary>
+    [TestMethod]
+    public void SecretLogRedactorBothTokensPresentBothAreMasked()
+    {
+        var redactor = CreateRedactor(plexToken: "plex-secret", dashboardToken: "dash-secret");
+
+        var result = redactor.Redact("plex-secret and dash-secret");
+
+        Assert.AreEqual($"{SecretLogRedactor.Placeholder} and {SecretLogRedactor.Placeholder}", result, "Both tokens should be masked!");
+    }
+
+    /// <summary>
+    /// When one token is a prefix of the other, the longer token is masked in full
+    /// </summary>
+    [TestMethod]
+    public void SecretLogRedactorTokenIsPrefixOfAnotherLongerTokenIsMaskedInFull()
+    {
+        var redactor = CreateRedactor(plexToken: "abc", dashboardToken: "abcdef");
+
+        var result = redactor.Redact("abcdef");
+
+        Assert.AreEqual(SecretLogRedactor.Placeholder, result, "The longer token should be masked without leaving a remainder!");
+    }
+
+    /// <summary>
+    /// Empty text is returned unchanged
+    /// </summary>
+    [TestMethod]
+    public void SecretLogRedactorEmptyTextReturnsEmpty()
+    {
+        var redactor = CreateRedactor(plexToken: "plex-secret");
+
+        var result = redactor.Redact(string.Empty);
+
+        Assert.AreEqual(string.Empty, result, "Empty input should be returned unchanged!");
+    }
+
+    /// <summary>
     /// Text without any configured secret is returned unchanged
     /// </summary>
     [TestMethod]

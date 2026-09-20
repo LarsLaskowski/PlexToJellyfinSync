@@ -63,7 +63,7 @@ public sealed class InMemoryLogger : ILogger
                         Timestamp = DateTimeOffset.Now,
                         Level = logLevel,
                         Category = _category,
-                        Message = _redactor.Redact(formatter(state, exception)) ?? string.Empty,
+                        Message = _redactor.Redact(formatter(state, exception)),
                         Exception = _redactor.Redact(exception?.ToString())
                     };
 

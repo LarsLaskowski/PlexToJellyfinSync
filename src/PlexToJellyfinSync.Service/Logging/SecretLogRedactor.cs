@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 using Microsoft.Extensions.Options;
 
 using PlexToJellyfinSync.Core.Abstractions;
@@ -36,8 +38,12 @@ public sealed class SecretLogRedactor : ILogRedactor
     {
         var tokens = new[] { plexOptions.Value.Token, dashboardOptions.Value.Token };
 
+        // Snapshotted once rather than tracked via IOptionsMonitor<T>: this deployment is
+        // environment-variable driven, so a rotated token always restarts the container.
+        // Longest first so a secret that is a prefix of another is not left partially unmasked.
         _secrets = tokens.Where(secret => string.IsNullOrWhiteSpace(secret) == false)
                          .Distinct(StringComparer.Ordinal)
+                         .OrderByDescending(secret => secret.Length)
                          .ToArray();
     }
 
@@ -46,6 +52,7 @@ public sealed class SecretLogRedactor : ILogRedactor
     #region ILogRedactor
 
     /// <inheritdoc/>
+    [return : NotNullIfNotNull(nameof(text))]
     public string? Redact(string? text)
     {
         if (string.IsNullOrEmpty(text))
