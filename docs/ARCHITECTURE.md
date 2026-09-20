@@ -117,6 +117,11 @@ Studio standard for solution files, not a migration artifact.
      may have hand-edited.
    - Output is UTF-8 without a byte-order mark (`_utf8NoBom`), matching what Jellyfin's NFO
      reader expects.
+   - Every write (create, rebuild, or watch-state update) is serialized to a sibling `<name>.tmp`
+     file first and only replaces the target via an atomic `File.Move(overwrite: true)` once the
+     write has fully succeeded, preserving the target's existing Unix file mode so a shared media
+     volume keeps its permissions; a failed write deletes the temp file and leaves the original
+     `.nfo` untouched instead of truncating it.
 7. **`StateStore`** (`src/PlexToJellyfinSync.Service/State/StateStore.cs`) persists exactly one
    value — the incremental high-water mark — to `state.json` under `State:Directory` (`/config`
    in the container). Reads and writes both go through a `SemaphoreSlim(1, 1)` gate so concurrent
