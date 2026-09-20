@@ -382,7 +382,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
             _status.Update(s => s.LastPollAt = DateTimeOffset.UtcNow);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
@@ -430,7 +430,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
             _status.Update(s => s.LastReconcileAt = DateTimeOffset.UtcNow);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
