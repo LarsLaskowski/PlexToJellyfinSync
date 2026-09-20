@@ -75,7 +75,10 @@ public sealed class InMemoryLoggerTests
         var store = CreateStore();
         var logger = new InMemoryLogger(store, "Test", CreateRedactor());
 
-        logger.LogError(new InvalidOperationException("plex is down"), "Synchronization run failed");
+        if (logger.IsEnabled(LogLevel.Error))
+        {
+            logger.LogError(new InvalidOperationException("plex is down"), "Synchronization run failed");
+        }
 
         var entries = store.GetEntries();
 
@@ -112,7 +115,10 @@ public sealed class InMemoryLoggerTests
         var store = CreateStore();
         var logger = new InMemoryLogger(store, "Test", CreateRedactor("s3cr3t-token"));
 
-        logger.LogError(new InvalidOperationException("failed for token s3cr3t-token"), "Request failed");
+        if (logger.IsEnabled(LogLevel.Error))
+        {
+            logger.LogError(new InvalidOperationException("failed for token s3cr3t-token"), "Request failed");
+        }
 
         var entries = store.GetEntries();
 
