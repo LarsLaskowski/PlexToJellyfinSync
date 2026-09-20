@@ -265,6 +265,26 @@ detail. All of these are meant to stay consistent with each other and with this 
 `CONTRIBUTING.md` and `UNIT_TESTS.md` — a change to project conventions should be reflected in
 every one of them, not just the one the current tool happens to read.
 
+The review those skills run is defined once, in
+[`.claude/agents/plextojellyfinsync-reviewer.md`](../.claude/agents/plextojellyfinsync-reviewer.md):
+a read-only reviewer with its own integration-surface sweep, convention checklist and
+blocking/non-blocking severity model. `create-pr` and `fix-issue` run it against the local branch
+*before* pushing, so a change arrives on GitHub already reviewed instead of accumulating review
+rounds afterwards; `review-pr` runs the same definition against an already-open pull request. The
+loop is bounded deliberately — round 1 is a full review, every later round looks only at the delta,
+and only blocking findings earn another round — because a fresh full re-review of unchanged code
+always finds something new.
+
+Two consequences of that arrangement are load-bearing and easy to undo by accident:
+
+- **A pull request documents the change, not how it was produced.** The internal review loop leaves
+  no trace in the PR body or the commit messages; a reader of the history wants the finished
+  change, not the corrections that led to it.
+- **A finding posted as a review comment is resolved in that same pull request**, blocking or not —
+  fixed, or answered with a reason or a linked issue opened at that moment. Nothing is deferred to
+  "the next change in this area": no such change is scheduled, and the agent session that held the
+  context needed to act on the comment does not survive to a later one.
+
 ---
 
 ## Undocumented decisions

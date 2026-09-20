@@ -1,62 +1,148 @@
 ---
 name: create-pr
-description: Creates a branch, commits the current changes, pushes the branch, opens a pull request, and switches back to main. Use this whenever asked to create a pull request or publish local changes as a pull request.
+description: Use when the user asks to open/create a pull request for PlexToJellyfinSync changes on this branch. Runs local verification (format, build, test), reviews the change with the plextojellyfinsync-reviewer subagent, then pushes the branch and opens a PR following this repo's pull request template.
 ---
 
-Use this skill when the user wants the current working changes published to GitHub as a pull request.
+# Create PR
 
-**Always create a new branch before committing** — never commit directly to `main` or the base branch.
+Use this skill to prepare and open a pull request for changes made in this
+repository.
 
-All user-facing output you create — branch name, commit message, PR title and body — must be written in
-**English**, regardless of the language the user wrote in. Never mention Claude, Anthropic, Copilot, or
-any other AI/assistant tooling in the PR title or body, and do not add any `Co-Authored-By` trailer,
-"Generated with" footer, session link, or other note attributing the work to an AI.
+All user-facing output you create — branch name, commit message, PR title and
+body — is written in **English**, regardless of the language the user wrote
+in.
 
-Follow this workflow:
+## Steps
 
-1. Inspect the repository state with non-interactive Git commands:
-   - confirm the current branch
-   - review `git status --short --branch`
-   - confirm the `origin` remote exists
-2. If there are no relevant local changes and no unpushed commits, stop and say so plainly.
-3. Format and validate before committing:
-   - run `reihitsu-format ./`
-   - run `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` — the build must finish with
-     **zero Reihitsu (`RH####`) warnings and errors**; treat every `RH` diagnostic as a failure and fix
-     it before continuing
-   - run `dotnet test PlexToJellyfinSync.slnx -c Release --no-build`
-   - if any step fails, fix the cause before continuing — do not commit or push broken or unformatted code
-4. Choose or confirm a branch name based on the change. If the user already provided one, use it.
-   Otherwise derive a short kebab-case branch name from the work (e.g. `add-sonarqube-integration`,
-   `fix-login-bug`).
-5. If already on a feature branch (not `main`/`master`/`develop`), stay on it and skip branch creation.
-   Otherwise, create and switch to the new branch from the current base branch.
-6. Stage only the intended files for this task. Do not include unrelated changes.
-7. Create a non-interactive Git commit with a concise, descriptive message that matches the repo's
-   commit style and explains what changed and why.
-8. Push the branch to `origin` and set upstream tracking.
-9. Create a pull request with GitHub CLI:
-   - base branch: `main`, unless the user explicitly requests a different base
-   - title: `[area] Description` per `docs/CONTRIBUTING.md` (area = affected project/feature, e.g.
-     `Core`, `Data`, `Service`, `Host`, `Dashboard`, `Tests`, `Docker`, `CI`, `Docs`; no period at
-     the end; under 70 characters)
-   - body: follow the structure in `.github/pull_request_template.md` (Description, Issues,
-     Reviewer Notes, Test Plan, Checklist, Next Steps). Wrap the body in a HEREDOC to preserve
-     formatting. Check the checklist items that genuinely apply to this change (tests added,
-     `reihitsu-format` run with zero `RH####` diagnostics, docs updated, `docs/CONTRIBUTING.md`
-     followed, new packages added via Central Package Management) rather than checking all boxes
-     unconditionally.
-   - do not add any attribution, "Generated with" footer, or other note referencing an AI/assistant
-10. After the pull request is created, switch back to the `main` branch.
-11. Report the branch name and pull request URL. Wrap the URL in a `<pr-created>` tag on its own line so
-    the UI can render a live status card, like this:
-    `<pr-created>https://github.com/owner/repo/pull/123</pr-created>`
+1. **Verify the working tree**: run `git status --short --branch` and
+   `git diff` to confirm what will be included, and confirm the `origin`
+   remote exists. Do not include unrelated or uncommitted work the user
+   didn't ask for. If there are no relevant local changes and no unpushed
+   commits, stop and say so plainly.
+2. **Create a branch** if you are still on `main` (or another base branch) —
+   never commit directly to it. Derive a short kebab-case name from the work
+   (e.g. `add-season-aggregates`, `fix-path-mapping`), or use the name the
+   user supplied. If you are already on a feature branch, stay on it.
+3. **Verify tests exist** for what the diff changes. Per
+   [`UNIT_TESTS.md`](../../../docs/UNIT_TESTS.md), unit tests are mandatory for
+   new/changed behavior, not optional — if the diff adds or changes logic
+   without a corresponding test, write one before proceeding (following
+   `UNIT_TESTS.md`'s naming, test-double and assert-message conventions)
+   rather than opening the PR without coverage.
+4. **Run local verification** before pushing, from the repository root:
+   - `dotnet restore PlexToJellyfinSync.slnx`
+   - `reihitsu-format ./`
+   - `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` — the
+     build must finish with **zero Reihitsu (`RH####`) warnings and errors**;
+     treat every `RH` diagnostic as a failure
+   - `dotnet test PlexToJellyfinSync.slnx -c Release --no-build`
+   Fix any failures before proceeding — do not open a PR with failing checks,
+   unformatted code or outstanding analyzer diagnostics.
+5. **Commit** with a subject line of at most 80 characters, not written in
+   the first person and without a trailing period, and a body of 3–5
+   sentences explaining *what* changed and *why* if it is not obvious from
+   the diff. Stage only the files that belong to this task.
+6. **Run the internal review loop** (see below) and resolve what it finds.
+   This happens *before* the push, so the pull request opens on a reviewed
+   change instead of collecting review rounds afterwards.
+7. **Push** the branch: `git push -u origin <branch-name>`.
+8. **Open the PR** using the repository's template at
+   `.github/pull_request_template.md`:
+   - base branch `main`, unless the user explicitly requests a different base
+   - title `[area] Description` per
+     [`CONTRIBUTING.md`](../../../docs/CONTRIBUTING.md) — area is the affected
+     project or feature (`Core`, `Data`, `Service`, `Host`, `Dashboard`,
+     `Tests`, `Docker`, `CI`, `Docs`), no period at the end, no issue number
+     in the description, under 70 characters
+   - fill in Description, Issues (link the related issue if one exists, with
+     `Closes #<number>`), Reviewer Notes and Test Plan, and check off the
+     checklist items that are actually true (don't check items you haven't
+     verified) — including the unit-test, `reihitsu-format`, documentation and
+     Central Package Management items, not just the general ones
+   - wrap the body in a HEREDOC so the formatting survives
+9. Report the branch name and the PR URL back to the user.
 
-Additional rules:
+## What the pull request says — and what it doesn't
 
+The pull request documents **the change**, not how the change was produced.
+
+- Reviewer Notes tell a reviewer where to look and why the approach was
+  chosen: the components touched, any guarantee from
+  [`ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md) the change comes near,
+  and a smoke test if one is worth running.
+- Do **not** mention the internal review loop anywhere in the PR — not how
+  many passes ran, not what they found, not which commits resolved their
+  findings. That loop is a working step inside this session, not part of the
+  change's history, and a reader of the PR has no use for it.
+- Describe the finished state of the change, not the sequence of corrections
+  that got there.
+
+## The internal review loop
+
+The review happens here, in this session, against the local branch — not as
+a round trip through pull request comments. Each pass is delegated to the
+`plextojellyfinsync-reviewer` subagent, which runs on Opus with a fresh
+context and the repository's full review checklist. That checklist lives in
+`.claude/agents/plextojellyfinsync-reviewer.md`; an agent without subagent
+support follows the same file inline, so the review is the same either way.
+
+1. **Pass 1** — launch `plextojellyfinsync-reviewer` (subagent_type
+   `plextojellyfinsync-reviewer`, model `opus`). Tell it the base ref, the
+   head to review, and that this is round 1.
+2. **Act on the verdict**:
+   - `APPROVE` → done, go push.
+   - Blocking findings → fix each one minimally and commit. Do not widen the
+     change beyond what the finding requires.
+   - Non-blocking findings → **do not open another round for them**. Fix one
+     if it is trivial and already in scope. Otherwise open a GitHub issue for
+     it **now**, in this session, and link that issue under the PR's Next
+     Steps — a note that only exists in this conversation is lost the moment
+     the session ends, so it is not a way to carry a finding forward.
+3. **Pass n+1** — launch a fresh `plextojellyfinsync-reviewer` and give it
+   the round number, the previous round's findings, and the commits that
+   fixed them. It reviews the delta only, per its own instructions.
+4. **Stop** at the first pass that reports no blocking findings. Cap the loop
+   at **three passes**: if blocking findings remain after the third, stop and
+   report the open findings to the user rather than continuing to iterate —
+   at that point the change needs a decision, not another round.
+
+Two rules keep this loop finite, and they are the point of the whole
+arrangement:
+
+- **Later passes review the delta, never the whole diff again.** A fresh full
+  review of unchanged code always finds something new.
+- **Only blocking findings start a new pass.** Non-blocking findings are
+  resolved or turned into an issue, not iterated on.
+
+## Findings that arrive after the push
+
+If a review lands on the pull request after it is open — from a human
+reviewer, from an automated code review, or from the `review-pr` skill — work
+those findings in this session, in this pull request. Do not defer a posted
+finding to "the next change that touches this code": there is no such change
+on the horizon, and the session holding the context needed to act on it will
+not exist later. `review-pr` describes how to answer and close out each
+posted comment.
+
+## Notes
+
+- Do not add any Claude/Anthropic/Copilot attribution to commits or PRs
+  created via this skill: omit `Co-Authored-By: Claude ...` and
+  `Claude-Session: ...` trailers from commit messages, and omit the
+  "Generated with Claude Code" line and session link from the PR body.
 - Prefer non-interactive commands only.
 - Do not amend existing commits unless the user explicitly asks.
-- Do not include unrelated modified files in the commit.
-- If a PR already exists for the branch, push any new commits and report the existing URL (no duplicate PR).
-- If push or PR creation fails, stop and report the failure clearly instead of continuing as if it succeeded.
-- If switching back to `main` would discard or conflict with uncommitted work, stop and explain the blocker.
+- If a PR already exists for the branch, push the new commits and report the
+  existing URL instead of opening a duplicate.
+- If push or PR creation fails, stop and report the failure clearly instead
+  of continuing as if it succeeded.
+- Never force-push over another contributor's commits without explicit
+  confirmation.
+- If the change touches the sync pipeline, path mapping, NFO writing, the
+  dashboard's auth model, a configuration key, or the Docker/CI setup, make
+  sure the corresponding documentation — [`README.md`](../../../README.md),
+  [`ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md),
+  [`SECURITY.md`](../../../SECURITY.md) — was updated in the same PR (see the
+  template checklist). See
+  [`CONTRIBUTING.md`](../../../docs/CONTRIBUTING.md) for the full workflow and
+  stability policy this skill follows.

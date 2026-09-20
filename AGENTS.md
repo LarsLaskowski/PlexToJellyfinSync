@@ -71,6 +71,36 @@ underscores** (e.g. `WatchAggregatorAllWatchedReturnsWatched`, not
 including the project's test-double pattern and the checklist to run before committing a new
 test, are in [`UNIT_TESTS.md`](docs/UNIT_TESTS.md).
 
+## Related skills
+
+Project-specific workflow skills live under `.claude/skills/`, mirrored identically under
+`.github/skills/` — the same workflows apply to any agent working in this repository:
+
+- `create-pr` — verify (format, build, tests), review the change locally, then open a PR
+  following [`.github/pull_request_template.md`](.github/pull_request_template.md).
+- `fix-issue` — reproduce a reported issue as a failing unit test, implement a minimal fix, and
+  open a PR referencing the issue.
+- `review-pr` — review an open pull request against this project's C#, analyzer, security and
+  unit-test conventions, and post the findings with an explicit verdict.
+
+Review runs as a subagent defined in `.claude/agents/plextojellyfinsync-reviewer.md` (read-only,
+pinned to Opus, fresh context). `create-pr` and `fix-issue` call it *before* pushing, so a change
+is reviewed while it is still local; `review-pr` calls the same agent for a pull request that is
+already open. The review checklist, the integration-surface sweep, the blocking/non-blocking
+severity model and the "round 1 is a full review, later rounds review only the delta" rule live in
+that one file, so they are identical either way. An agent without subagent support follows the same
+file inline.
+
+Two rules these skills enforce that are easy to get wrong:
+
+- **A pull request documents the change, not how it was produced.** The internal review loop — its
+  pass count, its findings, the commits that resolved them — never appears in the PR title, body or
+  commit messages.
+- **A finding posted as a review comment gets worked in that pull request**, blocking or not. It is
+  never deferred to "the next change that touches this code": no such change is scheduled, and the
+  session holding the context to act on it will not exist later. If it really should not be fixed
+  here, reply with the reason or open a linked issue now — then resolve the thread.
+
 ## Pull requests, contributing and architecture
 
 Follow [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) for branch/PR naming (`[area] Description`), the PR
