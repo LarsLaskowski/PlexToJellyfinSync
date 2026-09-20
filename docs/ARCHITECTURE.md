@@ -128,8 +128,9 @@ Studio standard for solution files, not a migration artifact.
    calls (there should only ever be one, from `Worker`, but the guard is cheap insurance) cannot
    interleave a read-modify-write. Every write is serialized to a sibling `state.json.tmp` file
    first and only replaces `state.json` via an atomic `File.Move(overwrite: true)` once the write
-   has fully succeeded, so a crash or cancellation mid-write cannot truncate the existing file — a
-   failed write deletes the temp file and leaves `state.json` untouched instead. A missing state
+   has fully succeeded, preserving the target's existing Unix file mode the same way `NfoWriter`
+   does, so a crash or cancellation mid-write cannot truncate the existing file — a failed write
+   deletes the temp file and leaves `state.json` untouched instead. A missing state
    file is treated as "no high-water mark yet" rather than a fatal error; a state file that still
    fails to parse (for example hand-edited or corrupted by something outside this atomic write
    path) is moved aside to `state.json.corrupt` and logged as an error before falling back to "no

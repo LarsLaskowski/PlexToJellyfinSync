@@ -193,6 +193,27 @@ public sealed class StateStoreTests
     }
 
     /// <summary>
+    /// A second write to an existing state file preserves its Unix file permissions
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task StateStoreSetHighWaterMarkAsyncPreservesFileMode()
+    {
+        var store = CreateStore();
+
+        await store.SetHighWaterMarkAsync(_mark, CancellationToken.None);
+        File.SetUnixFileMode(GetStateFilePath(), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.OtherRead);
+
+        await store.SetHighWaterMarkAsync(_mark.AddHours(3), CancellationToken.None);
+
+        var mode = File.GetUnixFileMode(GetStateFilePath());
+
+        Assert.IsTrue(mode.HasFlag(UnixFileMode.GroupWrite), "Group write permission should survive an atomic replace so a shared configuration volume keeps working!");
+    }
+
+    /// <summary>
     /// A successful write does not leave the temp file behind
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>

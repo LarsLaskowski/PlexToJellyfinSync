@@ -60,6 +60,22 @@ public sealed class StateStore : IStateStore
     }
 
     /// <summary>
+    /// Copy the target file's Unix file mode onto the temp file so an atomic replace does not
+    /// reset permissions an operator set on a shared configuration volume
+    /// </summary>
+    /// <param name="tempPath">Temp file path</param>
+    /// <param name="path">Target path</param>
+    private static void PreserveFileMode(string tempPath, string path)
+    {
+        if (OperatingSystem.IsWindows() || File.Exists(path) == false)
+        {
+            return;
+        }
+
+        File.SetUnixFileMode(tempPath, File.GetUnixFileMode(path));
+    }
+
+    /// <summary>
     /// Read the persisted state file
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
@@ -82,9 +98,14 @@ public sealed class StateStore : IStateStore
         {
             var corruptPath = _filePath + ".corrupt";
 
-            PreserveCorruptFile(corruptPath);
-
-            _logger.LogError(ex, "State file {Path} is corrupt, preserved as {CorruptPath}; starting fresh with no high-water mark", _filePath, corruptPath);
+            if (PreserveCorruptFile(corruptPath))
+            {
+                _logger.LogError(ex, "State file {Path} is corrupt, preserved as {CorruptPath}; starting fresh with no high-water mark", _filePath, corruptPath);
+            }
+            else
+            {
+                _logger.LogError(ex, "State file {Path} is corrupt and could not be preserved; starting fresh with no high-water mark", _filePath);
+            }
 
             return new SyncStateFile();
         }
@@ -100,15 +121,18 @@ public sealed class StateStore : IStateStore
     /// Move the corrupt state file aside so the failure can be investigated instead of being overwritten
     /// </summary>
     /// <param name="corruptPath">Path to preserve the corrupt file at</param>
-    private void PreserveCorruptFile(string corruptPath)
+    /// <returns><c>true</c> if the file was preserved; <c>false</c> if the move itself failed</returns>
+    private bool PreserveCorruptFile(string corruptPath)
     {
         try
         {
             File.Move(_filePath, corruptPath, overwrite: true);
+
+            return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            // Best-effort preservation; the corruption itself is already logged.
+            return false;
         }
     }
 
@@ -164,6 +188,8 @@ public sealed class StateStore : IStateStore
 
                 throw;
             }
+
+            PreserveFileMode(tempPath, _filePath);
 
             File.Move(tempPath, _filePath, overwrite: true);
         }
