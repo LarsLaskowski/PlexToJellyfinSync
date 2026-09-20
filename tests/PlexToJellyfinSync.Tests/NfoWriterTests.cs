@@ -274,6 +274,31 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// A configured local root with a trailing directory separator still accepts writes under it
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterMappedRootWithTrailingSeparatorAcceptsWrite()
+    {
+        var writer = CreateWriter(createMissing: true, localRoot: _tempDirectory + Path.DirectorySeparatorChar);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Heat",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = true
+                               }
+                   };
+
+        var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
+
+        Assert.AreEqual(NfoWriteOutcome.Created, outcome, "A mapped root with a trailing separator should still accept writes under it!");
+        Assert.IsTrue(File.Exists(Path.ChangeExtension(moviePath, ".nfo")), "NFO file should have been created!");
+    }
+
+    /// <summary>
     /// Create an NFO writer with the given options
     /// </summary>
     /// <param name="createMissing">Whether missing files are created</param>

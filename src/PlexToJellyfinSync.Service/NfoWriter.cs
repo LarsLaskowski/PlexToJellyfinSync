@@ -205,13 +205,15 @@ public sealed class NfoWriter : INfoWriter
     }
 
     /// <summary>
-    /// Determine whether a canonical path is equal to, or nested under, a canonical root
+    /// Determine whether a canonical path is equal to, or nested under, a mapped local root
     /// </summary>
     /// <param name="path">Canonical path to test</param>
-    /// <param name="root">Canonical root</param>
+    /// <param name="mappingLocal">Configured <see cref="PathMapping.Local"/> value to compare against</param>
     /// <returns>True if the path stays under the root</returns>
-    private static bool IsWithinRoot(string path, string root)
+    private static bool IsWithinRoot(string path, string mappingLocal)
     {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(mappingLocal));
+
         return path.Equals(root, StringComparison.Ordinal)
                || path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
@@ -254,32 +256,13 @@ public sealed class NfoWriter : INfoWriter
     }
 
     /// <summary>
-    /// Find the configured local root that contains the given path, if any
+    /// Determine whether the given path falls under any configured local root
     /// </summary>
     /// <param name="path">Canonical path to test</param>
-    /// <returns>The canonical form of the containing local root, or <see langword="null"/> if none matches</returns>
-    private string? FindContainingLocalRoot(string path)
+    /// <returns>True if a configured <see cref="PathMapping.Local"/> root contains the path</returns>
+    private bool IsUnderMappedLocalRoot(string path)
     {
-        string? bestRoot = null;
-        var bestLength = -1;
-
-        foreach (var mapping in _pathMappings)
-        {
-            if (string.IsNullOrWhiteSpace(mapping.Local))
-            {
-                continue;
-            }
-
-            var canonicalRoot = Path.GetFullPath(mapping.Local);
-
-            if (IsWithinRoot(path, canonicalRoot) && canonicalRoot.Length > bestLength)
-            {
-                bestRoot = canonicalRoot;
-                bestLength = canonicalRoot.Length;
-            }
-        }
-
-        return bestRoot;
+        return _pathMappings.Any(mapping => string.IsNullOrWhiteSpace(mapping.Local) == false && IsWithinRoot(path, mapping.Local));
     }
 
     /// <summary>
@@ -425,9 +408,8 @@ public sealed class NfoWriter : INfoWriter
     public async Task<NfoWriteOutcome> WriteAsync(MediaItem item, string localPath, CancellationToken cancellationToken)
     {
         var targetPath = Path.GetFullPath(ResolveTargetPath(item, localPath));
-        var localRoot = FindContainingLocalRoot(targetPath);
 
-        if (localRoot is null)
+        if (IsUnderMappedLocalRoot(targetPath) == false)
         {
             _logger.LogWarning("Refusing to write NFO for {Path}: resolved target {TargetPath} escapes every mapped local root", localPath, targetPath);
 
