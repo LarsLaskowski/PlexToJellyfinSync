@@ -138,7 +138,11 @@ Studio standard for solution files, not a migration artifact.
   registers `InMemoryLogProvider` as an `ILoggerProvider` so every `ILogger<T>` call in the app
   also lands in the dashboard's log buffer, and always maps `GET /health` (unauthenticated,
   reports `plexConnected`/`isRunning`/`lastPollAt`/`lastReconcileAt`/`errors` from the status
-  snapshot) regardless of whether the dashboard itself is enabled. It also logs a startup warning
+  snapshot) regardless of whether the dashboard itself is enabled. `InMemoryLogger` runs every
+  captured message and exception through `ILogRedactor`/`SecretLogRedactor` first, which masks the
+  configured `Plex:Token`/`Dashboard:Token` values before an entry reaches the store, since that
+  buffer feeds a dashboard that is reachable without authentication whenever `Dashboard:Token` is
+  empty. It also logs a startup warning
   when `Dashboard:Enabled` is `true` and `Dashboard:Token` is empty, since that combination leaves
   the dashboard reachable by anyone who can reach the host, and calls `UseForwardedHeaders` (with
   `KnownIPNetworks`/`KnownProxies` cleared, since no reverse proxy address is known upfront in this
@@ -194,7 +198,10 @@ Studio standard for solution files, not a migration artifact.
   follows the same pattern against `ILogStore`/`InMemoryLogStore`, which is a fixed-capacity
   (`Dashboard:LogBufferSize`) ring buffer (`Queue<LogEntry>` behind a `Lock`) rather than
   unbounded storage — log history is intentionally ephemeral and capped, not a substitute for an
-  external log sink.
+  external log sink. Known secrets (the configured Plex and dashboard tokens) are already masked
+  out of every entry by `InMemoryLogger` before it reaches this buffer, so `Logs.razor` never
+  renders them, but the buffer is otherwise unfiltered — any other value a future log statement
+  writes is displayed verbatim.
 
 ---
 

@@ -14,6 +14,7 @@ public sealed class InMemoryLogger : ILogger
 
     private readonly ILogStore _store;
     private readonly string _category;
+    private readonly ILogRedactor _redactor;
 
     #endregion // Fields
 
@@ -24,10 +25,12 @@ public sealed class InMemoryLogger : ILogger
     /// </summary>
     /// <param name="store">Log store</param>
     /// <param name="category">Logger category</param>
-    public InMemoryLogger(ILogStore store, string category)
+    /// <param name="redactor">Redactor masking known secrets out of captured text</param>
+    public InMemoryLogger(ILogStore store, string category, ILogRedactor redactor)
     {
         _store = store;
         _category = category;
+        _redactor = redactor;
     }
 
     #endregion // Constructors
@@ -60,8 +63,8 @@ public sealed class InMemoryLogger : ILogger
                         Timestamp = DateTimeOffset.Now,
                         Level = logLevel,
                         Category = _category,
-                        Message = formatter(state, exception),
-                        Exception = exception?.ToString()
+                        Message = _redactor.Redact(formatter(state, exception)),
+                        Exception = _redactor.Redact(exception?.ToString())
                     };
 
         _store.Add(entry);

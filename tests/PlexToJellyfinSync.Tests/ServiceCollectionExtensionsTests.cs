@@ -42,6 +42,7 @@ public sealed class ServiceCollectionExtensionsTests
         Assert.IsNotNull(provider.GetService<IStateStore>(), "The state store should be registered!");
         Assert.IsNotNull(provider.GetService<ISyncStatusProvider>(), "The status provider should be registered!");
         Assert.IsNotNull(provider.GetService<ILogStore>(), "The log store should be registered!");
+        Assert.IsNotNull(provider.GetService<ILogRedactor>(), "The log redactor should be registered!");
         Assert.IsNotNull(provider.GetService<WatchAggregator>(), "The watch aggregator should be registered!");
         Assert.IsNotNull(provider.GetService<ISyncOrchestrator>(), "The orchestrator should be registered!");
         Assert.IsNotNull(provider.GetService<TimeProvider>(), "The time provider should be registered!");

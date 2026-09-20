@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILoginThrottle, LoginThrottle>();
         services.AddSingleton<IDashboardLoginService, DashboardLoginService>();
         services.AddSingleton<ILogStore, InMemoryLogStore>();
+        services.AddSingleton<ILogRedactor, SecretLogRedactor>();
         services.AddSingleton<ISyncStatusProvider, SyncStatusService>();
         services.AddSingleton<WatchAggregator>();
         services.AddSingleton<IPathMapper, PathMapper>();
