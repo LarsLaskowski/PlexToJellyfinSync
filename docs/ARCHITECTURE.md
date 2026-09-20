@@ -108,6 +108,14 @@ Studio standard for solution files, not a migration artifact.
    the identity-mapping note in `README.md`).
 6. **`NfoWriter`** (`src/PlexToJellyfinSync.Service/NfoWriter.cs`) is the only component that
    touches `.nfo` files on disk:
+   - Before any file is created or modified, the resolved target path is canonicalized
+     (`Path.GetFullPath`) and independently checked against every configured
+     `PathMappings:N:Local` root. This does not depend on `PathMapper`'s own traversal guard: even
+     if a crafted or corrupted Plex path slipped past it, a resolved target that does not fall
+     under a configured local root is refused (`NfoWriteOutcome.Skipped`, logged as a warning)
+     rather than written. A `PathMappings` entry whose `Local` prefix points below a series or
+     season directory will cause that item's `tvshow.nfo` / `season.nfo` write to be refused the
+     same way, since those targets are derived by climbing to the containing directory.
    - Target path resolution depends on `MediaKind`: `movie.nfo` or `<video>.nfo` for movies
      (per `Nfo:MovieFilenameStrategy` — `PreferExistingMovieNfo` checks for an existing
      `movie.nfo` on disk and falls back to the video's own name), `<video>.nfo` for episodes,

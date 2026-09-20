@@ -129,6 +129,9 @@ usability. In particular:
   it.
 - `PathMapper` must keep rejecting path-traversal sequences and keep requiring an explicit
   mapping match — never fall back to passing an unmapped path through unchanged.
+- `NfoWriter` must keep independently verifying that a resolved write target stays under a
+  configured `PathMappings:N:Local` root before creating or modifying any file, rather than
+  relying solely on `PathMapper`'s own traversal guard.
 - Keep the dashboard optional and unauthenticated-by-default behavior intact; do not silently
   add a hard authentication requirement.
 
