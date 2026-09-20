@@ -244,12 +244,43 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// A resolved target that falls outside every configured local root is refused, even when the
+    /// caller-supplied local path was not caught by the path mapper's own traversal guard
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterTargetOutsideMappedRootIsSkipped()
+    {
+        var mappedRoot = Path.Combine(_tempDirectory, "media");
+
+        Directory.CreateDirectory(mappedRoot);
+
+        var writer = CreateWriter(createMissing: true, localRoot: mappedRoot);
+        var escapingPath = Path.Combine(mappedRoot, "..", "..", "etc", "cron.d", "evil.mkv");
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Escape",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = true
+                               }
+                   };
+
+        var outcome = await writer.WriteAsync(item, escapingPath, CancellationToken.None);
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "A write target outside every mapped local root must be refused!");
+        Assert.IsFalse(File.Exists(Path.GetFullPath(Path.ChangeExtension(escapingPath, ".nfo"))), "No NFO file should have been created outside the mapped root!");
+    }
+
+    /// <summary>
     /// Create an NFO writer with the given options
     /// </summary>
     /// <param name="createMissing">Whether missing files are created</param>
     /// <param name="dateTimeFormat">Optional custom date/time format used for the "lastplayed" element</param>
+    /// <param name="localRoot">Local root the writer accepts targets under; defaults to the test's temp directory</param>
     /// <returns>NFO writer</returns>
-    private static NfoWriter CreateWriter(bool createMissing, string? dateTimeFormat = null)
+    private NfoWriter CreateWriter(bool createMissing, string? dateTimeFormat = null, string? localRoot = null)
     {
         var nfoOptions = Options.Create(new NfoOptions
                                         {
@@ -259,8 +290,16 @@ public sealed class NfoWriterTests
                                          {
                                              CreateMissingNfo = createMissing
                                          });
+        var pathMappings = Options.Create(new List<PathMapping>
+                                          {
+                                              new()
+                                              {
+                                                  Plex = "/data",
+                                                  Local = localRoot ?? _tempDirectory
+                                              }
+                                          });
 
-        return new NfoWriter(nfoOptions, syncOptions, NullLogger<NfoWriter>.Instance);
+        return new NfoWriter(nfoOptions, syncOptions, pathMappings, NullLogger<NfoWriter>.Instance);
     }
 
     #endregion // Methods

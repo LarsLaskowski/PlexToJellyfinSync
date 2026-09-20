@@ -24,6 +24,7 @@ public sealed class NfoWriter : INfoWriter
 
     private readonly NfoOptions _nfoOptions;
     private readonly SyncOptions _syncOptions;
+    private readonly IReadOnlyList<PathMapping> _pathMappings;
     private readonly ILogger<NfoWriter> _logger;
 
     #endregion // Fields
@@ -35,11 +36,13 @@ public sealed class NfoWriter : INfoWriter
     /// </summary>
     /// <param name="nfoOptions">NFO options</param>
     /// <param name="syncOptions">Sync options</param>
+    /// <param name="pathMappings">Configured path mappings, used to confirm a resolved write target stays under a mapped local root</param>
     /// <param name="logger">Logging interface</param>
-    public NfoWriter(IOptions<NfoOptions> nfoOptions, IOptions<SyncOptions> syncOptions, ILogger<NfoWriter> logger)
+    public NfoWriter(IOptions<NfoOptions> nfoOptions, IOptions<SyncOptions> syncOptions, IOptions<List<PathMapping>> pathMappings, ILogger<NfoWriter> logger)
     {
         _nfoOptions = nfoOptions.Value;
         _syncOptions = syncOptions.Value;
+        _pathMappings = pathMappings.Value ?? new List<PathMapping>();
         _logger = logger;
     }
 
@@ -202,6 +205,18 @@ public sealed class NfoWriter : INfoWriter
     }
 
     /// <summary>
+    /// Determine whether a canonical path is equal to, or nested under, a canonical root
+    /// </summary>
+    /// <param name="path">Canonical path to test</param>
+    /// <param name="root">Canonical root</param>
+    /// <returns>True if the path stays under the root</returns>
+    private static bool IsWithinRoot(string path, string root)
+    {
+        return path.Equals(root, StringComparison.Ordinal)
+               || path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Resolve the target NFO file path for an item
     /// </summary>
     /// <param name="item">Media item</param>
@@ -236,6 +251,35 @@ public sealed class NfoWriter : INfoWriter
                     return Path.ChangeExtension(localPath, ".nfo");
                 }
         }
+    }
+
+    /// <summary>
+    /// Find the configured local root that contains the given path, if any
+    /// </summary>
+    /// <param name="path">Canonical path to test</param>
+    /// <returns>The canonical form of the containing local root, or <see langword="null"/> if none matches</returns>
+    private string? FindContainingLocalRoot(string path)
+    {
+        string? bestRoot = null;
+        var bestLength = -1;
+
+        foreach (var mapping in _pathMappings)
+        {
+            if (string.IsNullOrWhiteSpace(mapping.Local))
+            {
+                continue;
+            }
+
+            var canonicalRoot = Path.GetFullPath(mapping.Local);
+
+            if (IsWithinRoot(path, canonicalRoot) && canonicalRoot.Length > bestLength)
+            {
+                bestRoot = canonicalRoot;
+                bestLength = canonicalRoot.Length;
+            }
+        }
+
+        return bestRoot;
     }
 
     /// <summary>
@@ -380,7 +424,15 @@ public sealed class NfoWriter : INfoWriter
     /// <inheritdoc/>
     public async Task<NfoWriteOutcome> WriteAsync(MediaItem item, string localPath, CancellationToken cancellationToken)
     {
-        var targetPath = ResolveTargetPath(item, localPath);
+        var targetPath = Path.GetFullPath(ResolveTargetPath(item, localPath));
+        var localRoot = FindContainingLocalRoot(targetPath);
+
+        if (localRoot is null)
+        {
+            _logger.LogWarning("Refusing to write NFO for {Path}: resolved target {TargetPath} escapes every mapped local root", localPath, targetPath);
+
+            return NfoWriteOutcome.Skipped;
+        }
 
         if (File.Exists(targetPath))
         {
