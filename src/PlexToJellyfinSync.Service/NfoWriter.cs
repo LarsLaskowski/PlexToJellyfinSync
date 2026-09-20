@@ -130,7 +130,7 @@ public sealed class NfoWriter : INfoWriter
     #region Methods
 
     /// <summary>
-    /// Serialize an NFO document to disk
+    /// Serialize an NFO document to disk, replacing the target atomically
     /// </summary>
     /// <param name="document">Document to serialize</param>
     /// <param name="path">Target path</param>
@@ -147,11 +147,58 @@ public sealed class NfoWriter : INfoWriter
                            OmitXmlDeclaration = false
                        };
 
-        await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        await using var writer = XmlWriter.Create(stream, settings);
+        var tempPath = path + ".tmp";
 
-        await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
-        await writer.FlushAsync().ConfigureAwait(false);
+        try
+        {
+            await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await using var writer = XmlWriter.Create(stream, settings);
+
+            await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
+            await writer.FlushAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            TryDeleteTempFile(tempPath);
+
+            throw;
+        }
+
+        PreserveFileMode(tempPath, path);
+
+        File.Move(tempPath, path, overwrite: true);
+    }
+
+    /// <summary>
+    /// Copy the target file's Unix file mode onto the temp file so an atomic replace does not
+    /// reset permissions on a shared media volume
+    /// </summary>
+    /// <param name="tempPath">Temp file path</param>
+    /// <param name="path">Target path</param>
+    private static void PreserveFileMode(string tempPath, string path)
+    {
+        if (OperatingSystem.IsWindows() || File.Exists(path) == false)
+        {
+            return;
+        }
+
+        File.SetUnixFileMode(tempPath, File.GetUnixFileMode(path));
+    }
+
+    /// <summary>
+    /// Delete a leftover temp file without masking the write failure that triggered the cleanup
+    /// </summary>
+    /// <param name="tempPath">Temp file path</param>
+    private static void TryDeleteTempFile(string tempPath)
+    {
+        try
+        {
+            File.Delete(tempPath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort cleanup; the write failure that triggered it is what the caller sees.
+        }
     }
 
     /// <summary>

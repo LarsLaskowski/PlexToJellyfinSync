@@ -1,3 +1,5 @@
+using System.Runtime.Versioning;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -137,13 +139,122 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// A write that fails partway through must not leave the existing NFO truncated
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterExistingNfoFailedWritePreservesContent()
+    {
+        var writer = CreateWriter(createMissing: false, dateTimeFormat: "'\u0001'");
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        const string originalContent = "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>";
+
+        await File.WriteAllTextAsync(nfoPath, originalContent, CancellationToken.None);
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Should Not Overwrite",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = true,
+                                   PlayCount = 3,
+                                   LastPlayed = DateTimeOffset.Now
+                               }
+                   };
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => writer.WriteAsync(item, moviePath, CancellationToken.None),
+                                                           "A serialization failure while formatting lastplayed should surface as an exception!");
+
+        var content = await File.ReadAllTextAsync(nfoPath, CancellationToken.None);
+
+        Assert.AreEqual(originalContent, content, "A write that fails partway through must not truncate the existing NFO!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "A failed write must not leave a temp file behind!");
+    }
+
+    /// <summary>
+    /// A temp file that cannot be deleted after a write failure does not mask the original error
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task NfoWriterTempFileCleanupFailureSurfacesOriginalError()
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        const string originalContent = "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>";
+
+        await File.WriteAllTextAsync(nfoPath, originalContent, CancellationToken.None);
+        Directory.CreateDirectory(nfoPath + ".tmp");
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Should Not Overwrite",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = true,
+                                   PlayCount = 3
+                               }
+                   };
+
+        await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => writer.WriteAsync(item, moviePath, CancellationToken.None),
+                                                                     "Opening a temp path that is a directory should surface the original failure!");
+
+        var content = await File.ReadAllTextAsync(nfoPath, CancellationToken.None);
+
+        Assert.AreEqual(originalContent, content, "A blocked temp write must not touch the existing NFO!");
+    }
+
+    /// <summary>
+    /// Updating an existing NFO preserves its Unix file permissions
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task NfoWriterExistingNfoUpdatePreservesFileMode()
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        await File.WriteAllTextAsync(nfoPath, "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>", CancellationToken.None);
+        File.SetUnixFileMode(nfoPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.OtherRead);
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Heat",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = true,
+                                   PlayCount = 3
+                               }
+                   };
+
+        await writer.WriteAsync(item, moviePath, CancellationToken.None);
+
+        var mode = File.GetUnixFileMode(nfoPath);
+
+        Assert.IsTrue(mode.HasFlag(UnixFileMode.GroupWrite), "Group write permission should survive an atomic replace so shared media volumes keep working!");
+    }
+
+    /// <summary>
     /// Create an NFO writer with the given options
     /// </summary>
     /// <param name="createMissing">Whether missing files are created</param>
+    /// <param name="dateTimeFormat">Optional custom date/time format used for the "lastplayed" element</param>
     /// <returns>NFO writer</returns>
-    private static NfoWriter CreateWriter(bool createMissing)
+    private static NfoWriter CreateWriter(bool createMissing, string? dateTimeFormat = null)
     {
-        var nfoOptions = Options.Create(new NfoOptions());
+        var nfoOptions = Options.Create(new NfoOptions
+                                        {
+                                            DateTimeFormat = dateTimeFormat ?? new NfoOptions().DateTimeFormat
+                                        });
         var syncOptions = Options.Create(new SyncOptions
                                          {
                                              CreateMissingNfo = createMissing
