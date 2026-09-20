@@ -73,7 +73,10 @@ Studio standard for solution files, not a migration artifact.
      `WatchAggregator`, and writes `season.nfo` / `tvshow.nfo` next to the episode files.
    - Both entry points catch and log unexpected exceptions (`HandleError`) rather than letting
      the `Worker` loop die, and always reset `SyncStatusViewData.IsRunning` in a `finally` block.
-     `OperationCanceledException` is re-thrown so host shutdown is not swallowed as an error.
+     `OperationCanceledException` is re-thrown only when the run's `CancellationToken` was actually
+     cancelled, so host shutdown is not swallowed as an error, while an `OperationCanceledException`
+     raised by an HttpClient timeout on an upfront Plex request (owner id, history, libraries) is
+     recorded through `HandleError` like any other failure.
    - Within a run, every per-item call (writing a history entry's item, a reconciled movie or
      episode, or a show's season/series aggregates) is additionally wrapped in its own try/catch
      (`HandleItemError`) so one poisoned item — a malformed NFO, an I/O error, a transient Plex
