@@ -44,6 +44,38 @@ public sealed class StateStore : IStateStore
     #region Methods
 
     /// <summary>
+    /// Delete a leftover temp file without masking the write failure that triggered the cleanup
+    /// </summary>
+    /// <param name="tempPath">Temp file path</param>
+    private static void TryDeleteTempFile(string tempPath)
+    {
+        try
+        {
+            File.Delete(tempPath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort cleanup; the write failure that triggered it is what the caller sees.
+        }
+    }
+
+    /// <summary>
+    /// Copy the target file's Unix file mode onto the temp file so an atomic replace does not
+    /// reset permissions an operator set on a shared configuration volume
+    /// </summary>
+    /// <param name="tempPath">Temp file path</param>
+    /// <param name="path">Target path</param>
+    private static void PreserveFileMode(string tempPath, string path)
+    {
+        if (OperatingSystem.IsWindows() || File.Exists(path) == false)
+        {
+            return;
+        }
+
+        File.SetUnixFileMode(tempPath, File.GetUnixFileMode(path));
+    }
+
+    /// <summary>
     /// Read the persisted state file
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
@@ -62,11 +94,45 @@ public sealed class StateStore : IStateStore
 
             return state ?? new SyncStateFile();
         }
+        catch (JsonException ex)
+        {
+            var corruptPath = _filePath + ".corrupt";
+
+            if (PreserveCorruptFile(corruptPath))
+            {
+                _logger.LogError(ex, "State file {Path} is corrupt, preserved as {CorruptPath}; starting fresh with no high-water mark", _filePath, corruptPath);
+            }
+            else
+            {
+                _logger.LogError(ex, "State file {Path} is corrupt and could not be preserved; starting fresh with no high-water mark", _filePath);
+            }
+
+            return new SyncStateFile();
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not read state file {Path}, starting fresh", _filePath);
 
             return new SyncStateFile();
+        }
+    }
+
+    /// <summary>
+    /// Move the corrupt state file aside so the failure can be investigated instead of being overwritten
+    /// </summary>
+    /// <param name="corruptPath">Path to preserve the corrupt file at</param>
+    /// <returns><c>true</c> if the file was preserved; <c>false</c> if the move itself failed</returns>
+    private bool PreserveCorruptFile(string corruptPath)
+    {
+        try
+        {
+            File.Move(_filePath, corruptPath, overwrite: true);
+
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 
@@ -108,9 +174,24 @@ public sealed class StateStore : IStateStore
             var state = await ReadAsync(cancellationToken).ConfigureAwait(false);
             state.HighWaterMark = value;
 
-            await using var stream = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            var tempPath = _filePath + ".tmp";
 
-            await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+
+                await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                TryDeleteTempFile(tempPath);
+
+                throw;
+            }
+
+            PreserveFileMode(tempPath, _filePath);
+
+            File.Move(tempPath, _filePath, overwrite: true);
         }
         finally
         {
