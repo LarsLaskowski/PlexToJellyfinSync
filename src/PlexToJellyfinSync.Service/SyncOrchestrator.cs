@@ -247,6 +247,93 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         RecordOutcome(seriesOutcome);
     }
 
+    /// <summary>
+    /// Process every history entry, writing the NFO for each affected item, and determine the newest viewed-at
+    /// timestamp and the shows touched by an episode
+    /// </summary>
+    /// <param name="entries">History entries to process</param>
+    /// <param name="since">Current high-water mark, used as the initial newest viewed-at timestamp</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The newest viewed-at timestamp seen and the rating keys of the shows touched by an episode</returns>
+    private async Task<(DateTimeOffset MaxViewed, HashSet<string> AffectedShows)> ProcessHistoryEntriesAsync(IReadOnlyList<PlexHistoryEntry> entries,
+                                                                                                             DateTimeOffset since,
+                                                                                                             CancellationToken cancellationToken)
+    {
+        var maxViewed = since;
+        var affectedShows = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var entry in entries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var item = await TryProcessRatingKeyAsync(entry.RatingKey, cancellationToken).ConfigureAwait(false);
+
+            if (item is not null && item.Kind == MediaKind.Episode && string.IsNullOrWhiteSpace(item.ShowRatingKey) == false)
+            {
+                affectedShows.Add(item.ShowRatingKey!);
+            }
+
+            if (entry.ViewedAt > maxViewed)
+            {
+                maxViewed = entry.ViewedAt;
+            }
+        }
+
+        return (maxViewed, affectedShows);
+    }
+
+    /// <summary>
+    /// Process a single item by its rating key, isolating a failure so it does not abort the caller's loop
+    /// </summary>
+    /// <param name="ratingKey">Rating key</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The processed item, or <c>null</c> if it does not exist or failed to process</returns>
+    private async Task<MediaItem?> TryProcessRatingKeyAsync(string ratingKey, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await ProcessRatingKeyAsync(ratingKey, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            HandleItemError(ex, ratingKey);
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Update the aggregated season and series NFO files for every affected show, isolating a failure so it does
+    /// not abort the remaining shows
+    /// </summary>
+    /// <param name="affectedShows">Rating keys of the shows to update</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private async Task UpdateAffectedShowAggregatesAsync(IEnumerable<string> affectedShows, CancellationToken cancellationToken)
+    {
+        foreach (var show in affectedShows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                await UpdateSeriesAggregatesAsync(show, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                HandleItemError(ex, show);
+            }
+        }
+    }
+
     #endregion // Methods
 
     #region ISyncOrchestrator
@@ -280,58 +367,11 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
             _status.Update(s => s.PlexConnected = true);
 
-            var maxViewed = since.Value;
-            var affectedShows = new HashSet<string>(StringComparer.Ordinal);
-
-            foreach (var entry in entries)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                MediaItem? item = null;
-
-                try
-                {
-                    item = await ProcessRatingKeyAsync(entry.RatingKey, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    HandleItemError(ex, entry.RatingKey);
-                }
-
-                if (item is not null && item.Kind == MediaKind.Episode && string.IsNullOrWhiteSpace(item.ShowRatingKey) == false)
-                {
-                    affectedShows.Add(item.ShowRatingKey!);
-                }
-
-                if (entry.ViewedAt > maxViewed)
-                {
-                    maxViewed = entry.ViewedAt;
-                }
-            }
+            var (maxViewed, affectedShows) = await ProcessHistoryEntriesAsync(entries, since.Value, cancellationToken).ConfigureAwait(false);
 
             if (_syncOptions.WriteSeriesSeasonAggregates)
             {
-                foreach (var show in affectedShows)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    try
-                    {
-                        await UpdateSeriesAggregatesAsync(show, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        HandleItemError(ex, show);
-                    }
-                }
+                await UpdateAffectedShowAggregatesAsync(affectedShows, cancellationToken).ConfigureAwait(false);
             }
 
             if (maxViewed > since.Value)
