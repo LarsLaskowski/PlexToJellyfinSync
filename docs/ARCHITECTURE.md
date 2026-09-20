@@ -136,13 +136,13 @@ Studio standard for solution files, not a migration artifact.
   environment variables under the `PLEXSYNC__` prefix (double underscore = configuration section
   nesting, the standard ASP.NET Core convention), registers `Worker` as a hosted service,
   registers `InMemoryLogProvider` as an `ILoggerProvider` so every `ILogger<T>` call in the app
-  also lands in the dashboard's log buffer — `InMemoryLogger` runs every captured message and
-  exception through `ILogRedactor`/`SecretLogRedactor` first, which masks the configured
-  `Plex:Token`/`Dashboard:Token` values before an entry reaches the store, since that buffer feeds
-  a dashboard that is reachable without authentication whenever `Dashboard:Token` is empty — and
-  always maps `GET /health` (unauthenticated,
+  also lands in the dashboard's log buffer, and always maps `GET /health` (unauthenticated,
   reports `plexConnected`/`isRunning`/`lastPollAt`/`lastReconcileAt`/`errors` from the status
-  snapshot) regardless of whether the dashboard itself is enabled. It also logs a startup warning
+  snapshot) regardless of whether the dashboard itself is enabled. `InMemoryLogger` runs every
+  captured message and exception through `ILogRedactor`/`SecretLogRedactor` first, which masks the
+  configured `Plex:Token`/`Dashboard:Token` values before an entry reaches the store, since that
+  buffer feeds a dashboard that is reachable without authentication whenever `Dashboard:Token` is
+  empty. It also logs a startup warning
   when `Dashboard:Enabled` is `true` and `Dashboard:Token` is empty, since that combination leaves
   the dashboard reachable by anyone who can reach the host, and calls `UseForwardedHeaders` (with
   `KnownIPNetworks`/`KnownProxies` cleared, since no reverse proxy address is known upfront in this

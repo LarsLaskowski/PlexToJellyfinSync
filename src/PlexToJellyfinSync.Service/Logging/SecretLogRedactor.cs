@@ -36,13 +36,14 @@ public sealed class SecretLogRedactor : ILogRedactor
     /// <param name="dashboardOptions">Dashboard options</param>
     public SecretLogRedactor(IOptions<PlexOptions> plexOptions, IOptions<DashboardOptions> dashboardOptions)
     {
-        var tokens = new[] { plexOptions.Value.Token, dashboardOptions.Value.Token };
-
         // Snapshotted once rather than tracked via IOptionsMonitor<T>: this deployment is
         // environment-variable driven, so a rotated token always restarts the container.
-        // Longest first so a secret that is a prefix of another is not left partially unmasked.
+        var tokens = new[] { plexOptions.Value.Token, dashboardOptions.Value.Token };
+
         _secrets = tokens.Where(secret => string.IsNullOrWhiteSpace(secret) == false)
                          .Distinct(StringComparer.Ordinal)
+
+                         // Longest first so a secret that is a prefix of another is not left partially unmasked.
                          .OrderByDescending(secret => secret.Length)
                          .ToArray();
     }
