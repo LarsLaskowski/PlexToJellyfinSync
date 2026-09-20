@@ -1,3 +1,5 @@
+using System.Runtime.Versioning;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -142,6 +144,66 @@ public sealed class StateStoreTests
         var mark = await store.GetHighWaterMarkAsync(CancellationToken.None);
 
         Assert.IsNull(mark, "A corrupt state file should be treated as missing state!");
+    }
+
+    /// <summary>
+    /// A corrupt state file is preserved alongside the fresh state instead of being discarded
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreWithCorruptFilePreservesItAsCorrupt()
+    {
+        Directory.CreateDirectory(_tempDirectory);
+
+        const string corruptContent = "{ \"HighWaterMark\": ";
+
+        await File.WriteAllTextAsync(GetStateFilePath(), corruptContent, _testContext.CancellationToken);
+
+        var store = CreateStore();
+
+        await store.GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.IsFalse(File.Exists(GetStateFilePath()), "The corrupt file should have been moved aside!");
+
+        var preservedContent = await File.ReadAllTextAsync(GetStateFilePath() + ".corrupt", _testContext.CancellationToken);
+
+        Assert.AreEqual(corruptContent, preservedContent, "The corrupt file's original content should be preserved for investigation!");
+    }
+
+    /// <summary>
+    /// A write that fails partway through must not leave the existing state file truncated
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task StateStoreSetHighWaterMarkAsyncWriteFailurePreservesExistingFile()
+    {
+        var store = CreateStore();
+
+        await store.SetHighWaterMarkAsync(_mark, CancellationToken.None);
+        Directory.CreateDirectory(GetStateFilePath() + ".tmp");
+
+        await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => store.SetHighWaterMarkAsync(_mark.AddHours(3), CancellationToken.None),
+                                                                     "Opening a temp path that is a directory should surface the original failure!");
+
+        var mark = await store.GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.AreEqual(_mark, mark, "A write that fails partway through must not lose the previously persisted value!");
+    }
+
+    /// <summary>
+    /// A successful write does not leave the temp file behind
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreSetHighWaterMarkAsyncDoesNotLeaveTempFileBehind()
+    {
+        var store = CreateStore();
+
+        await store.SetHighWaterMarkAsync(_mark, CancellationToken.None);
+
+        Assert.IsFalse(File.Exists(GetStateFilePath() + ".tmp"), "A successful write must not leave a temp file behind!");
     }
 
     /// <summary>

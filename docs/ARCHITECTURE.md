@@ -126,8 +126,14 @@ Studio standard for solution files, not a migration artifact.
    value — the incremental high-water mark — to `state.json` under `State:Directory` (`/config`
    in the container). Reads and writes both go through a `SemaphoreSlim(1, 1)` gate so concurrent
    calls (there should only ever be one, from `Worker`, but the guard is cheap insurance) cannot
-   interleave a read-modify-write. A missing or corrupt state file is treated as "no high-water
-   mark yet" rather than a fatal error.
+   interleave a read-modify-write. Every write is serialized to a sibling `state.json.tmp` file
+   first and only replaces `state.json` via an atomic `File.Move(overwrite: true)` once the write
+   has fully succeeded, so a crash or cancellation mid-write cannot truncate the existing file — a
+   failed write deletes the temp file and leaves `state.json` untouched instead. A missing state
+   file is treated as "no high-water mark yet" rather than a fatal error; a state file that still
+   fails to parse (for example hand-edited or corrupted by something outside this atomic write
+   path) is moved aside to `state.json.corrupt` and logged as an error before falling back to "no
+   high-water mark yet", so the failure is diagnosable instead of silent.
 8. **`SyncStatusService`** (`src/PlexToJellyfinSync.Service/SyncStatusService.cs`) holds one
    mutable `SyncStatusViewData` behind a `Lock`, exposes immutable snapshots via `GetSnapshot()`,
    and raises a `Changed` event on every `Update()` so the Blazor dashboard can re-render without
