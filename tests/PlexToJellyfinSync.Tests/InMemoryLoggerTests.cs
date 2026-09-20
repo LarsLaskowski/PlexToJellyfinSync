@@ -97,7 +97,10 @@ public sealed class InMemoryLoggerTests
         var store = CreateStore();
         var logger = new InMemoryLogger(store, "Test", CreateRedactor("s3cr3t-token"));
 
-        logger.LogInformation("Connecting with token {Token}", "s3cr3t-token");
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation("Connecting with token {Token}", "s3cr3t-token");
+        }
 
         var entries = store.GetEntries();
 
