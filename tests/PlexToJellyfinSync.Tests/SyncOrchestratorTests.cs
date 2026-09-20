@@ -370,6 +370,28 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// An HttpClient timeout on the upfront history request is treated as a normal sync failure rather than
+    /// genuine cancellation, even though it also throws <see cref="OperationCanceledException"/>
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryUpfrontTimeoutRecordsErrorInsteadOfPropagating()
+    {
+        _stateStore.HighWaterMark = _since;
+        _plexClient.HistoryException = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.AreEqual(1L, snapshot.Errors, "An upfront timeout should be counted as a sync failure, not propagated as cancellation!");
+        Assert.IsFalse(snapshot.PlexConnected, "An upfront timeout should mark Plex as disconnected!");
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared after the timeout!");
+    }
+
+    /// <summary>
     /// A single item that fails to process does not abort the cycle, is counted as an error and does not block the
     /// remaining items or the high-water mark from advancing
     /// </summary>
@@ -900,6 +922,28 @@ public sealed class SyncOrchestratorTests
         Assert.AreEqual("no route to host", snapshot.LastError, "The failure message should be recorded!");
         Assert.IsFalse(snapshot.PlexConnected, "A failure should mark Plex as disconnected!");
         Assert.IsNull(snapshot.LastReconcileAt, "A failed reconcile should not record a completion timestamp!");
+    }
+
+    /// <summary>
+    /// An HttpClient timeout on the upfront libraries request is treated as a normal sync failure rather than
+    /// genuine cancellation, even though it also throws <see cref="OperationCanceledException"/>
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileUpfrontTimeoutRecordsErrorInsteadOfPropagating()
+    {
+        _plexClient.LibrariesException = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.AreEqual(1L, snapshot.Errors, "An upfront timeout should be counted as a sync failure, not propagated as cancellation!");
+        Assert.IsFalse(snapshot.PlexConnected, "An upfront timeout should mark Plex as disconnected!");
+        Assert.IsNull(snapshot.LastReconcileAt, "A timed-out reconcile should not record a completion timestamp!");
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared after the timeout!");
     }
 
     /// <summary>
