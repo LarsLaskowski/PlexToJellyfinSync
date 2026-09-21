@@ -279,8 +279,9 @@ Studio standard for solution files, not a migration artifact.
   tag — merging a PR into `main` never publishes a release by itself. The version comes directly
   from the tag name; there is no automatic version computation. On such a tag push, it builds and
   pushes a multi-arch (`linux/amd64,linux/arm64`) image to Docker Hub
-  (`networlddev/plextojellyfinsync:<version>` and `:latest`), and creates a GitHub release with
-  auto-generated notes plus the `docker pull` command for that version.
+  (`networlddev/plextojellyfinsync:<version>` and `:latest`). The GitHub release itself (with its
+  tag) is created manually via the GitHub UI, which is what triggers this workflow in the first
+  place.
 
 ---
 

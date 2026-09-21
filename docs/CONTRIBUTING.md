@@ -113,10 +113,10 @@ running the formatter and failing the build on any resulting diff.
 ## Versioning and releases
 
 Releases are triggered manually, never by merging a PR (see
-[`ARCHITECTURE.md`](ARCHITECTURE.md#deployment)): push a `v<major>.<minor>.<patch>` tag on `main`
-when you want a new release, and that tag push builds and publishes the Docker image and creates
-the GitHub release with auto-generated notes. Merging a PR into `main` by itself never publishes an
-image or a release.
+[`ARCHITECTURE.md`](ARCHITECTURE.md#deployment)): create a `v<major>.<minor>.<patch>` release
+(with its tag) on `main` via the GitHub UI when you want a new release; that tag push builds and
+publishes the Docker image. Merging a PR into `main` by itself never publishes an image or a
+release.
 
 ## Stability policy
 
