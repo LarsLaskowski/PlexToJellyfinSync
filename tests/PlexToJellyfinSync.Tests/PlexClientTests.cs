@@ -107,6 +107,35 @@ public sealed class PlexClientTests
                                               }
                                               """;
 
+    private const string InvalidFilePathJson = """
+                                               {
+                                                 "MediaContainer": {
+                                                   "Metadata": [
+                                                     {
+                                                       "ratingKey": "12345",
+                                                       "type": "movie",
+                                                       "title": "Heat",
+                                                       "Media": [ { "Part": [ { "file": "/data/Movies/Heat\u0000.mkv" } ] } ]
+                                                     }
+                                                   ]
+                                                 }
+                                               }
+                                               """;
+
+    private const string InvalidRatingKeyJson = """
+                                                {
+                                                  "MediaContainer": {
+                                                    "Metadata": [
+                                                      {
+                                                        "ratingKey": "12\n345",
+                                                        "type": "movie",
+                                                        "title": "Heat"
+                                                      }
+                                                    ]
+                                                  }
+                                                }
+                                                """;
+
     #endregion // Constants
 
     #region Methods
@@ -319,6 +348,195 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// A file path containing a null character is rejected rather than written to disk
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetMediaItemWithInvalidFilePathClearsFilePath()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/library/metadata/12345"] = InvalidFilePathJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync("12345", CancellationToken.None);
+
+        Assert.IsNotNull(item, "The movie should still have been mapped!");
+        Assert.IsNull(item.FilePath, "A file path containing a null character should be rejected!");
+    }
+
+    /// <summary>
+    /// A file path exceeding the accepted maximum length is rejected rather than written to disk
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetMediaItemWithOverlongFilePathClearsFilePath()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var overlongPath = $"/data/Movies/{new string('a', 4200)}.mkv";
+        var json = $$"""
+                     {
+                       "MediaContainer": {
+                         "Metadata": [
+                           {
+                             "ratingKey": "12345",
+                             "type": "movie",
+                             "title": "Heat",
+                             "Media": [ { "Part": [ { "file": "{{overlongPath}}" } ] } ]
+                           }
+                         ]
+                       }
+                     }
+                     """;
+
+        handler.Responses["/library/metadata/12345"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync("12345", CancellationToken.None);
+
+        Assert.IsNotNull(item, "The movie should still have been mapped!");
+        Assert.IsNull(item.FilePath, "An overlong file path should be rejected!");
+    }
+
+    /// <summary>
+    /// Oversized text fields are truncated to a sane maximum length instead of being written unbounded
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetMediaItemWithOversizedTextFieldsTruncatesThem()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var oversizedTitle = new string('t', 600);
+        var oversizedSummary = new string('s', 4100);
+        var json = $$"""
+                     {
+                       "MediaContainer": {
+                         "Metadata": [
+                           {
+                             "ratingKey": "12345",
+                             "type": "movie",
+                             "title": "{{oversizedTitle}}",
+                             "summary": "{{oversizedSummary}}"
+                           }
+                         ]
+                       }
+                     }
+                     """;
+
+        handler.Responses["/library/metadata/12345"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync("12345", CancellationToken.None);
+
+        Assert.IsNotNull(item, "The movie should still have been mapped!");
+        Assert.AreEqual(512, item.Title.Length, "The title should be capped to the maximum short text length!");
+        Assert.AreEqual(4000, item.Plot!.Length, "The plot should be capped to the maximum plot length!");
+    }
+
+    /// <summary>
+    /// Truncating an oversized text field never splits a surrogate pair in two
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetMediaItemWithTitleEndingInSurrogatePairDoesNotSplitIt()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var oversizedTitle = new string('t', 511) + "\U0001F600";
+        var json = $$"""
+                     {
+                       "MediaContainer": {
+                         "Metadata": [
+                           {
+                             "ratingKey": "12345",
+                             "type": "movie",
+                             "title": "{{oversizedTitle}}"
+                           }
+                         ]
+                       }
+                     }
+                     """;
+
+        handler.Responses["/library/metadata/12345"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync("12345", CancellationToken.None);
+
+        Assert.IsNotNull(item, "The movie should still have been mapped!");
+        Assert.AreEqual(511, item.Title.Length, "The truncation should drop the whole surrogate pair rather than split it!");
+        Assert.IsFalse(char.IsSurrogate(item.Title[^1]), "The truncated title should not end in a lone surrogate!");
+    }
+
+    /// <summary>
+    /// An item carrying a rating key with control characters is skipped instead of being mapped
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetMediaItemWithInvalidRatingKeyReturnsNull()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/library/metadata/12345"] = InvalidRatingKeyJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync("12345", CancellationToken.None);
+
+        Assert.IsNull(item, "An item with an invalid rating key should be skipped!");
+    }
+
+    /// <summary>
+    /// An item carrying a rating key that exceeds the accepted maximum length is skipped instead of being mapped
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetMediaItemWithOverlongRatingKeyReturnsNull()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var overlongRatingKey = new string('1', 65);
+        var json = $$"""
+                     {
+                       "MediaContainer": {
+                         "Metadata": [
+                           {
+                             "ratingKey": "{{overlongRatingKey}}",
+                             "type": "movie",
+                             "title": "Heat"
+                           }
+                         ]
+                       }
+                     }
+                     """;
+
+        handler.Responses[$"/library/metadata/{overlongRatingKey}"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync(overlongRatingKey, CancellationToken.None);
+
+        Assert.IsNull(item, "An item with an overlong rating key should be skipped!");
+    }
+
+    /// <summary>
     /// An empty metadata container yields no item
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -381,6 +599,43 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// An episode with an invalid show rating key still maps, but with a cleared show rating key
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetEpisodesWithInvalidShowRatingKeyClearsShowRatingKey()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        const string json = """
+                            {
+                              "MediaContainer": {
+                                "Metadata": [
+                                  {
+                                    "ratingKey": "501",
+                                    "type": "episode",
+                                    "title": "Pilot",
+                                    "grandparentTitle": "Breaking Bad",
+                                    "grandparentRatingKey": "5\n00"
+                                  }
+                                ]
+                              }
+                            }
+                            """;
+
+        handler.Responses["/library/metadata/500/allLeaves"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None);
+
+        Assert.HasCount(1, episodes, "The episode should still have been mapped!");
+        Assert.IsNull(episodes[0].ShowRatingKey, "An invalid show rating key should be dropped!");
+    }
+
+    /// <summary>
     /// Library items are mapped and a missing metadata list yields an empty result
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -402,6 +657,38 @@ public sealed class PlexClientTests
         Assert.HasCount(1, items, "The library item should have been mapped!");
         Assert.AreEqual("Heat", items[0].Title, "The title should be mapped!");
         Assert.IsEmpty(empty, "An empty container should be reported as an empty list!");
+    }
+
+    /// <summary>
+    /// An item with an invalid rating key is skipped rather than being included in the mapped list
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetLibraryItemsSkipsItemsWithInvalidRatingKey()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        const string json = """
+                            {
+                              "MediaContainer": {
+                                "Metadata": [
+                                  { "ratingKey": "12345", "type": "movie", "title": "Heat" },
+                                  { "ratingKey": "12\n345", "type": "movie", "title": "Broken" }
+                                ]
+                              }
+                            }
+                            """;
+
+        handler.Responses["/library/sections/1/all"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None);
+
+        Assert.HasCount(1, items, "Only the item with a valid rating key should be reported!");
+        Assert.AreEqual("Heat", items[0].Title, "The valid item should have been mapped!");
     }
 
     /// <summary>
