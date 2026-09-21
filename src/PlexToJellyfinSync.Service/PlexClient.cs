@@ -17,6 +17,30 @@ namespace PlexToJellyfinSync.Service;
 /// </summary>
 public sealed class PlexClient : IPlexClient
 {
+    #region Constants
+
+    /// <summary>
+    /// Maximum accepted length for a rating key before an item is treated as invalid
+    /// </summary>
+    private const int MaxRatingKeyLength = 64;
+
+    /// <summary>
+    /// Maximum accepted length for a Plex file path before it is treated as invalid
+    /// </summary>
+    private const int MaxFilePathLength = 4096;
+
+    /// <summary>
+    /// Maximum accepted length for short text fields such as titles and the studio name
+    /// </summary>
+    private const int MaxShortTextLength = 512;
+
+    /// <summary>
+    /// Maximum accepted length for the plot / summary field
+    /// </summary>
+    private const int MaxPlotLength = 4000;
+
+    #endregion // Constants
+
     #region Fields
 
     private static readonly JsonSerializerOptions _jsonOptions = PlexJsonOptions.Default;
@@ -150,31 +174,86 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <summary>
+    /// Check whether a rating key is present and safe to use, both as an identifier and as a URL segment
+    /// </summary>
+    /// <param name="ratingKey">Rating key to validate</param>
+    /// <returns><c>true</c> if the rating key is valid</returns>
+    private static bool IsValidRatingKey(string? ratingKey)
+    {
+        return string.IsNullOrWhiteSpace(ratingKey) == false
+               && ratingKey.Length <= MaxRatingKeyLength
+               && ratingKey.All(c => char.IsControl(c) == false && char.IsWhiteSpace(c) == false);
+    }
+
+    /// <summary>
+    /// Validate a Plex file path, rejecting values that are too long or contain unsafe characters
+    /// </summary>
+    /// <param name="filePath">Raw file path reported by Plex</param>
+    /// <returns>The file path, or <c>null</c> if it is missing or invalid</returns>
+    private static string? SanitizeFilePath(string? filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return null;
+        }
+
+        if (filePath.Length > MaxFilePathLength || filePath.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+        {
+            return null;
+        }
+
+        return filePath;
+    }
+
+    /// <summary>
+    /// Cap a text field to a sane maximum length
+    /// </summary>
+    /// <param name="text">Raw text value</param>
+    /// <param name="maxLength">Maximum accepted length</param>
+    /// <returns>The text, truncated to <paramref name="maxLength"/> if necessary, or <c>null</c></returns>
+    private static string? CapLength(string? text, int maxLength)
+    {
+        if (text is null || text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        return text.Substring(0, maxLength);
+    }
+
+    /// <summary>
     /// Map a Plex metadata element to a media item
     /// </summary>
     /// <param name="metadata">Plex metadata</param>
-    /// <returns>Media item</returns>
-    private static MediaItem MapMediaItem(PlexMetadata metadata)
+    /// <returns>Media item, or <c>null</c> if the metadata does not carry a valid rating key</returns>
+    private static MediaItem? MapMediaItem(PlexMetadata metadata)
     {
+        if (IsValidRatingKey(metadata.RatingKey) == false)
+        {
+            return null;
+        }
+
         var kind = MapKind(metadata.Type);
         var filePath = metadata.Media?.FirstOrDefault()
                                      ?.Part
                                      ?.FirstOrDefault()
                                      ?.File;
+        var sanitizedFilePath = SanitizeFilePath(filePath);
+        var showRatingKey = IsValidRatingKey(metadata.GrandparentRatingKey) ? metadata.GrandparentRatingKey : null;
 
         var item = new MediaItem
                    {
-                       RatingKey = metadata.RatingKey ?? string.Empty,
+                       RatingKey = metadata.RatingKey!,
                        Kind = kind,
-                       Title = metadata.Title ?? string.Empty,
-                       OriginalTitle = metadata.OriginalTitle,
-                       SortTitle = metadata.TitleSort,
+                       Title = CapLength(metadata.Title, MaxShortTextLength) ?? string.Empty,
+                       OriginalTitle = CapLength(metadata.OriginalTitle, MaxShortTextLength),
+                       SortTitle = CapLength(metadata.TitleSort, MaxShortTextLength),
                        Year = metadata.Year,
-                       Plot = metadata.Summary,
-                       Studio = metadata.Studio,
-                       FilePath = filePath,
-                       ShowTitle = metadata.GrandparentTitle,
-                       ShowRatingKey = metadata.GrandparentRatingKey,
+                       Plot = CapLength(metadata.Summary, MaxPlotLength),
+                       Studio = CapLength(metadata.Studio, MaxShortTextLength),
+                       FilePath = sanitizedFilePath,
+                       ShowTitle = CapLength(metadata.GrandparentTitle, MaxShortTextLength),
+                       ShowRatingKey = showRatingKey,
                        DateAdded = FromEpoch(metadata.AddedAt),
                        UniqueIds = ParseUniqueIds(metadata)
                    };
@@ -348,7 +427,7 @@ public sealed class PlexClient : IPlexClient
             return [];
         }
 
-        return entries.Select(MapMediaItem).ToList();
+        return entries.Select(MapMediaItem).OfType<MediaItem>().ToList();
     }
 
     /// <inheritdoc/>
@@ -362,7 +441,7 @@ public sealed class PlexClient : IPlexClient
             return [];
         }
 
-        return entries.Select(MapMediaItem).ToList();
+        return entries.Select(MapMediaItem).OfType<MediaItem>().ToList();
     }
 
     #endregion // IPlexClient
