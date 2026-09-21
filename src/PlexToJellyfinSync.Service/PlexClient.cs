@@ -174,7 +174,7 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <summary>
-    /// Check whether a rating key is present and safe to use, both as an identifier and as a URL segment
+    /// Check whether a rating key is present, within a sane length and free of control or whitespace characters
     /// </summary>
     /// <param name="ratingKey">Rating key to validate</param>
     /// <returns><c>true</c> if the rating key is valid</returns>
@@ -206,7 +206,7 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <summary>
-    /// Cap a text field to a sane maximum length
+    /// Cap a text field to a sane maximum length, never splitting a surrogate pair
     /// </summary>
     /// <param name="text">Raw text value</param>
     /// <param name="maxLength">Maximum accepted length</param>
@@ -218,7 +218,35 @@ public sealed class PlexClient : IPlexClient
             return text;
         }
 
-        return text.Substring(0, maxLength);
+        var end = maxLength > 0 && char.IsHighSurrogate(text[maxLength - 1]) ? maxLength - 1 : maxLength;
+
+        return text.Substring(0, end);
+    }
+
+    #endregion // Static methods
+
+    #region Methods
+
+    /// <summary>
+    /// Resolve the rating key of the owning series, dropping and logging it if it is present but invalid
+    /// </summary>
+    /// <param name="metadata">Plex metadata</param>
+    /// <returns>The show rating key, or <c>null</c> if it is missing or invalid</returns>
+    private string? ResolveShowRatingKey(PlexMetadata metadata)
+    {
+        if (string.IsNullOrWhiteSpace(metadata.GrandparentRatingKey))
+        {
+            return null;
+        }
+
+        if (IsValidRatingKey(metadata.GrandparentRatingKey))
+        {
+            return metadata.GrandparentRatingKey;
+        }
+
+        _logger.LogWarning("Item {RatingKey} reported an invalid show rating key, dropping it", metadata.RatingKey);
+
+        return null;
     }
 
     /// <summary>
@@ -226,10 +254,12 @@ public sealed class PlexClient : IPlexClient
     /// </summary>
     /// <param name="metadata">Plex metadata</param>
     /// <returns>Media item, or <c>null</c> if the metadata does not carry a valid rating key</returns>
-    private static MediaItem? MapMediaItem(PlexMetadata metadata)
+    private MediaItem? MapMediaItem(PlexMetadata metadata)
     {
         if (IsValidRatingKey(metadata.RatingKey) == false)
         {
+            _logger.LogWarning("Skipping a Plex item with a missing or invalid rating key");
+
             return null;
         }
 
@@ -239,7 +269,13 @@ public sealed class PlexClient : IPlexClient
                                      ?.FirstOrDefault()
                                      ?.File;
         var sanitizedFilePath = SanitizeFilePath(filePath);
-        var showRatingKey = IsValidRatingKey(metadata.GrandparentRatingKey) ? metadata.GrandparentRatingKey : null;
+
+        if (sanitizedFilePath is null && string.IsNullOrWhiteSpace(filePath) == false)
+        {
+            _logger.LogWarning("Item {RatingKey} reported an invalid file path, treating it as missing", metadata.RatingKey);
+        }
+
+        var showRatingKey = ResolveShowRatingKey(metadata);
 
         var item = new MediaItem
                    {
@@ -296,10 +332,6 @@ public sealed class PlexClient : IPlexClient
 
         return item;
     }
-
-    #endregion // Static methods
-
-    #region Methods
 
     /// <summary>
     /// Perform a GET request and deserialize the JSON response
