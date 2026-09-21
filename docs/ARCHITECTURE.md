@@ -103,10 +103,9 @@ Studio standard for solution files, not a migration artifact.
    with `../`, or consisting of a bare `..` before matching — the file path is one part of the
    Plex response that flows fairly directly into a filesystem write path (via `NfoWriter`), so
    this check exists to prevent a crafted or corrupted Plex path from mapping outside the
-   intended media root. **A matching mapping is
-   mandatory**: unmapped paths return `null` and are skipped rather than passed through
-   unchanged, even when the container's mount point happens to equal the Plex-reported path (see
-   the identity-mapping note in `README.md`).
+   intended media root. **A matching mapping is mandatory**: unmapped paths return `null` and are
+   skipped rather than passed through unchanged, even when the container's mount point happens to
+   equal the Plex-reported path (see the identity-mapping note in `README.md`).
 6. **`NfoWriter`** (`src/PlexToJellyfinSync.Service/NfoWriter.cs`) is the only component that
    touches `.nfo` files on disk:
    - Before any file is created or modified, the resolved target path is canonicalized
