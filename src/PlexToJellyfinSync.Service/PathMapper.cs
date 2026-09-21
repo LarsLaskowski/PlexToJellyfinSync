@@ -56,7 +56,10 @@ public sealed class PathMapper : IPathMapper
         var input = Normalize(plexPath);
 
         // Reject path traversal sequences — a canonical Plex file path never contains ".." segments
-        if (input.Contains("/../", StringComparison.Ordinal) || input.EndsWith("/..", StringComparison.Ordinal))
+        if (input.Contains("/../", StringComparison.Ordinal)
+            || input.EndsWith("/..", StringComparison.Ordinal)
+            || input.StartsWith("../", StringComparison.Ordinal)
+            || input.Equals("..", StringComparison.Ordinal))
         {
             return null;
         }

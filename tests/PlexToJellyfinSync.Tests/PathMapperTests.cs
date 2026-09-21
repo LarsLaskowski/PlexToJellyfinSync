@@ -121,6 +121,42 @@ public sealed class PathMapperTests
     }
 
     /// <summary>
+    /// A path starting with a traversal sequence is rejected even when it would otherwise
+    /// match a relative mapping prefix
+    /// </summary>
+    [TestMethod]
+    public void PathMapperTraversalSequenceAtStartReturnsNull()
+    {
+        var mapper = CreateMapper(new PathMapping
+                                  {
+                                      Plex = "..",
+                                      Local = "/media"
+                                  });
+
+        var result = mapper.MapToLocal("../etc/passwd");
+
+        Assert.IsNull(result, "Path starting with traversal sequence should return null!");
+    }
+
+    /// <summary>
+    /// A bare traversal segment is rejected even when it would otherwise match a relative
+    /// mapping prefix exactly
+    /// </summary>
+    [TestMethod]
+    public void PathMapperBareTraversalSegmentReturnsNull()
+    {
+        var mapper = CreateMapper(new PathMapping
+                                  {
+                                      Plex = "..",
+                                      Local = "/media"
+                                  });
+
+        var result = mapper.MapToLocal("..");
+
+        Assert.IsNull(result, "Bare traversal segment should return null!");
+    }
+
+    /// <summary>
     /// Create a path mapper for the given mappings
     /// </summary>
     /// <param name="mappings">Mappings</param>
