@@ -923,7 +923,11 @@ public sealed class SyncOrchestratorTests
 
         AddSeriesWithEpisodes("s1", episodeCount: 6);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
-        _nfoWriter.ConcurrencyGate = 2;
+
+        // The gate is set one above the limit under test: a correctly bounded run never reaches it and every
+        // write instead times out and proceeds, while a regression that lets a third write overlap fills it and
+        // is caught immediately.
+        _nfoWriter.ConcurrencyGate = 3;
 
         var orchestrator = CreateOrchestrator(new SyncOptions
                                               {
@@ -977,22 +981,40 @@ public sealed class SyncOrchestratorTests
                          FilePath = sharedFile
                      };
 
+        var third = new MediaItem
+                    {
+                        RatingKey = "e3",
+                        Kind = MediaKind.Episode,
+                        Title = "Episode Three",
+                        SeasonNumber = 1,
+                        EpisodeNumber = 3,
+                        ShowRatingKey = "s1",
+                        ShowTitle = "Breaking Bad",
+                        FilePath = _seasonDirectory + "/S01E03.mkv"
+                    };
+
         _plexClient.Items["e1"] = first;
         _plexClient.Items["e2"] = second;
+        _plexClient.Items["e3"] = third;
         _plexClient.Items["s1"] = new MediaItem
                                   {
                                       RatingKey = "s1",
                                       Kind = MediaKind.Series,
                                       Title = "Breaking Bad"
                                   };
-        _plexClient.Episodes["s1"] = [first, second];
+        _plexClient.Episodes["s1"] = [first, second, third];
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // Grouping by file leaves only two groups (the shared file and the third episode's own file), so the
+        // three-way gate below never fills in a correct implementation: a flat, ungrouped loop would let all
+        // three episodes overlap and fill it instead, exposing the shared-path concurrency it must never reach.
+        _nfoWriter.ConcurrencyGate = 3;
 
         var orchestrator = CreateOrchestrator();
 
         await orchestrator.ReconcileAsync(CancellationToken.None);
 
-        Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Episode), "Both episodes sharing the file should still have been written!");
+        Assert.HasCount(3, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
         Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrencyByPath[sharedFile], "Episodes resolving to the same NFO target must never write to it concurrently!");
     }
 
@@ -1012,6 +1034,10 @@ public sealed class SyncOrchestratorTests
 
         AddSeriesWithEpisodes("s1", episodeCount: 3);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // One above the sequential bound: a correctly clamped run never reaches it, while a broken clamp that
+        // lets a second write overlap fills it and is caught.
+        _nfoWriter.ConcurrencyGate = 2;
 
         var orchestrator = CreateOrchestrator(new SyncOptions
                                               {
@@ -1040,6 +1066,10 @@ public sealed class SyncOrchestratorTests
 
         AddSeriesWithEpisodes("s1", episodeCount: 3);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // One above the sequential bound: a correctly clamped run never reaches it, while treating -1 as
+        // unbounded would let a second write overlap, filling it and being caught.
+        _nfoWriter.ConcurrencyGate = 2;
 
         var orchestrator = CreateOrchestrator(new SyncOptions
                                               {

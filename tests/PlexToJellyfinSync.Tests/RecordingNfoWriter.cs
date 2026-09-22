@@ -13,8 +13,8 @@ internal sealed class RecordingNfoWriter : INfoWriter
 
     private readonly Lock _lock = new();
     private readonly Dictionary<string, int> _concurrentCallsByPath = new(StringComparer.Ordinal);
-    private readonly TaskCompletionSource<bool> _concurrencyGateReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    private TaskCompletionSource<bool> _concurrencyGateReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _concurrentCalls;
 
     #endregion // Fields
@@ -27,10 +27,19 @@ internal sealed class RecordingNfoWriter : INfoWriter
     public NfoWriteOutcome Outcome { get; set; } = NfoWriteOutcome.Created;
 
     /// <summary>
-    /// Number of writes to wait for in flight at once before releasing every waiting write, so concurrency can be
-    /// observed deterministically instead of through an artificial delay; zero disables the gate
+    /// Number of writes to wait for in flight at once before releasing every waiting write, so an actual overflow
+    /// past a configured bound is caught deterministically instead of through an artificial delay; zero disables
+    /// the gate. The gate re-arms once every write it released has finished, so a later, independent batch of
+    /// concurrent writes is still forced through its own rendezvous rather than passing through unchecked. A
+    /// write that never sees this many concurrent calls times out after <see cref="ConcurrencyGateTimeout"/> and
+    /// proceeds anyway, so a correctly bounded caller only pays that timeout instead of hanging.
     /// </summary>
     public int ConcurrencyGate { get; set; }
+
+    /// <summary>
+    /// How long a write waits for <see cref="ConcurrencyGate"/> to be reached before proceeding regardless
+    /// </summary>
+    public TimeSpan ConcurrencyGateTimeout { get; set; } = TimeSpan.FromMilliseconds(200);
 
     /// <summary>
     /// Highest number of writes observed in flight at the same time, across every target path
@@ -108,7 +117,15 @@ internal sealed class RecordingNfoWriter : INfoWriter
         {
             if (gateTask is not null)
             {
-                await gateTask.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await gateTask.WaitAsync(ConcurrencyGateTimeout, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    // No further concurrent write arrived within the window; proceed as if the gate were
+                    // disabled so a correctly bounded caller never blocks needlessly on it.
+                }
             }
 
             if (FailuresByRatingKey.TryGetValue(item.RatingKey, out var failure))
@@ -133,6 +150,13 @@ internal sealed class RecordingNfoWriter : INfoWriter
             {
                 _concurrentCalls--;
                 _concurrentCallsByPath[localPath]--;
+
+                if (ConcurrencyGate > 0 && _concurrentCalls < ConcurrencyGate && _concurrencyGateReleased.Task.IsCompleted)
+                {
+                    // Re-arm for the next batch of concurrent writes so it is forced through its own
+                    // rendezvous instead of passing straight through the already-released gate.
+                    _concurrencyGateReleased = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                }
             }
         }
     }
