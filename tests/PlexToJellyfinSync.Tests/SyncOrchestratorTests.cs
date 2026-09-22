@@ -20,6 +20,7 @@ public sealed class SyncOrchestratorTests
 
     private readonly string _seasonDirectory = "/data/Shows/Breaking Bad/Season 01".Replace('/', Path.DirectorySeparatorChar);
     private readonly string _showDirectory = "/data/Shows/Breaking Bad".Replace('/', Path.DirectorySeparatorChar);
+    private readonly TestContext _testContext;
 
     private FakePlexClient _plexClient = new();
     private RecordingNfoWriter _nfoWriter = new();
@@ -28,6 +29,19 @@ public sealed class SyncOrchestratorTests
     private SyncStatusService _status = new();
 
     #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public SyncOrchestratorTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
 
     #region Methods
 
@@ -1211,7 +1225,7 @@ public sealed class SyncOrchestratorTests
 
         var reconcileTask = orchestrator.ReconcileAsync(cancellation.Token);
 
-        await _nfoWriter.ConcurrencyReached.WaitAsync(TimeSpan.FromSeconds(5));
+        await _nfoWriter.ConcurrencyReached.WaitAsync(TimeSpan.FromSeconds(5), _testContext.CancellationToken);
         await cancellation.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await reconcileTask,
