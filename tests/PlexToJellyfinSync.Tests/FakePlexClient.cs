@@ -8,6 +8,12 @@ namespace PlexToJellyfinSync.Tests;
 /// </summary>
 internal sealed class FakePlexClient : IPlexClient
 {
+    #region Fields
+
+    private readonly Lock _lock = new();
+
+    #endregion // Fields
+
     #region Properties
 
     /// <summary>
@@ -54,6 +60,18 @@ internal sealed class FakePlexClient : IPlexClient
     /// Exception thrown when the libraries are requested, if any
     /// </summary>
     public Exception? LibrariesException { get; set; }
+
+    /// <summary>
+    /// Exceptions thrown when a given library's items are requested, keyed by library section key
+    /// </summary>
+    public Dictionary<string, Exception> LibraryItemsExceptions { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Tasks awaited immediately before throwing the configured <see cref="LibraryItemsExceptions"/> entry for a
+    /// given library, keyed by library section key, so a test can hold the failure in flight until a sibling
+    /// library has observably reached some concurrent state first
+    /// </summary>
+    public Dictionary<string, Task> LibraryItemsGates { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Lower bound passed to the last history request, if any
@@ -151,7 +169,10 @@ internal sealed class FakePlexClient : IPlexClient
     /// <returns>The configured episodes</returns>
     public Task<IReadOnlyList<MediaItem>> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
     {
-        EpisodeRequests.Add(showRatingKey);
+        lock (_lock)
+        {
+            EpisodeRequests.Add(showRatingKey);
+        }
 
         if (Episodes.TryGetValue(showRatingKey, out var episodes) == false)
         {
@@ -167,16 +188,31 @@ internal sealed class FakePlexClient : IPlexClient
     /// <param name="libraryKey">Section key</param>
     /// <param name="cancellationToken">Ignored cancellation token</param>
     /// <returns>The configured items</returns>
-    public Task<IReadOnlyList<MediaItem>> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<MediaItem>> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken)
     {
-        LibraryItemRequests.Add(libraryKey);
+        lock (_lock)
+        {
+            LibraryItemRequests.Add(libraryKey);
+        }
+
+        if (LibraryItemsExceptions.TryGetValue(libraryKey, out var exception))
+        {
+            if (LibraryItemsGates.TryGetValue(libraryKey, out var gate))
+            {
+                // A regression back to sequential reconciliation would leave the gate task waiting on a sibling
+                // library that never starts; the timeout turns that into a failing assertion instead of a hang.
+                await gate.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+            }
+
+            throw exception;
+        }
 
         if (LibraryItems.TryGetValue(libraryKey, out var items) == false)
         {
-            return Task.FromResult<IReadOnlyList<MediaItem>>([]);
+            return [];
         }
 
-        return Task.FromResult<IReadOnlyList<MediaItem>>(items);
+        return items;
     }
 
     #endregion // IPlexClient

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -1097,6 +1099,178 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// Libraries are reconciled concurrently instead of one at a time
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileWritesLibrariesConcurrently()
+    {
+        AddMovieLibraries(count: 4);
+        _nfoWriter.ConcurrencyGate = 2;
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(4, _nfoWriter.Writes, "Every library's movie should still have been written!");
+        Assert.IsGreaterThan(1, _nfoWriter.MaxObservedConcurrency, "Library reconciliation should overlap instead of running one at a time!");
+    }
+
+    /// <summary>
+    /// Concurrent library reconciliation never exceeds the configured parallelism limit
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileRespectsLibraryParallelismLimit()
+    {
+        AddMovieLibraries(count: 6);
+
+        // The gate is set one above the limit under test: a correctly bounded run never reaches it and every
+        // write instead times out and proceeds, while a regression that lets a third library overlap fills it and
+        // is caught immediately.
+        _nfoWriter.ConcurrencyGate = 3;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  LibraryReconcileParallelism = 2
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(6, _nfoWriter.Writes, "Every library's movie should still have been written!");
+        Assert.IsLessThanOrEqualTo(2, _nfoWriter.MaxObservedConcurrency, "Concurrent library reconciliation should never exceed the configured limit!");
+    }
+
+    /// <summary>
+    /// A configured library parallelism of zero is clamped to sequential reconciliation instead of throwing
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileZeroLibraryParallelismRunsSequentially()
+    {
+        AddMovieLibraries(count: 3);
+
+        // One above the sequential bound: a correctly clamped run never reaches it, while a broken clamp that
+        // lets a second library overlap fills it and is caught.
+        _nfoWriter.ConcurrencyGate = 2;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  LibraryReconcileParallelism = 0
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(3, _nfoWriter.Writes, "Every library's movie should still have been written!");
+        Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrency, "A zero library parallelism setting should be clamped to sequential reconciliation rather than throwing!");
+    }
+
+    /// <summary>
+    /// A configured library parallelism below zero is clamped to sequential reconciliation instead of being
+    /// treated as unbounded
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileNegativeLibraryParallelismRunsSequentially()
+    {
+        AddMovieLibraries(count: 3);
+
+        // One above the sequential bound: a correctly clamped run never reaches it, while treating -1 as
+        // unbounded would let a second library overlap, filling it and being caught.
+        _nfoWriter.ConcurrencyGate = 2;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  LibraryReconcileParallelism = -1
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(3, _nfoWriter.Writes, "Every library's movie should still have been written!");
+        Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrency, "A negative library parallelism setting should be clamped to sequential reconciliation rather than treated as unbounded!");
+    }
+
+    /// <summary>
+    /// Cancelling the token while library writes are actually in flight propagates the cancellation out of the
+    /// parallel reconcile and clears the run flag, mirroring
+    /// <see cref="SyncOrchestratorReconcileSeriesLibraryCancellationDuringParallelWritesPropagates"/> but for the
+    /// concurrent library-reconciling path
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileCancellationDuringParallelLibraryWritesPropagates()
+    {
+        AddMovieLibraries(count: 4);
+
+        // The gate is set one above the configured parallelism so the two concurrently running libraries never
+        // reach it and instead await the gate release with a generous timeout, so the test's own cancellation -
+        // not the timeout - is what unblocks them.
+        _nfoWriter.ConcurrencyGate = 3;
+        _nfoWriter.ConcurrencyGateTimeout = TimeSpan.FromSeconds(5);
+        _nfoWriter.NotifyAtConcurrency = 2;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  LibraryReconcileParallelism = 2
+                                              });
+
+        using var cancellation = new CancellationTokenSource();
+
+        var reconcileTask = orchestrator.ReconcileAsync(cancellation.Token);
+
+        await _nfoWriter.ConcurrencyReached.WaitAsync(TimeSpan.FromSeconds(5), _testContext.CancellationToken);
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await reconcileTask,
+                                                             "Cancellation during in-flight library writes should be propagated to the caller!");
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared after cancellation!");
+        Assert.AreEqual(0L, snapshot.Errors, "Cancellation should propagate instead of being recorded as an item error!");
+    }
+
+    /// <summary>
+    /// An unexpected failure reading one library's items during a full reconcile is recorded once, using the
+    /// original exception, while another library is reconciled concurrently alongside it - proving
+    /// <c>Parallel.ForEachAsync</c> surfaces the failure unwrapped rather than as an <see cref="AggregateException"/>
+    /// or losing it among the sibling libraries
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileLibraryItemsFailureRecordsOriginalError()
+    {
+        AddMovieLibraries(count: 2);
+        _plexClient.LibraryItemsExceptions["1"] = new HttpRequestException("no route to host");
+
+        // Library "1"'s failure is held back until library "2"'s write has actually entered NfoWriter, so the
+        // failure genuinely races a sibling library that is still in flight instead of one finishing before the
+        // other starts. The gate is set one above what a single in-flight write reaches so it only releases once
+        // that write is confirmed concurrent; ConcurrencyGateTimeout only bounds that wait inside NfoWriter, while
+        // FakePlexClient's own gate await has its own timeout, so a regression back to sequential reconciliation
+        // fails this test instead of hanging it.
+        _nfoWriter.ConcurrencyGate = 2;
+        _nfoWriter.ConcurrencyGateTimeout = TimeSpan.FromSeconds(30);
+        _nfoWriter.NotifyAtConcurrency = 1;
+        _plexClient.LibraryItemsGates["1"] = _nfoWriter.ConcurrencyReached;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  LibraryReconcileParallelism = 2
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.AreEqual(1L, snapshot.Errors, "The library failure should be counted as a single error!");
+        Assert.AreEqual("no route to host", snapshot.LastError, "The original exception should surface unwrapped, not as an aggregate wrapper!");
+        Assert.IsFalse(snapshot.PlexConnected, "A library failure should mark Plex as disconnected!");
+        Assert.IsNull(snapshot.LastReconcileAt, "A failed reconcile should not record a completion timestamp!");
+        Assert.IsEmpty(_nfoWriter.Writes, "The sibling library's in-flight write should be cancelled by the failure, not completed!");
+    }
+
+    /// <summary>
     /// A library kind that is neither movie nor series is ignored
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -1277,6 +1451,27 @@ public sealed class SyncOrchestratorTests
         _plexClient.Items[ratingKey] = movie;
 
         return movie;
+    }
+
+    /// <summary>
+    /// Register the given number of movie libraries, each holding a single movie of its own
+    /// </summary>
+    /// <param name="count">Number of libraries to register</param>
+    private void AddMovieLibraries(int count)
+    {
+        for (var libraryNumber = 1; libraryNumber <= count; libraryNumber++)
+        {
+            var key = libraryNumber.ToString(CultureInfo.InvariantCulture);
+
+            _plexClient.Libraries.Add(new PlexLibrary
+                                      {
+                                          Key = key,
+                                          Title = $"Movies {key}",
+                                          Kind = MediaKind.Movie
+                                      });
+
+            _plexClient.LibraryItems[key] = [AddMovie($"m{key}", $"Movie {key}", $"/data/Movies{key}/Movie.mkv")];
+        }
     }
 
     /// <summary>

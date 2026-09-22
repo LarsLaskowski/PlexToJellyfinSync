@@ -18,9 +18,24 @@ public sealed class NfoWriterTests
 {
     #region Fields
 
+    private readonly TestContext _testContext;
+
     private string _tempDirectory = string.Empty;
 
     #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public NfoWriterTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
 
     #region Methods
 
@@ -241,6 +256,45 @@ public sealed class NfoWriterTests
         var mode = File.GetUnixFileMode(nfoPath);
 
         Assert.IsTrue(mode.HasFlag(UnixFileMode.GroupWrite), "Group write permission should survive an atomic replace so shared media volumes keep working!");
+    }
+
+    /// <summary>
+    /// Concurrent writes that resolve to the same NFO target - for example the same folder shared by two Plex
+    /// libraries - are serialized instead of racing on the shared temp file, which would otherwise make the
+    /// losing write delete the winner's in-progress temp file and fail
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterConcurrentWritesToSameTargetNeverRace()
+    {
+        var writer = CreateWriter(createMissing: true);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+
+        var writes = Enumerable.Range(0, 20)
+                               .Select(playCount => writer.WriteAsync(new MediaItem
+                                                                      {
+                                                                          Kind = MediaKind.Movie,
+                                                                          Title = "Heat",
+                                                                          Watch = new WatchInfo
+                                                                                  {
+                                                                                      Watched = true,
+                                                                                      PlayCount = playCount
+                                                                                  }
+                                                                      },
+                                                                      moviePath,
+                                                                      CancellationToken.None))
+                               .ToArray();
+
+        await Task.WhenAll(writes);
+
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        Assert.IsTrue(File.Exists(nfoPath), "The NFO file should exist once every concurrent write to the same target has completed!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind once every concurrent write has completed!");
+
+        var content = await File.ReadAllTextAsync(nfoPath, _testContext.CancellationToken);
+
+        Assert.Contains("<watched>true</watched>", content, "The resulting NFO should still contain a valid watched element!");
     }
 
     /// <summary>
