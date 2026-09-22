@@ -20,6 +20,7 @@ public sealed class SyncOrchestratorTests
 
     private readonly string _seasonDirectory = "/data/Shows/Breaking Bad/Season 01".Replace('/', Path.DirectorySeparatorChar);
     private readonly string _showDirectory = "/data/Shows/Breaking Bad".Replace('/', Path.DirectorySeparatorChar);
+    private readonly TestContext _testContext;
 
     private FakePlexClient _plexClient = new();
     private RecordingNfoWriter _nfoWriter = new();
@@ -28,6 +29,19 @@ public sealed class SyncOrchestratorTests
     private SyncStatusService _status = new();
 
     #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public SyncOrchestratorTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
 
     #region Methods
 
@@ -1174,6 +1188,54 @@ public sealed class SyncOrchestratorTests
 
         Assert.IsFalse(_status.GetSnapshot().IsRunning, "The run flag should be cleared after cancellation!");
         Assert.IsEmpty(_nfoWriter.Writes, "A cancelled reconcile should not write any NFO file!");
+    }
+
+    /// <summary>
+    /// Cancelling the token while episode writes for a series are actually in flight propagates the cancellation
+    /// out of the parallel reconcile and clears the run flag, mirroring
+    /// <see cref="SyncOrchestratorReconcileCancellationPropagates"/> but for the concurrent episode-writing path
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryCancellationDuringParallelWritesPropagates()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 4);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // The gate is set one above the configured parallelism so the two concurrently running writes never
+        // reach it and instead await the gate release with a generous timeout, so the test's own cancellation -
+        // not the timeout - is what unblocks them.
+        _nfoWriter.ConcurrencyGate = 3;
+        _nfoWriter.ConcurrencyGateTimeout = TimeSpan.FromSeconds(5);
+        _nfoWriter.NotifyAtConcurrency = 2;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  EpisodeReconcileParallelism = 2
+                                              });
+
+        using var cancellation = new CancellationTokenSource();
+
+        var reconcileTask = orchestrator.ReconcileAsync(cancellation.Token);
+
+        await _nfoWriter.ConcurrencyReached.WaitAsync(TimeSpan.FromSeconds(5), _testContext.CancellationToken);
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await reconcileTask,
+                                                             "Cancellation during in-flight episode writes should be propagated to the caller!");
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared after cancellation!");
+        Assert.AreEqual(0L, snapshot.Errors, "Cancellation should propagate instead of being recorded as an item error!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Episode), "None of the in-flight episode writes should have completed after cancellation!");
     }
 
     /// <summary>

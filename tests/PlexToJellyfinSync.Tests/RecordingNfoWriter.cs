@@ -14,6 +14,8 @@ internal sealed class RecordingNfoWriter : INfoWriter
     private readonly Lock _lock = new();
     private readonly Dictionary<string, int> _concurrentCallsByPath = new(StringComparer.Ordinal);
 
+    private readonly TaskCompletionSource<bool> _concurrencyReached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     private TaskCompletionSource<bool> _concurrencyGateReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _concurrentCalls;
 
@@ -41,6 +43,19 @@ internal sealed class RecordingNfoWriter : INfoWriter
     /// How long a write waits for <see cref="ConcurrencyGate"/> to be reached before proceeding regardless
     /// </summary>
     public TimeSpan ConcurrencyGateTimeout { get; set; } = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// Number of writes to wait for in flight at once before completing <see cref="ConcurrencyReached"/>; zero
+    /// disables the notification. Unlike <see cref="ConcurrencyGate"/> this never releases a waiting write, so a
+    /// test can await it to know that this many writes have entered <see cref="WriteAsync"/> concurrently before
+    /// acting, such as cancelling the passed-in token, without guessing at timing through a wall-clock delay.
+    /// </summary>
+    public int NotifyAtConcurrency { get; set; }
+
+    /// <summary>
+    /// Completes once <see cref="NotifyAtConcurrency"/> writes have entered <see cref="WriteAsync"/> concurrently
+    /// </summary>
+    public Task ConcurrencyReached => _concurrencyReached.Task;
 
     /// <summary>
     /// Highest number of writes observed in flight at the same time, across every target path
@@ -100,6 +115,11 @@ internal sealed class RecordingNfoWriter : INfoWriter
 
             _concurrentCallsByPath[localPath] = concurrentForPath;
             MaxObservedConcurrencyByPath[localPath] = Math.Max(MaxObservedConcurrencyByPath.GetValueOrDefault(localPath), concurrentForPath);
+
+            if (NotifyAtConcurrency > 0 && _concurrentCalls >= NotifyAtConcurrency)
+            {
+                _concurrencyReached.TrySetResult(true);
+            }
 
             if (ConcurrencyGate > 0)
             {
