@@ -29,10 +29,11 @@ internal sealed class RecordingNfoWriter : INfoWriter
     /// <summary>
     /// Number of writes to wait for in flight at once before releasing every waiting write, so an actual overflow
     /// past a configured bound is caught deterministically instead of through an artificial delay; zero disables
-    /// the gate. The gate re-arms once every write it released has finished, so a later, independent batch of
-    /// concurrent writes is still forced through its own rendezvous rather than passing through unchecked. A
-    /// write that never sees this many concurrent calls times out after <see cref="ConcurrencyGateTimeout"/> and
-    /// proceeds anyway, so a correctly bounded caller only pays that timeout instead of hanging.
+    /// the gate. The gate re-arms as soon as the in-flight count drops back below the threshold after a release,
+    /// so a later, independent batch of concurrent writes is still forced through its own rendezvous rather than
+    /// passing through unchecked. A write that never sees this many concurrent calls times out after
+    /// <see cref="ConcurrencyGateTimeout"/> and proceeds anyway, so a correctly bounded caller only pays that
+    /// timeout instead of hanging.
     /// </summary>
     public int ConcurrencyGate { get; set; }
 
