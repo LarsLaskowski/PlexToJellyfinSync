@@ -36,5 +36,10 @@ public sealed class SyncOptions
     /// </summary>
     public bool WriteSeriesSeasonAggregates { get; set; } = true;
 
+    /// <summary>
+    /// Maximum number of episode NFO writes processed concurrently while reconciling a series library
+    /// </summary>
+    public int EpisodeReconcileParallelism { get; set; } = 4;
+
     #endregion // Properties
 }

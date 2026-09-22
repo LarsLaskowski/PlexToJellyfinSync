@@ -493,25 +493,32 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
             {
                 var episodes = await _plexClient.GetEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
 
-                foreach (var episode in episodes)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
+                var parallelOptions = new ParallelOptions
+                                      {
+                                          MaxDegreeOfParallelism = Math.Max(1, _syncOptions.EpisodeReconcileParallelism),
+                                          CancellationToken = cancellationToken
+                                      };
 
-                    _status.Update(s => s.ItemsProcessed++);
+                await Parallel.ForEachAsync(episodes,
+                                            parallelOptions,
+                                            async (episode, token) =>
+                                            {
+                                                _status.Update(s => s.ItemsProcessed++);
 
-                    try
-                    {
-                        await WriteItemAsync(episode, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        HandleItemError(ex, episode.RatingKey);
-                    }
-                }
+                                                try
+                                                {
+                                                    await WriteItemAsync(episode, token).ConfigureAwait(false);
+                                                }
+                                                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                                                {
+                                                    throw;
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    HandleItemError(ex, episode.RatingKey);
+                                                }
+                                            })
+                              .ConfigureAwait(false);
 
                 if (_syncOptions.WriteSeriesSeasonAggregates)
                 {

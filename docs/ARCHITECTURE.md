@@ -64,7 +64,9 @@ Studio standard for solution files, not a migration artifact.
      configured Plex library (filtered by `Plex:Libraries` if set) and writes/updates the NFO for
      every movie or episode found, regardless of watch state. This is the catch-up path for
      changes `ProcessHistoryAsync` cannot see — for example items marked watched through means
-     that do not produce a Plex history entry.
+     that do not produce a Plex history entry. Within a series library, a show's episode writes run
+     concurrently, bounded by `Sync:EpisodeReconcileParallelism` (`Parallel.ForEachAsync`); shows
+     themselves are still reconciled one at a time.
    - Both paths funnel through `WriteItemAsync`, which resolves the local path via `IPathMapper`
      and skips the item (with a log warning) if no mapping matches or the item has no file path.
    - When `Sync:WriteSeriesSeasonAggregates` is enabled, both paths additionally call

@@ -882,6 +882,61 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// Episode writes within a series are processed concurrently instead of one at a time
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryWritesEpisodesConcurrently()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 4);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+        _nfoWriter.WriteDelay = TimeSpan.FromMilliseconds(50);
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(4, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.IsGreaterThan(1, _nfoWriter.MaxObservedConcurrency, "Episode writes should overlap instead of running one at a time!");
+    }
+
+    /// <summary>
+    /// Concurrent episode writes never exceed the configured parallelism limit
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryRespectsEpisodeParallelismLimit()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 6);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+        _nfoWriter.WriteDelay = TimeSpan.FromMilliseconds(50);
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  EpisodeReconcileParallelism = 2
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(6, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.IsLessThanOrEqualTo(2, _nfoWriter.MaxObservedConcurrency, "Concurrent episode writes should never exceed the configured limit!");
+    }
+
+    /// <summary>
     /// A library kind that is neither movie nor series is ignored
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -1062,6 +1117,43 @@ public sealed class SyncOrchestratorTests
                                            };
 
         _plexClient.Episodes[showRatingKey] = [first, second];
+    }
+
+    /// <summary>
+    /// Register a series with the given number of unwatched episodes, each mapped to its own file
+    /// </summary>
+    /// <param name="showRatingKey">Rating key of the series</param>
+    /// <param name="episodeCount">Number of episodes to register</param>
+    private void AddSeriesWithEpisodes(string showRatingKey, int episodeCount)
+    {
+        var episodes = new List<MediaItem>();
+
+        for (var episodeNumber = 1; episodeNumber <= episodeCount; episodeNumber++)
+        {
+            var episode = new MediaItem
+                          {
+                              RatingKey = $"e{episodeNumber}",
+                              Kind = MediaKind.Episode,
+                              Title = $"Episode {episodeNumber}",
+                              SeasonNumber = 1,
+                              EpisodeNumber = episodeNumber,
+                              ShowRatingKey = showRatingKey,
+                              ShowTitle = "Breaking Bad",
+                              FilePath = _seasonDirectory + $"/S01E{episodeNumber:D2}.mkv"
+                          };
+
+            _plexClient.Items[episode.RatingKey] = episode;
+            episodes.Add(episode);
+        }
+
+        _plexClient.Items[showRatingKey] = new MediaItem
+                                           {
+                                               RatingKey = showRatingKey,
+                                               Kind = MediaKind.Series,
+                                               Title = "Breaking Bad"
+                                           };
+
+        _plexClient.Episodes[showRatingKey] = episodes;
     }
 
     /// <summary>
