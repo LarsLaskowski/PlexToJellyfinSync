@@ -97,6 +97,7 @@ double underscore for nesting).
 | `Sync:FullReconcileIntervalHours` | `PLEXSYNC__Sync__FullReconcileIntervalHours` | `24` | Full reconcile interval |
 | `Sync:CreateMissingNfo` | `PLEXSYNC__Sync__CreateMissingNfo` | `true` | Create complete NFO if missing |
 | `Sync:WriteSeriesSeasonAggregates` | `PLEXSYNC__Sync__WriteSeriesSeasonAggregates` | `true` | Write season/series aggregates |
+| `Sync:EpisodeReconcileParallelism` | `PLEXSYNC__Sync__EpisodeReconcileParallelism` | `4` | Concurrent episode writes per series reconcile (minimum 1) |
 | `PathMappings:N:Plex` / `:Local` | `PLEXSYNC__PathMappings__N__Plex` / `__Local` | – | Path prefix mapping |
 | `Nfo:DateTimeFormat` | `PLEXSYNC__Nfo__DateTimeFormat` | `yyyy-MM-dd HH:mm:ss` | `lastplayed` format |
 | `Nfo:MovieFilenameStrategy` | `PLEXSYNC__Nfo__MovieFilenameStrategy` | `PreferExistingMovieNfo` | Movie NFO naming |

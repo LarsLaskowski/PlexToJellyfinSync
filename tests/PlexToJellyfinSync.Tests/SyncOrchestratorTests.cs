@@ -882,6 +882,207 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// Episode writes within a series are processed concurrently instead of one at a time
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryWritesEpisodesConcurrently()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 4);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+        _nfoWriter.ConcurrencyGate = 2;
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(4, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.IsGreaterThan(1, _nfoWriter.MaxObservedConcurrency, "Episode writes should overlap instead of running one at a time!");
+    }
+
+    /// <summary>
+    /// Concurrent episode writes never exceed the configured parallelism limit
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryRespectsEpisodeParallelismLimit()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 6);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // The gate is set one above the limit under test: a correctly bounded run never reaches it and every
+        // write instead times out and proceeds, while a regression that lets a third write overlap fills it and
+        // is caught immediately.
+        _nfoWriter.ConcurrencyGate = 3;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  EpisodeReconcileParallelism = 2
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(6, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.IsLessThanOrEqualTo(2, _nfoWriter.MaxObservedConcurrency, "Concurrent episode writes should never exceed the configured limit!");
+    }
+
+    /// <summary>
+    /// Episodes that share a multi-episode file resolve to the same NFO target and must never write to it at the
+    /// same time, even though unrelated episodes are written concurrently
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibrarySharedFileEpisodesNeverOverlap()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        var sharedFile = _seasonDirectory + "/S01E01-E02.mkv";
+
+        var first = new MediaItem
+                    {
+                        RatingKey = "e1",
+                        Kind = MediaKind.Episode,
+                        Title = "Multi Part One",
+                        SeasonNumber = 1,
+                        EpisodeNumber = 1,
+                        ShowRatingKey = "s1",
+                        ShowTitle = "Breaking Bad",
+                        FilePath = sharedFile
+                    };
+
+        var second = new MediaItem
+                     {
+                         RatingKey = "e2",
+                         Kind = MediaKind.Episode,
+                         Title = "Multi Part Two",
+                         SeasonNumber = 1,
+                         EpisodeNumber = 2,
+                         ShowRatingKey = "s1",
+                         ShowTitle = "Breaking Bad",
+                         FilePath = sharedFile
+                     };
+
+        var third = new MediaItem
+                    {
+                        RatingKey = "e3",
+                        Kind = MediaKind.Episode,
+                        Title = "Episode Three",
+                        SeasonNumber = 1,
+                        EpisodeNumber = 3,
+                        ShowRatingKey = "s1",
+                        ShowTitle = "Breaking Bad",
+                        FilePath = _seasonDirectory + "/S01E03.mkv"
+                    };
+
+        _plexClient.Items["e1"] = first;
+        _plexClient.Items["e2"] = second;
+        _plexClient.Items["e3"] = third;
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
+        _plexClient.Episodes["s1"] = [first, second, third];
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // Grouping by file leaves only two groups (the shared file and the third episode's own file), so the
+        // three-way gate below never fills in a correct implementation: a flat, ungrouped loop would let all
+        // three episodes overlap and fill it instead, exposing the shared-path concurrency it must never reach.
+        _nfoWriter.ConcurrencyGate = 3;
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(3, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrencyByPath[sharedFile], "Episodes resolving to the same NFO target must never write to it concurrently!");
+    }
+
+    /// <summary>
+    /// A configured parallelism of zero is clamped to sequential writes instead of throwing
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryZeroParallelismRunsSequentially()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 3);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // One above the sequential bound: a correctly clamped run never reaches it, while a broken clamp that
+        // lets a second write overlap fills it and is caught.
+        _nfoWriter.ConcurrencyGate = 2;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  EpisodeReconcileParallelism = 0
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(3, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrency, "A zero parallelism setting should be clamped to sequential writes rather than throwing!");
+    }
+
+    /// <summary>
+    /// A configured parallelism below zero is clamped to sequential writes instead of being treated as unbounded
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryNegativeParallelismRunsSequentially()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 3);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // One above the sequential bound: a correctly clamped run never reaches it, while treating -1 as
+        // unbounded would let a second write overlap, filling it and being caught.
+        _nfoWriter.ConcurrencyGate = 2;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  EpisodeReconcileParallelism = -1
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(3, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrency, "A negative parallelism setting should be clamped to sequential writes rather than treated as unbounded!");
+    }
+
+    /// <summary>
     /// A library kind that is neither movie nor series is ignored
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -1062,6 +1263,43 @@ public sealed class SyncOrchestratorTests
                                            };
 
         _plexClient.Episodes[showRatingKey] = [first, second];
+    }
+
+    /// <summary>
+    /// Register a series with the given number of unwatched episodes, each mapped to its own file
+    /// </summary>
+    /// <param name="showRatingKey">Rating key of the series</param>
+    /// <param name="episodeCount">Number of episodes to register</param>
+    private void AddSeriesWithEpisodes(string showRatingKey, int episodeCount)
+    {
+        var episodes = new List<MediaItem>();
+
+        for (var episodeNumber = 1; episodeNumber <= episodeCount; episodeNumber++)
+        {
+            var episode = new MediaItem
+                          {
+                              RatingKey = $"e{episodeNumber}",
+                              Kind = MediaKind.Episode,
+                              Title = $"Episode {episodeNumber}",
+                              SeasonNumber = 1,
+                              EpisodeNumber = episodeNumber,
+                              ShowRatingKey = showRatingKey,
+                              ShowTitle = "Breaking Bad",
+                              FilePath = _seasonDirectory + $"/S01E{episodeNumber:D2}.mkv"
+                          };
+
+            _plexClient.Items[episode.RatingKey] = episode;
+            episodes.Add(episode);
+        }
+
+        _plexClient.Items[showRatingKey] = new MediaItem
+                                           {
+                                               RatingKey = showRatingKey,
+                                               Kind = MediaKind.Series,
+                                               Title = "Breaking Bad"
+                                           };
+
+        _plexClient.Episodes[showRatingKey] = episodes;
     }
 
     /// <summary>

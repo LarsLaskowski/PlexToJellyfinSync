@@ -491,27 +491,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
             try
             {
-                var episodes = await _plexClient.GetEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
-
-                foreach (var episode in episodes)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    _status.Update(s => s.ItemsProcessed++);
-
-                    try
-                    {
-                        await WriteItemAsync(episode, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        HandleItemError(ex, episode.RatingKey);
-                    }
-                }
+                await ReconcileShowEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
 
                 if (_syncOptions.WriteSeriesSeasonAggregates)
                 {
@@ -525,6 +505,56 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
             catch (Exception ex)
             {
                 HandleItemError(ex, show.RatingKey);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Write the NFO for every episode of a show, running unrelated episodes concurrently while episodes that
+    /// share a file (a multi-episode file such as S01E01-E02.mkv) stay sequential within their own group so two
+    /// writers never race over the same NFO target's temp file
+    /// </summary>
+    /// <param name="showRatingKey">Rating key of the show</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private async Task ReconcileShowEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
+    {
+        var episodes = await _plexClient.GetEpisodesAsync(showRatingKey, cancellationToken).ConfigureAwait(false);
+        var episodeGroups = episodes.GroupBy(episode => episode.FilePath, StringComparer.Ordinal).ToList();
+
+        var parallelOptions = new ParallelOptions
+                              {
+                                  MaxDegreeOfParallelism = Math.Max(1, _syncOptions.EpisodeReconcileParallelism),
+                                  CancellationToken = cancellationToken
+                              };
+
+        await Parallel.ForEachAsync(episodeGroups, parallelOptions, WriteEpisodeGroupAsync).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Write every episode of a group (episodes that resolve to the same NFO target) one after another, isolating
+    /// a failure so it does not abort the rest of the group or the other groups running concurrently
+    /// </summary>
+    /// <param name="episodeGroup">Episodes sharing one NFO target</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private async ValueTask WriteEpisodeGroupAsync(IEnumerable<MediaItem> episodeGroup, CancellationToken cancellationToken)
+    {
+        foreach (var episode in episodeGroup)
+        {
+            _status.Update(s => s.ItemsProcessed++);
+
+            try
+            {
+                await WriteItemAsync(episode, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                HandleItemError(ex, episode.RatingKey);
             }
         }
     }
