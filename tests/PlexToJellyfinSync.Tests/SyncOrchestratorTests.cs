@@ -1177,6 +1177,54 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// Cancelling the token while episode writes for a series are actually in flight propagates the cancellation
+    /// out of the parallel reconcile and clears the run flag, mirroring
+    /// <see cref="SyncOrchestratorReconcileCancellationPropagates"/> but for the concurrent episode-writing path
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryCancellationDuringParallelWritesPropagates()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 4);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        // The gate is set one above the configured parallelism so the two concurrently running writes never
+        // reach it and instead await the gate release with a generous timeout, so the test's own cancellation -
+        // not the timeout - is what unblocks them.
+        _nfoWriter.ConcurrencyGate = 3;
+        _nfoWriter.ConcurrencyGateTimeout = TimeSpan.FromSeconds(5);
+        _nfoWriter.NotifyAtConcurrency = 2;
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  EpisodeReconcileParallelism = 2
+                                              });
+
+        using var cancellation = new CancellationTokenSource();
+
+        var reconcileTask = orchestrator.ReconcileAsync(cancellation.Token);
+
+        await _nfoWriter.ConcurrencyReached.WaitAsync(TimeSpan.FromSeconds(5));
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await reconcileTask,
+                                                             "Cancellation during in-flight episode writes should be propagated to the caller!");
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared after cancellation!");
+        Assert.AreEqual(0L, snapshot.Errors, "Cancellation should propagate instead of being recorded as an item error!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Episode), "None of the in-flight episode writes should have completed after cancellation!");
+    }
+
+    /// <summary>
     /// Create an orchestrator wired to the current test doubles
     /// </summary>
     /// <param name="syncOptions">Sync options, or <c>null</c> for the defaults</param>
