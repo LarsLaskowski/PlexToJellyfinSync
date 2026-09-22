@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using System.Xml;
@@ -26,6 +27,7 @@ public sealed class NfoWriter : INfoWriter
     private readonly SyncOptions _syncOptions;
     private readonly IReadOnlyList<PathMapping> _pathMappings;
     private readonly ILogger<NfoWriter> _logger;
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _targetLocks = new(StringComparer.Ordinal);
 
     #endregion // Fields
 
@@ -257,6 +259,17 @@ public sealed class NfoWriter : INfoWriter
     }
 
     /// <summary>
+    /// Get the lock guarding writes to a resolved target path, so two writers whose items resolve to the same
+    /// NFO file - for example the same folder shared by two Plex libraries - never race on its temp file
+    /// </summary>
+    /// <param name="targetPath">Resolved target NFO file path</param>
+    /// <returns>The lock for the given target path</returns>
+    private SemaphoreSlim GetTargetLock(string targetPath)
+    {
+        return _targetLocks.GetOrAdd(targetPath, static _ => new SemaphoreSlim(1, 1));
+    }
+
+    /// <summary>
     /// Determine whether the given path falls under any configured local root
     /// </summary>
     /// <param name="path">Canonical path to test</param>
@@ -417,51 +430,62 @@ public sealed class NfoWriter : INfoWriter
             return NfoWriteOutcome.Skipped;
         }
 
-        if (File.Exists(targetPath))
-        {
-            var xml = await File.ReadAllTextAsync(targetPath, cancellationToken).ConfigureAwait(false);
-            var document = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
-            var root = document.Root;
+        var targetLock = GetTargetLock(targetPath);
 
-            if (root is null)
+        await targetLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (File.Exists(targetPath))
             {
-                document = BuildDocument(item);
-                await SaveAsync(document, targetPath, indent: true, cancellationToken).ConfigureAwait(false);
+                var xml = await File.ReadAllTextAsync(targetPath, cancellationToken).ConfigureAwait(false);
+                var document = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
+                var root = document.Root;
+
+                if (root is null)
+                {
+                    document = BuildDocument(item);
+                    await SaveAsync(document, targetPath, indent: true, cancellationToken).ConfigureAwait(false);
+
+                    return NfoWriteOutcome.Updated;
+                }
+
+                var changed = ApplyWatchState(root, item.Watch);
+
+                if (changed == false)
+                {
+                    return NfoWriteOutcome.Skipped;
+                }
+
+                await SaveAsync(document, targetPath, indent: false, cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Updated watch state in {Path}", targetPath);
 
                 return NfoWriteOutcome.Updated;
             }
 
-            var changed = ApplyWatchState(root, item.Watch);
-
-            if (changed == false)
+            if (_syncOptions.CreateMissingNfo == false)
             {
                 return NfoWriteOutcome.Skipped;
             }
 
-            await SaveAsync(document, targetPath, indent: false, cancellationToken).ConfigureAwait(false);
-            _logger.LogInformation("Updated watch state in {Path}", targetPath);
+            var directory = Path.GetDirectoryName(targetPath);
 
-            return NfoWriteOutcome.Updated;
+            if (string.IsNullOrEmpty(directory) == false && Directory.Exists(directory) == false)
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var newDocument = BuildDocument(item);
+
+            await SaveAsync(newDocument, targetPath, indent: true, cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("Created NFO {Path}", targetPath);
+
+            return NfoWriteOutcome.Created;
         }
-
-        if (_syncOptions.CreateMissingNfo == false)
+        finally
         {
-            return NfoWriteOutcome.Skipped;
+            targetLock.Release();
         }
-
-        var directory = Path.GetDirectoryName(targetPath);
-
-        if (string.IsNullOrEmpty(directory) == false && Directory.Exists(directory) == false)
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        var newDocument = BuildDocument(item);
-
-        await SaveAsync(newDocument, targetPath, indent: true, cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("Created NFO {Path}", targetPath);
-
-        return NfoWriteOutcome.Created;
     }
 
     #endregion // INfoWriter

@@ -64,12 +64,15 @@ Studio standard for solution files, not a migration artifact.
      configured Plex library (filtered by `Plex:Libraries` if set) and writes/updates the NFO for
      every movie or episode found, regardless of watch state. This is the catch-up path for
      changes `ProcessHistoryAsync` cannot see — for example items marked watched through means
-     that do not produce a Plex history entry. Within a series library, a show's episode writes run
-     concurrently, bounded by `Sync:EpisodeReconcileParallelism` (`Parallel.ForEachAsync`, minimum 1
-     — a configured value below that is clamped rather than rejected); shows themselves are still
-     reconciled one at a time. Episodes that share a file (a multi-episode file such as
-     `S01E01-E02.mkv` maps to one NFO target) are grouped and written sequentially within that group
-     so two concurrent writers never race on the same target's temp file.
+     that do not produce a Plex history entry. The filtered libraries themselves are reconciled
+     concurrently, bounded by `Sync:LibraryReconcileParallelism` (`Parallel.ForEachAsync`, minimum 1
+     — a configured value below that is clamped rather than rejected), so wall-clock reconcile time
+     scales with the slowest library instead of the number of libraries. Within a series library, a
+     show's episode writes run concurrently, bounded by `Sync:EpisodeReconcileParallelism`
+     (`Parallel.ForEachAsync`, minimum 1, clamped the same way); shows themselves are still
+     reconciled one at a time within their library. Episodes that share a file (a multi-episode file
+     such as `S01E01-E02.mkv` maps to one NFO target) are grouped and written sequentially within
+     that group so two concurrent writers never race on the same target's temp file.
    - Both paths funnel through `WriteItemAsync`, which resolves the local path via `IPathMapper`
      and skips the item (with a log warning) if no mapping matches or the item has no file path.
    - When `Sync:WriteSeriesSeasonAggregates` is enabled, both paths additionally call
@@ -145,6 +148,17 @@ Studio standard for solution files, not a migration artifact.
      write has fully succeeded, preserving the target's existing Unix file mode so a shared media
      volume keeps its permissions; a failed write deletes the temp file and leaves the original
      `.nfo` untouched instead of truncating it.
+   - `WriteAsync` holds a `SemaphoreSlim` keyed by the resolved target path (kept in an
+     instance-lifetime `ConcurrentDictionary`, since `NfoWriter` is registered as a singleton) for
+     the whole read-modify-write body, not just the temp-file save. This is what makes two writers
+     resolving to the same NFO target — a multi-episode file's episodes, or two Plex libraries that
+     happen to share a folder — safe to run concurrently, whether that concurrency comes from
+     `SyncOrchestrator`'s per-episode `Parallel.ForEachAsync` or from the per-library one; without
+     it, the second writer's `.tmp` file would collide with the first's mid-write. The dictionary
+     holds one semaphore per distinct target path ever written and never evicts an entry, so it
+     grows with the number of movies/episodes/seasons/series reconciled over the process lifetime —
+     acceptable for a media library's item count, but worth remembering before repurposing this
+     pattern for a workload with a much larger or unbounded key space.
 7. **`StateStore`** (`src/PlexToJellyfinSync.Service/State/StateStore.cs`) persists exactly one
    value — the incremental high-water mark — to `state.json` under `State:Directory` (`/config`
    in the container). Reads and writes both go through a `SemaphoreSlim(1, 1)` gate so concurrent

@@ -408,25 +408,16 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
             _status.Update(s => s.PlexConnected = true);
 
             var filter = _plexOptions.Libraries;
+            var librariesToReconcile = libraries.Where(library => filter.Length == 0 || filter.Contains(library.Key))
+                                                .ToList();
 
-            foreach (var library in libraries)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
+            var parallelOptions = new ParallelOptions
+                                  {
+                                      MaxDegreeOfParallelism = Math.Max(1, _syncOptions.LibraryReconcileParallelism),
+                                      CancellationToken = cancellationToken
+                                  };
 
-                if (filter.Length > 0 && filter.Contains(library.Key) == false)
-                {
-                    continue;
-                }
-
-                if (library.Kind == MediaKind.Movie)
-                {
-                    await ReconcileMovieLibraryAsync(library.Key, cancellationToken).ConfigureAwait(false);
-                }
-                else if (library.Kind == MediaKind.Series)
-                {
-                    await ReconcileSeriesLibraryAsync(library.Key, cancellationToken).ConfigureAwait(false);
-                }
-            }
+            await Parallel.ForEachAsync(librariesToReconcile, parallelOptions, ReconcileLibraryAsync).ConfigureAwait(false);
 
             _status.Update(s => s.LastReconcileAt = DateTimeOffset.UtcNow);
         }
@@ -441,6 +432,25 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         finally
         {
             _status.Update(s => s.IsRunning = false);
+        }
+    }
+
+    /// <summary>
+    /// Reconcile a single library according to its kind, isolating the dispatch so it can run concurrently with
+    /// the other configured libraries
+    /// </summary>
+    /// <param name="library">Library to reconcile</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private async ValueTask ReconcileLibraryAsync(PlexLibrary library, CancellationToken cancellationToken)
+    {
+        if (library.Kind == MediaKind.Movie)
+        {
+            await ReconcileMovieLibraryAsync(library.Key, cancellationToken).ConfigureAwait(false);
+        }
+        else if (library.Kind == MediaKind.Series)
+        {
+            await ReconcileSeriesLibraryAsync(library.Key, cancellationToken).ConfigureAwait(false);
         }
     }
 

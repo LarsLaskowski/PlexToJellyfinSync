@@ -41,5 +41,10 @@ public sealed class SyncOptions
     /// </summary>
     public int EpisodeReconcileParallelism { get; set; } = 4;
 
+    /// <summary>
+    /// Maximum number of Plex libraries reconciled concurrently during a full reconcile run
+    /// </summary>
+    public int LibraryReconcileParallelism { get; set; } = 2;
+
     #endregion // Properties
 }
