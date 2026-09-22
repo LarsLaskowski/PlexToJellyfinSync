@@ -493,29 +493,37 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
             {
                 var episodes = await _plexClient.GetEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
 
+                // Episodes sharing a file (a multi-episode file such as S01E01-E02.mkv) resolve to the same NFO
+                // target; grouping by file path keeps those writes sequential while unrelated episodes still run
+                // concurrently, so two writers never race on the same target's temp file.
+                var episodeGroups = episodes.GroupBy(episode => episode.FilePath, StringComparer.Ordinal).ToList();
+
                 var parallelOptions = new ParallelOptions
                                       {
                                           MaxDegreeOfParallelism = Math.Max(1, _syncOptions.EpisodeReconcileParallelism),
                                           CancellationToken = cancellationToken
                                       };
 
-                await Parallel.ForEachAsync(episodes,
+                await Parallel.ForEachAsync(episodeGroups,
                                             parallelOptions,
-                                            async (episode, token) =>
+                                            async (episodeGroup, token) =>
                                             {
-                                                _status.Update(s => s.ItemsProcessed++);
+                                                foreach (var episode in episodeGroup)
+                                                {
+                                                    _status.Update(s => s.ItemsProcessed++);
 
-                                                try
-                                                {
-                                                    await WriteItemAsync(episode, token).ConfigureAwait(false);
-                                                }
-                                                catch (OperationCanceledException) when (token.IsCancellationRequested)
-                                                {
-                                                    throw;
-                                                }
-                                                catch (Exception ex)
-                                                {
-                                                    HandleItemError(ex, episode.RatingKey);
+                                                    try
+                                                    {
+                                                        await WriteItemAsync(episode, token).ConfigureAwait(false);
+                                                    }
+                                                    catch (OperationCanceledException) when (token.IsCancellationRequested)
+                                                    {
+                                                        throw;
+                                                    }
+                                                    catch (Exception ex)
+                                                    {
+                                                        HandleItemError(ex, episode.RatingKey);
+                                                    }
                                                 }
                                             })
                               .ConfigureAwait(false);

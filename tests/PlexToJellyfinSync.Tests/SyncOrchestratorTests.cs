@@ -897,7 +897,7 @@ public sealed class SyncOrchestratorTests
 
         AddSeriesWithEpisodes("s1", episodeCount: 4);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
-        _nfoWriter.WriteDelay = TimeSpan.FromMilliseconds(50);
+        _nfoWriter.ConcurrencyGate = 2;
 
         var orchestrator = CreateOrchestrator();
 
@@ -923,7 +923,7 @@ public sealed class SyncOrchestratorTests
 
         AddSeriesWithEpisodes("s1", episodeCount: 6);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
-        _nfoWriter.WriteDelay = TimeSpan.FromMilliseconds(50);
+        _nfoWriter.ConcurrencyGate = 2;
 
         var orchestrator = CreateOrchestrator(new SyncOptions
                                               {
@@ -934,6 +934,122 @@ public sealed class SyncOrchestratorTests
 
         Assert.HasCount(6, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
         Assert.IsLessThanOrEqualTo(2, _nfoWriter.MaxObservedConcurrency, "Concurrent episode writes should never exceed the configured limit!");
+    }
+
+    /// <summary>
+    /// Episodes that share a multi-episode file resolve to the same NFO target and must never write to it at the
+    /// same time, even though unrelated episodes are written concurrently
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibrarySharedFileEpisodesNeverOverlap()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        var sharedFile = _seasonDirectory + "/S01E01-E02.mkv";
+
+        var first = new MediaItem
+                    {
+                        RatingKey = "e1",
+                        Kind = MediaKind.Episode,
+                        Title = "Multi Part One",
+                        SeasonNumber = 1,
+                        EpisodeNumber = 1,
+                        ShowRatingKey = "s1",
+                        ShowTitle = "Breaking Bad",
+                        FilePath = sharedFile
+                    };
+
+        var second = new MediaItem
+                     {
+                         RatingKey = "e2",
+                         Kind = MediaKind.Episode,
+                         Title = "Multi Part Two",
+                         SeasonNumber = 1,
+                         EpisodeNumber = 2,
+                         ShowRatingKey = "s1",
+                         ShowTitle = "Breaking Bad",
+                         FilePath = sharedFile
+                     };
+
+        _plexClient.Items["e1"] = first;
+        _plexClient.Items["e2"] = second;
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
+        _plexClient.Episodes["s1"] = [first, second];
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Episode), "Both episodes sharing the file should still have been written!");
+        Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrencyByPath[sharedFile], "Episodes resolving to the same NFO target must never write to it concurrently!");
+    }
+
+    /// <summary>
+    /// A configured parallelism of zero is clamped to sequential writes instead of throwing
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryZeroParallelismRunsSequentially()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 3);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  EpisodeReconcileParallelism = 0
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(3, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrency, "A zero parallelism setting should be clamped to sequential writes rather than throwing!");
+    }
+
+    /// <summary>
+    /// A configured parallelism below zero is clamped to sequential writes instead of being treated as unbounded
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryNegativeParallelismRunsSequentially()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "2",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        AddSeriesWithEpisodes("s1", episodeCount: 3);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  EpisodeReconcileParallelism = -1
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        Assert.HasCount(3, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should still have been written!");
+        Assert.AreEqual(1, _nfoWriter.MaxObservedConcurrency, "A negative parallelism setting should be clamped to sequential writes rather than treated as unbounded!");
     }
 
     /// <summary>

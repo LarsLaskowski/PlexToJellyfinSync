@@ -12,6 +12,8 @@ internal sealed class RecordingNfoWriter : INfoWriter
     #region Fields
 
     private readonly Lock _lock = new();
+    private readonly Dictionary<string, int> _concurrentCallsByPath = new(StringComparer.Ordinal);
+    private readonly TaskCompletionSource<bool> _concurrencyGateReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _concurrentCalls;
 
@@ -25,14 +27,20 @@ internal sealed class RecordingNfoWriter : INfoWriter
     public NfoWriteOutcome Outcome { get; set; } = NfoWriteOutcome.Created;
 
     /// <summary>
-    /// Artificial delay applied inside every write, used to make overlapping concurrent calls observable
+    /// Number of writes to wait for in flight at once before releasing every waiting write, so concurrency can be
+    /// observed deterministically instead of through an artificial delay; zero disables the gate
     /// </summary>
-    public TimeSpan WriteDelay { get; set; } = TimeSpan.Zero;
+    public int ConcurrencyGate { get; set; }
 
     /// <summary>
-    /// Highest number of writes observed in flight at the same time
+    /// Highest number of writes observed in flight at the same time, across every target path
     /// </summary>
     public int MaxObservedConcurrency { get; private set; }
+
+    /// <summary>
+    /// Highest number of writes observed in flight at the same time, keyed by target local path
+    /// </summary>
+    public Dictionary<string, int> MaxObservedConcurrencyByPath { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// All captured writes, in order they completed
@@ -67,22 +75,40 @@ internal sealed class RecordingNfoWriter : INfoWriter
     /// </summary>
     /// <param name="item">Media item to write</param>
     /// <param name="localPath">Local path of the media file or directory</param>
-    /// <param name="cancellationToken">Cancellation token honored by the configured <see cref="WriteDelay"/></param>
+    /// <param name="cancellationToken">Cancellation token honored while waiting for the configured <see cref="ConcurrencyGate"/></param>
     /// <returns>The preconfigured outcome</returns>
     public async Task<NfoWriteOutcome> WriteAsync(MediaItem item, string localPath, CancellationToken cancellationToken)
     {
-        var concurrentCalls = Interlocked.Increment(ref _concurrentCalls);
+        Task? gateTask = null;
 
         lock (_lock)
         {
-            MaxObservedConcurrency = Math.Max(MaxObservedConcurrency, concurrentCalls);
+            _concurrentCalls++;
+            MaxObservedConcurrency = Math.Max(MaxObservedConcurrency, _concurrentCalls);
+
+            var concurrentForPath = _concurrentCallsByPath.GetValueOrDefault(localPath) + 1;
+
+            _concurrentCallsByPath[localPath] = concurrentForPath;
+            MaxObservedConcurrencyByPath[localPath] = Math.Max(MaxObservedConcurrencyByPath.GetValueOrDefault(localPath), concurrentForPath);
+
+            if (ConcurrencyGate > 0)
+            {
+                if (_concurrentCalls >= ConcurrencyGate)
+                {
+                    _concurrencyGateReleased.TrySetResult(true);
+                }
+                else
+                {
+                    gateTask = _concurrencyGateReleased.Task;
+                }
+            }
         }
 
         try
         {
-            if (WriteDelay > TimeSpan.Zero)
+            if (gateTask is not null)
             {
-                await Task.Delay(WriteDelay, cancellationToken).ConfigureAwait(false);
+                await gateTask.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
             }
 
             if (FailuresByRatingKey.TryGetValue(item.RatingKey, out var failure))
@@ -103,7 +129,11 @@ internal sealed class RecordingNfoWriter : INfoWriter
         }
         finally
         {
-            Interlocked.Decrement(ref _concurrentCalls);
+            lock (_lock)
+            {
+                _concurrentCalls--;
+                _concurrentCallsByPath[localPath]--;
+            }
         }
     }
 
