@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 using PlexToJellyfinSync.Core.Abstractions;
 using PlexToJellyfinSync.Core.Models;
 
@@ -72,6 +74,13 @@ internal sealed class FakePlexClient : IPlexClient
     /// library has observably reached some concurrent state first
     /// </summary>
     public Dictionary<string, Task> LibraryItemsGates { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Number of items to stream before throwing, and the exception to throw, keyed by library section key, so a
+    /// test can prove that items streamed before a mid-page failure are still processed instead of the whole
+    /// library being discarded
+    /// </summary>
+    public Dictionary<string, (int Count, Exception? Exception)> LibraryItemsFailAfter { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Lower bound passed to the last history request, if any
@@ -162,33 +171,36 @@ internal sealed class FakePlexClient : IPlexClient
     }
 
     /// <summary>
-    /// Return the configured episodes of the given series
+    /// Stream the configured episodes of the given series
     /// </summary>
     /// <param name="showRatingKey">Rating key of the series</param>
     /// <param name="cancellationToken">Ignored cancellation token</param>
     /// <returns>The configured episodes</returns>
-    public Task<IReadOnlyList<MediaItem>> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
+    public async IAsyncEnumerable<MediaItem> GetEpisodesAsync(string showRatingKey, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        await Task.Yield();
+
         lock (_lock)
         {
             EpisodeRequests.Add(showRatingKey);
         }
 
-        if (Episodes.TryGetValue(showRatingKey, out var episodes) == false)
+        if (Episodes.TryGetValue(showRatingKey, out var episodes))
         {
-            return Task.FromResult<IReadOnlyList<MediaItem>>([]);
+            foreach (var episode in episodes)
+            {
+                yield return episode;
+            }
         }
-
-        return Task.FromResult<IReadOnlyList<MediaItem>>(episodes);
     }
 
     /// <summary>
-    /// Return the configured items of the given library section
+    /// Stream the configured items of the given library section
     /// </summary>
     /// <param name="libraryKey">Section key</param>
     /// <param name="cancellationToken">Ignored cancellation token</param>
     /// <returns>The configured items</returns>
-    public async Task<IReadOnlyList<MediaItem>> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken)
+    public async IAsyncEnumerable<MediaItem> GetLibraryItemsAsync(string libraryKey, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         lock (_lock)
         {
@@ -209,10 +221,24 @@ internal sealed class FakePlexClient : IPlexClient
 
         if (LibraryItems.TryGetValue(libraryKey, out var items) == false)
         {
-            return [];
+            yield break;
         }
 
-        return items;
+        LibraryItemsFailAfter.TryGetValue(libraryKey, out var failAfter);
+
+        var streamed = 0;
+
+        foreach (var item in items)
+        {
+            yield return item;
+
+            streamed++;
+
+            if (failAfter.Exception is not null && streamed == failAfter.Count)
+            {
+                throw failAfter.Exception;
+            }
+        }
     }
 
     #endregion // IPlexClient

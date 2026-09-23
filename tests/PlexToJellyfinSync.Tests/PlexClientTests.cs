@@ -138,6 +138,25 @@ public sealed class PlexClientTests
 
     #endregion // Constants
 
+    #region Fields
+
+    private readonly TestContext _testContext;
+
+    #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public PlexClientTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
+
     #region Methods
 
     /// <summary>
@@ -767,7 +786,7 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None);
+        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(1, episodes, "The episode should have been mapped!");
         Assert.AreEqual(MediaKind.Episode, episodes[0].Kind, "The media kind should be mapped!");
@@ -809,7 +828,7 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None);
+        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(1, episodes, "The episode should still have been mapped!");
         Assert.IsNull(episodes[0].ShowRatingKey, "An invalid show rating key should be dropped!");
@@ -830,7 +849,7 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        await client.GetEpisodesAsync("500", CancellationToken.None);
+        await client.GetEpisodesAsync("500", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(1, handler.Requests, "A single, incomplete page should not trigger a further request!");
         Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
@@ -868,7 +887,7 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None);
+        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(2, handler.Requests, "A full first page should trigger a second, paged request!");
         Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
@@ -892,8 +911,8 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None);
-        var empty = await client.GetLibraryItemsAsync("9", CancellationToken.None);
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
+        var empty = await client.GetLibraryItemsAsync("9", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(1, items, "The library item should have been mapped!");
         Assert.AreEqual("Heat", items[0].Title, "The title should be mapped!");
@@ -926,7 +945,7 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None);
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(1, items, "Only the item with a valid rating key should be reported!");
         Assert.AreEqual("Heat", items[0].Title, "The valid item should have been mapped!");
@@ -947,7 +966,7 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        await client.GetLibraryItemsAsync("1", CancellationToken.None);
+        await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(1, handler.Requests, "A single, incomplete page should not trigger a further request!");
         Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
@@ -985,12 +1004,52 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None);
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(2, handler.Requests, "A full first page should trigger a second, paged request!");
         Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
         Assert.Contains("X-Plex-Container-Start=200", handler.Requests[1], "The second request should start after the first page!");
         Assert.HasCount(201, items, "Items from both pages should be reported, not silently truncated at the container size!");
+    }
+
+    /// <summary>
+    /// Library items are streamed page by page: the second page is not requested until the caller has actually
+    /// consumed the first one, instead of every page being fetched and materialized up front
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetLibraryItemsDoesNotRequestNextPageBeforeFirstIsConsumed()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        // Page 1: a full 200-entry page.
+        var firstPageEntries = Enumerable.Range(0, 200)
+                                         .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "type": "movie" }""");
+        var firstPageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", firstPageEntries)}} ] } }""";
+
+        // Page 2: a single entry, ending the pagination.
+        const string secondPageJson = """
+                                      {
+                                        "MediaContainer": {
+                                          "Metadata": [
+                                            { "ratingKey": "2000", "type": "movie" }
+                                          ]
+                                        }
+                                      }
+                                      """;
+
+        handler.ResponseSequences["/library/sections/1/all"] = new Queue<string>([firstPageJson, secondPageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        await using var enumerator = client.GetLibraryItemsAsync("1", CancellationToken.None).GetAsyncEnumerator(_testContext.CancellationToken);
+
+        var hasFirstItem = await enumerator.MoveNextAsync();
+
+        Assert.IsTrue(hasFirstItem, "The first item of the first page should be available!");
+        Assert.HasCount(1, handler.Requests, "Only the first page should have been requested before its items are consumed!");
     }
 
     /// <summary>
@@ -1016,7 +1075,7 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None);
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
 
         Assert.HasCount(2, handler.Requests, "A non-advancing repeat of the first page should stop pagination after one retry!");
         Assert.HasCount(200, items, "Only the items from the first page should be reported, not duplicated!");

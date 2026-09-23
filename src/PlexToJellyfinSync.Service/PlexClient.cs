@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
@@ -414,14 +415,14 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <summary>
-    /// Read all pages of a metadata listing endpoint and map the entries to media items
+    /// Stream every page of a metadata listing endpoint and map the entries to media items, requesting the next
+    /// page only once the caller has consumed the current one
     /// </summary>
     /// <param name="baseUrl">Relative request URL, without paging parameters</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>List of mapped media items</returns>
-    private async Task<IReadOnlyList<MediaItem>> GetPagedMediaItemsAsync(string baseUrl, CancellationToken cancellationToken)
+    /// <returns>The mapped media items</returns>
+    private async IAsyncEnumerable<MediaItem> GetPagedMediaItemsAsync(string baseUrl, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var result = new List<MediaItem>();
         var start = 0;
         string? previousFirstRatingKey = null;
 
@@ -433,7 +434,7 @@ public sealed class PlexClient : IPlexClient
 
             if (entries is null || entries.Count == 0)
             {
-                break;
+                yield break;
             }
 
             var firstRatingKey = FirstRatingKeyOf(entries);
@@ -442,22 +443,23 @@ public sealed class PlexClient : IPlexClient
             {
                 _logger.LogWarning("Plex server returned a non-advancing page for {BaseUrl}, stopping pagination", baseUrl);
 
-                break;
+                yield break;
             }
 
             previousFirstRatingKey = firstRatingKey;
 
-            result.AddRange(entries.Select(MapMediaItem).OfType<MediaItem>());
+            foreach (var item in entries.Select(MapMediaItem).OfType<MediaItem>())
+            {
+                yield return item;
+            }
 
             if (entries.Count < LibraryPageSize)
             {
-                break;
+                yield break;
             }
 
             start += LibraryPageSize;
         }
-
-        return result;
     }
 
     /// <summary>
@@ -596,13 +598,13 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<MediaItem>> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
+    public IAsyncEnumerable<MediaItem> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
     {
         return GetPagedMediaItemsAsync($"/library/metadata/{showRatingKey}/allLeaves", cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<MediaItem>> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken)
+    public IAsyncEnumerable<MediaItem> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken)
     {
         return GetPagedMediaItemsAsync($"/library/sections/{libraryKey}/all", cancellationToken);
     }

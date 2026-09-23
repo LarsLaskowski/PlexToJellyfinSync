@@ -1271,6 +1271,106 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// A failure while streaming a movie library's items after the first item has already been yielded still
+    /// records the earlier item's write - proving items are processed as they stream in rather than the whole
+    /// library being buffered and discarded together on a later page's failure
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileMovieLibraryMidStreamFailureKeepsEarlierWrite()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "1",
+                                      Title = "Movies",
+                                      Kind = MediaKind.Movie
+                                  });
+
+        var first = AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv");
+        var second = AddMovie("m2", "Alien", "/data/Movies/Alien (1979)/Alien.mkv");
+
+        _plexClient.LibraryItems["1"] = [first, second];
+        _plexClient.LibraryItemsFailAfter["1"] = (1, new HttpRequestException("connection reset"));
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.Writes, "The item streamed before the failure should still have been written!");
+        Assert.AreEqual("Heat", _nfoWriter.Writes[0].Item.Title, "The item streamed before the failure should be the one written!");
+        Assert.AreEqual(1L, snapshot.Errors, "The mid-stream failure should be recorded as a single error!");
+        Assert.AreEqual("connection reset", snapshot.LastError, "The original exception should surface unwrapped!");
+        Assert.IsFalse(snapshot.PlexConnected, "A mid-stream failure should mark Plex as disconnected!");
+    }
+
+    /// <summary>
+    /// A failure while streaming a series library's shows after the first show has already been yielded still
+    /// records the earlier show's episode write - proving shows are processed as they stream in rather than the
+    /// whole library being buffered and discarded together on a later page's failure
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileSeriesLibraryMidStreamFailureKeepsEarlierShow()
+    {
+        _plexClient.Libraries.Add(new PlexLibrary
+                                  {
+                                      Key = "1",
+                                      Title = "Shows",
+                                      Kind = MediaKind.Series
+                                  });
+
+        var firstShow = new MediaItem
+                        {
+                            RatingKey = "s1",
+                            Kind = MediaKind.Series,
+                            Title = "Breaking Bad"
+                        };
+
+        var secondShow = new MediaItem
+                         {
+                             RatingKey = "s2",
+                             Kind = MediaKind.Series,
+                             Title = "Better Call Saul"
+                         };
+
+        _plexClient.LibraryItems["1"] = [firstShow, secondShow];
+        _plexClient.LibraryItemsFailAfter["1"] = (1, new HttpRequestException("connection reset"));
+
+        var episode = new MediaItem
+                      {
+                          RatingKey = "e1",
+                          Kind = MediaKind.Episode,
+                          Title = "Pilot",
+                          SeasonNumber = 1,
+                          EpisodeNumber = 1,
+                          ShowRatingKey = "s1",
+                          ShowTitle = "Breaking Bad",
+                          FilePath = _seasonDirectory + "/S01E01.mkv"
+                      };
+
+        _plexClient.Episodes["s1"] = [episode];
+
+        var orchestrator = CreateOrchestrator(new SyncOptions
+                                              {
+                                                  WriteSeriesSeasonAggregates = false
+                                              });
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.Writes, "The episode of the show streamed before the failure should still have been written!");
+        Assert.AreEqual(MediaKind.Episode, _nfoWriter.Writes[0].Item.Kind, "The written item should be the earlier show's episode!");
+        Assert.HasCount(1, _plexClient.EpisodeRequests, "Only the show streamed before the failure should have been reconciled!");
+        Assert.AreEqual("s1", _plexClient.EpisodeRequests[0], "The earlier show's episodes should be the ones requested!");
+        Assert.AreEqual(1L, snapshot.Errors, "The mid-stream failure should be recorded as a single error!");
+        Assert.AreEqual("connection reset", snapshot.LastError, "The original exception should surface unwrapped!");
+        Assert.IsFalse(snapshot.PlexConnected, "A mid-stream failure should mark Plex as disconnected!");
+    }
+
+    /// <summary>
     /// A library kind that is neither movie nor series is ignored
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>

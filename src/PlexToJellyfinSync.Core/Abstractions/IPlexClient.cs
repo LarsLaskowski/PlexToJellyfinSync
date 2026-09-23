@@ -41,20 +41,20 @@ public interface IPlexClient
     Task<MediaItem?> GetMediaItemAsync(string ratingKey, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Get all episodes of a series
+    /// Stream all episodes of a series, one page of the underlying Plex request at a time
     /// </summary>
     /// <param name="showRatingKey">Rating key of the series</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>List of episodes</returns>
-    Task<IReadOnlyList<MediaItem>> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken);
+    /// <returns>The episodes</returns>
+    IAsyncEnumerable<MediaItem> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Get all items of a library section
+    /// Stream all items of a library section, one page of the underlying Plex request at a time
     /// </summary>
     /// <param name="libraryKey">Section key</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>List of items</returns>
-    Task<IReadOnlyList<MediaItem>> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken);
+    /// <returns>The items</returns>
+    IAsyncEnumerable<MediaItem> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken);
 
     #endregion // Methods
 }

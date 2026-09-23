@@ -186,17 +186,22 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <returns>Task</returns>
     private async Task UpdateSeriesAggregatesAsync(string showRatingKey, CancellationToken cancellationToken)
     {
-        var episodes = await _plexClient.GetEpisodesAsync(showRatingKey, cancellationToken).ConfigureAwait(false);
+        var mapped = new List<(MediaItem Episode, string Local)>();
 
-        var mapped = episodes.Select(e => new
-                                          {
-                                              Episode = e,
-                                              Local = string.IsNullOrWhiteSpace(e.FilePath)
-                                                          ? null
-                                                          : _pathMapper.MapToLocal(e.FilePath)
-                                          })
-                             .Where(x => x.Local is not null)
-                             .ToList();
+        await foreach (var episode in _plexClient.GetEpisodesAsync(showRatingKey, cancellationToken).ConfigureAwait(false))
+        {
+            if (string.IsNullOrWhiteSpace(episode.FilePath))
+            {
+                continue;
+            }
+
+            var local = _pathMapper.MapToLocal(episode.FilePath);
+
+            if (local is not null)
+            {
+                mapped.Add((episode, local));
+            }
+        }
 
         if (mapped.Count == 0)
         {
@@ -205,7 +210,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
         foreach (var season in mapped.GroupBy(x => x.Episode.SeasonNumber))
         {
-            var seasonDirectory = Path.GetDirectoryName(season.First().Local!);
+            var seasonDirectory = Path.GetDirectoryName(season.First().Local);
 
             if (string.IsNullOrEmpty(seasonDirectory))
             {
@@ -225,7 +230,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
             RecordOutcome(seasonOutcome);
         }
 
-        var anySeasonDirectory = Path.GetDirectoryName(mapped[0].Local!);
+        var anySeasonDirectory = Path.GetDirectoryName(mapped[0].Local);
         var showDirectory = string.IsNullOrEmpty(anySeasonDirectory) ? null : Path.GetDirectoryName(anySeasonDirectory);
 
         if (string.IsNullOrEmpty(showDirectory))
@@ -462,9 +467,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <returns>Task</returns>
     private async Task ReconcileMovieLibraryAsync(string libraryKey, CancellationToken cancellationToken)
     {
-        var movies = await _plexClient.GetLibraryItemsAsync(libraryKey, cancellationToken).ConfigureAwait(false);
-
-        foreach (var movie in movies)
+        await foreach (var movie in _plexClient.GetLibraryItemsAsync(libraryKey, cancellationToken).ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -493,9 +496,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <returns>Task</returns>
     private async Task ReconcileSeriesLibraryAsync(string libraryKey, CancellationToken cancellationToken)
     {
-        var shows = await _plexClient.GetLibraryItemsAsync(libraryKey, cancellationToken).ConfigureAwait(false);
-
-        foreach (var show in shows)
+        await foreach (var show in _plexClient.GetLibraryItemsAsync(libraryKey, cancellationToken).ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -529,7 +530,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <returns>Task</returns>
     private async Task ReconcileShowEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
     {
-        var episodes = await _plexClient.GetEpisodesAsync(showRatingKey, cancellationToken).ConfigureAwait(false);
+        var episodes = await _plexClient.GetEpisodesAsync(showRatingKey, cancellationToken).ToListAsync(cancellationToken).ConfigureAwait(false);
         var episodeGroups = episodes.GroupBy(episode => episode.FilePath, StringComparer.Ordinal).ToList();
 
         var parallelOptions = new ParallelOptions
