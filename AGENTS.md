@@ -19,7 +19,11 @@ together.
 ## Golden rules
 
 - **Never** run `git commit`, `git push`, create branches/tags, or any Git write operation without
-  explicit user approval. Read-only Git (`status`, `diff`, `log`) is always fine.
+  explicit user approval. Read-only Git (`status`, `diff`, `log`) is always fine. **Exception:** the
+  `fix-issue` and `create-pr` skills (see [Related skills](#related-skills)) commit, push and open a
+  pull request as part of their documented workflow — running one of those skills **is** the user's
+  explicit approval for the Git actions it performs, so no further confirmation is needed there. Every
+  other action, including any Git step outside those two skills, still needs that explicit approval.
 - Run `reihitsu-format ./` after editing C# and before building.
 - Add new C# packages via **Central Package Management** (`Directory.Packages.props`); do not put
   version numbers in individual `.csproj` files.

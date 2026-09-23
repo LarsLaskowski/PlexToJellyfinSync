@@ -39,6 +39,11 @@ together.
 - Do **not** create branches, tags, or perform any other Git write operations without being explicitly
   told to do so
 - Read-only Git commands (`git status`, `git diff`, `git log`, etc.) are always allowed
+- **Exception:** the `fix-issue` and `create-pr` skills (see [Related skills](#related-skills)) commit,
+  push and open a pull request as part of their documented workflow — running one of those skills **is**
+  the user's explicit approval for the Git actions it performs, so no further confirmation is needed
+  there. Every other action, including any Git step outside those two skills, still needs that explicit
+  approval.
 
 ---
 
