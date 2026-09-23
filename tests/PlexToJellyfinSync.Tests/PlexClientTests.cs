@@ -306,7 +306,9 @@ public sealed class PlexClientTests
                                     .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "viewedAt": {{1_600_000_500 - i}}, "accountID": 4 }""");
         var pageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", pageEntries)}} ] } }""";
 
-        handler.Responses["/status/sessions/history/all"] = pageJson;
+        // Served only once: an unexpected second request should fail loudly instead of the
+        // handler serving the same full page forever and hanging the test.
+        handler.ResponseSequences["/status/sessions/history/all"] = new Queue<string>([pageJson]);
 
         using var httpClient = CreateHttpClient(handler);
 
