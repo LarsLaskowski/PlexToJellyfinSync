@@ -284,7 +284,7 @@ public sealed class PlexClient : IPlexClient
     /// </summary>
     /// <param name="page">Page of metadata entries</param>
     /// <returns>The rating key of the first entry, or <c>null</c> if the page is empty or unkeyed</returns>
-    private static string? FirstRatingKeyOf(IReadOnlyList<PlexMetadata> page)
+    private static string? FirstRatingKeyOf(List<PlexMetadata> page)
     {
         return page.Count > 0 ? page[0].RatingKey : null;
     }
@@ -298,7 +298,7 @@ public sealed class PlexClient : IPlexClient
     /// </summary>
     /// <param name="page">Page of history entries</param>
     /// <returns>The rating key and viewed-at timestamp of the first entry, or <c>null</c> if the page is empty</returns>
-    private static (string? RatingKey, long? ViewedAt)? FirstHistoryPageKeyOf(IReadOnlyList<PlexMetadata> page)
+    private static (string? RatingKey, long? ViewedAt)? FirstHistoryPageKeyOf(List<PlexMetadata> page)
     {
         return page.Count > 0 ? (page[0].RatingKey, page[0].ViewedAt) : null;
     }
