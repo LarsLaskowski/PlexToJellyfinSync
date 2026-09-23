@@ -366,6 +366,110 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// A server that ignores the paging parameters and keeps returning the same full history page
+    /// does not loop forever
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceStopsOnNonAdvancingPage()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        // A full 500-entry page, all newer than "since", so nothing here reaches "since" and a
+        // well-behaved server would be asked for a further page.
+        var pageEntries = Enumerable.Range(0, 500)
+                                    .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "viewedAt": {{1_700_000_000 - i}}, "accountID": 4 }""");
+        var pageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", pageEntries)}} ] } }""";
+
+        // Registered as a plain response rather than a sequence: every request to this path, no
+        // matter its "X-Plex-Container-Start", is answered with the exact same full first page.
+        handler.Responses["/status/sessions/history/all"] = pageJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 4, CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A non-advancing repeat of the first page should stop pagination after one retry!");
+        Assert.HasCount(500, entries, "Only the entries from the first page should be reported, not duplicated!");
+    }
+
+    /// <summary>
+    /// A rewatch of the item that leads a page does not falsely trigger the non-advancing-page guard
+    /// on the genuinely next page
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceRewatchAtPageBoundaryKeepsPaging()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        // Page 1: a full 500-entry page, leading with rating key "1000" watched at 1_700_000_000.
+        var firstPageEntries = Enumerable.Range(0, 500)
+                                         .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "viewedAt": {{1_700_000_000 - i}}, "accountID": 4 }""");
+        var firstPageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", firstPageEntries)}} ] } }""";
+
+        // Page 2: leads with an earlier, separate viewing of the same item ("1000" rewatched), plus
+        // two further entries. The rating key repeats but the viewed-at timestamp does not, so this
+        // is a genuinely different page and must not be mistaken for a non-advancing repeat.
+        const string secondPageJson = """
+                                      {
+                                        "MediaContainer": {
+                                          "Metadata": [
+                                            { "ratingKey": "1000", "viewedAt": 900000000, "accountID": 4 },
+                                            { "ratingKey": "2000", "viewedAt": 899999999, "accountID": 4 },
+                                            { "ratingKey": "2001", "viewedAt": 899999998, "accountID": 4 }
+                                          ]
+                                        }
+                                      }
+                                      """;
+
+        handler.ResponseSequences["/status/sessions/history/all"] = new Queue<string>([firstPageJson, secondPageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 4, CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A rewatch leading the next page should not stop pagination early!");
+        Assert.HasCount(503, entries, "Entries from both pages should be reported, including the rewatch!");
+        Assert.HasCount(2, entries.Where(e => e.RatingKey == "1000").ToList(), "Both viewings of the rewatched item should be reported!");
+    }
+
+    /// <summary>
+    /// A server that ignores the paging parameters and keeps returning the same full history page
+    /// does not loop forever even when the leading entry of that page carries no rating key
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceWithUnkeyedFirstEntryStopsOnNonAdvancingPage()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        // A full 500-entry page whose first entry carries no rating key; the remaining 499 are
+        // valid and none of them reach "since".
+        const string firstEntry = """{ "viewedAt": 1700000000, "accountID": 4 }""";
+        var restEntries = Enumerable.Range(0, 499)
+                                    .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "viewedAt": {{1_699_999_999 - i}}, "accountID": 4 }""");
+        var pageJson = $$"""{ "MediaContainer": { "Metadata": [ {{firstEntry}}, {{string.Join(",", restEntries)}} ] } }""";
+
+        // Registered as a plain response rather than a sequence: every request to this path, no
+        // matter its "X-Plex-Container-Start", is answered with the exact same full first page.
+        handler.Responses["/status/sessions/history/all"] = pageJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 4, CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A non-advancing repeat should stop pagination after one retry even without a leading rating key!");
+        Assert.HasCount(499, entries, "The unkeyed leading entry should be dropped, the rest of the first page kept!");
+    }
+
+    /// <summary>
     /// The metadata of a movie is mapped completely
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -887,6 +991,35 @@ public sealed class PlexClientTests
         Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
         Assert.Contains("X-Plex-Container-Start=200", handler.Requests[1], "The second request should start after the first page!");
         Assert.HasCount(201, items, "Items from both pages should be reported, not silently truncated at the container size!");
+    }
+
+    /// <summary>
+    /// A server that ignores the paging parameters and keeps returning the same full library page
+    /// does not loop forever
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetLibraryItemsStopsOnNonAdvancingPage()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        // A full 200-entry page; a well-behaved server would be asked for a further page.
+        var pageEntries = Enumerable.Range(0, 200)
+                                    .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "type": "movie" }""");
+        var pageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", pageEntries)}} ] } }""";
+
+        // Registered as a plain response rather than a sequence: every request to this path, no
+        // matter its "X-Plex-Container-Start", is answered with the exact same full first page.
+        handler.Responses["/library/sections/1/all"] = pageJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A non-advancing repeat of the first page should stop pagination after one retry!");
+        Assert.HasCount(200, items, "Only the items from the first page should be reported, not duplicated!");
     }
 
     /// <summary>

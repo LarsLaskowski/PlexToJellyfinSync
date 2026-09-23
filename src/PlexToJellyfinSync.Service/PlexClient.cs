@@ -278,6 +278,31 @@ public sealed class PlexClient : IPlexClient
         return reachedSince;
     }
 
+    /// <summary>
+    /// Rating key of the first entry of a page, used to detect a server that ignores the paging
+    /// parameters and keeps returning the same page
+    /// </summary>
+    /// <param name="page">Page of metadata entries</param>
+    /// <returns>The rating key of the first entry, or <c>null</c> if the page is empty or unkeyed</returns>
+    private static string? FirstRatingKeyOf(List<PlexMetadata> page)
+    {
+        return page.Count > 0 ? page[0].RatingKey : null;
+    }
+
+    /// <summary>
+    /// Rating key and viewed-at timestamp of the first entry of a history page, used to detect a
+    /// server that ignores the paging parameters and keeps returning the same page. Unlike a plain
+    /// rating key, this pair stays distinct across two genuinely different pages even when an item
+    /// was watched more than once, since a rewatch repeats the rating key with a different
+    /// viewed-at timestamp
+    /// </summary>
+    /// <param name="page">Page of history entries</param>
+    /// <returns>The rating key and viewed-at timestamp of the first entry, or <c>null</c> if the page is empty</returns>
+    private static (string? RatingKey, long? ViewedAt)? FirstHistoryPageKeyOf(List<PlexMetadata> page)
+    {
+        return page.Count > 0 ? (page[0].RatingKey, page[0].ViewedAt) : null;
+    }
+
     #endregion // Static methods
 
     #region Methods
@@ -398,6 +423,7 @@ public sealed class PlexClient : IPlexClient
     {
         var result = new List<MediaItem>();
         var start = 0;
+        string? previousFirstRatingKey = null;
 
         while (true)
         {
@@ -409,6 +435,17 @@ public sealed class PlexClient : IPlexClient
             {
                 break;
             }
+
+            var firstRatingKey = FirstRatingKeyOf(entries);
+
+            if (firstRatingKey is not null && firstRatingKey == previousFirstRatingKey)
+            {
+                _logger.LogWarning("Plex server returned a non-advancing page for {BaseUrl}, stopping pagination", baseUrl);
+
+                break;
+            }
+
+            previousFirstRatingKey = firstRatingKey;
 
             result.AddRange(entries.Select(MapMediaItem).OfType<MediaItem>());
 
@@ -505,6 +542,7 @@ public sealed class PlexClient : IPlexClient
     {
         var result = new List<PlexHistoryEntry>();
         var start = 0;
+        (string? RatingKey, long? ViewedAt)? previousFirstEntry = null;
 
         while (true)
         {
@@ -516,6 +554,17 @@ public sealed class PlexClient : IPlexClient
             {
                 break;
             }
+
+            var firstEntry = FirstHistoryPageKeyOf(entries);
+
+            if (previousFirstEntry is not null && firstEntry == previousFirstEntry)
+            {
+                _logger.LogWarning("Plex server returned a non-advancing history page, stopping pagination");
+
+                break;
+            }
+
+            previousFirstEntry = firstEntry;
 
             // Entries are sorted descending by viewed-at, so once one entry on a page is at or
             // before "since", later pages would be too; stop paging after this page.
