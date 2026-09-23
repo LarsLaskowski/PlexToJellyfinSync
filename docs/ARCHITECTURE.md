@@ -72,7 +72,16 @@ Studio standard for solution files, not a migration artifact.
      (`Parallel.ForEachAsync`, minimum 1, clamped the same way); shows themselves are still
      reconciled one at a time within their library. Episodes that share a file (a multi-episode file
      such as `S01E01-E02.mkv` maps to one NFO target) are grouped and written sequentially within
-     that group so two concurrent writers never race on the same target's temp file.
+     that group so two concurrent writers never race on the same target's temp file. A library's
+     items are streamed from Plex page by page (`IAsyncEnumerable<MediaItem>`, see point 4) rather
+     than being materialized up front, so peak memory is bounded by a single page instead of the
+     whole library; the trade-off is that a later page is only requested once every item from the
+     pages already streamed has been reconciled, so a library change during a long-running
+     reconcile can be seen by one page and missed by another until the next scheduled reconcile,
+     and a failure fetching a later page still leaves the items already streamed from earlier pages
+     written. A show's episodes are still collected in full (`ToListAsync`) before being grouped by
+     file, since that grouping needs every episode at once; peak memory there is bounded by one
+     show's episode count rather than the whole library.
    - Both paths funnel through `WriteItemAsync`, which resolves the local path via `IPathMapper`
      and skips the item (with a log warning) if no mapping matches or the item has no file path.
    - When `Sync:WriteSeriesSeasonAggregates` is enabled, both paths additionally call
@@ -102,7 +111,11 @@ Studio standard for solution files, not a migration artifact.
    `/library/sections/{key}/all`). It maps the raw `PlexToJellyfinSync.Data.Plex` DTOs
    (`PlexMetadata`, `PlexDirectory`, …) into the domain model (`MediaItem`, `PlexLibrary`,
    `PlexHistoryEntry`, `WatchInfo`) used by the rest of the app, so Plex's JSON shape never leaks
-   past this class. `GetOwnerAccountIdAsync` prefers the configured `Plex:OwnerAccountId`; only
+   past this class. `GetEpisodesAsync` and `GetLibraryItemsAsync` return `IAsyncEnumerable<MediaItem>`
+   and request each further page of `X-Plex-Container-Start`/`-Size` lazily, only once the caller has
+   consumed the previous page's items, instead of fetching and buffering every page before returning
+   (see the reconcile trade-off in point 2). `GetOwnerAccountIdAsync` prefers the configured
+   `Plex:OwnerAccountId`; only
    when that is unset does it query `/accounts` and fall back to account id `1` if that call
    fails, so a misconfigured or unreachable Plex server never blocks startup.
 5. **`PathMapper`** (`src/PlexToJellyfinSync.Service/PathMapper.cs`) rewrites the Plex-reported
