@@ -290,6 +290,37 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// A full page that already reaches "since" stops pagination instead of fetching further pages
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceStopsPagingOnceSinceIsReached()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var since = DateTimeOffset.FromUnixTimeSeconds(1_600_000_250);
+
+        // A full 500-entry page, sorted descending: the first 250 entries are newer than "since",
+        // the remaining 250 are at or before it, so pagination should stop after this one page.
+        var pageEntries = Enumerable.Range(0, 500)
+                                    .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "viewedAt": {{1_600_000_500 - i}}, "accountID": 4 }""");
+        var pageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", pageEntries)}} ] } }""";
+
+        handler.Responses["/status/sessions/history/all"] = pageJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(since, 4, CancellationToken.None);
+
+        Assert.HasCount(1, handler.Requests, "A full page that reaches \"since\" should not trigger a further request!");
+        Assert.HasCount(250, entries, "Only entries newer than \"since\" should be reported!");
+        Assert.AreEqual("1249", entries[0].RatingKey, "The oldest reported entry should be the one just newer than \"since\"!");
+        Assert.AreEqual("1000", entries[^1].RatingKey, "The newest entry should be last once ordered ascending!");
+    }
+
+    /// <summary>
     /// A full first page of history is followed by a second page instead of being silently truncated
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -325,8 +356,8 @@ public sealed class PlexClientTests
         var entries = await client.GetHistorySinceAsync(since, 4, CancellationToken.None);
 
         Assert.HasCount(2, handler.Requests, "A full first page should trigger a second, paged request!");
-        Assert.IsTrue(handler.Requests[0].Contains("X-Plex-Container-Start=0", StringComparison.Ordinal), "The first request should start at offset zero!");
-        Assert.IsTrue(handler.Requests[1].Contains("X-Plex-Container-Start=500", StringComparison.Ordinal), "The second request should start after the first page!");
+        StringAssert.Contains(handler.Requests[0], "X-Plex-Container-Start=0", "The first request should start at offset zero!");
+        StringAssert.Contains(handler.Requests[1], "X-Plex-Container-Start=500", "The second request should start after the first page!");
         Assert.HasCount(500, entries, "All entries from the first page should be reported, not silently truncated!");
         Assert.AreEqual("1499", entries[0].RatingKey, "The oldest entry from the first page should be first once ordered ascending!");
         Assert.AreEqual("1000", entries[^1].RatingKey, "The newest entry from the first page should be last once ordered ascending!");
