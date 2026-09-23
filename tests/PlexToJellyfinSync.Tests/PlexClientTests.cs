@@ -290,6 +290,49 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// A full first page of history is followed by a second page instead of being silently truncated
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySincePagesBeyondFirstFullPage()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var since = DateTimeOffset.FromUnixTimeSeconds(1_600_000_000);
+
+        // Page 1: 500 entries, all newer than "since", sorted descending, none reaching "since" yet.
+        var firstPageEntries = Enumerable.Range(0, 500)
+                                         .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "viewedAt": {{1_700_000_000 - i}}, "accountID": 4 }""");
+        var firstPageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", firstPageEntries)}} ] } }""";
+
+        // Page 2: a single entry older than "since", ending the pagination.
+        const string secondPageJson = """
+                                      {
+                                        "MediaContainer": {
+                                          "Metadata": [
+                                            { "ratingKey": "2000", "viewedAt": 1500000000, "accountID": 4 }
+                                          ]
+                                        }
+                                      }
+                                      """;
+
+        handler.ResponseSequences["/status/sessions/history/all"] = new Queue<string>([firstPageJson, secondPageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(since, 4, CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A full first page should trigger a second, paged request!");
+        Assert.IsTrue(handler.Requests[0].Contains("X-Plex-Container-Start=0", StringComparison.Ordinal), "The first request should start at offset zero!");
+        Assert.IsTrue(handler.Requests[1].Contains("X-Plex-Container-Start=500", StringComparison.Ordinal), "The second request should start after the first page!");
+        Assert.HasCount(500, entries, "All entries from the first page should be reported, not silently truncated!");
+        Assert.AreEqual("1499", entries[0].RatingKey, "The oldest entry from the first page should be first once ordered ascending!");
+        Assert.AreEqual("1000", entries[^1].RatingKey, "The newest entry from the first page should be last once ordered ascending!");
+    }
+
+    /// <summary>
     /// The metadata of a movie is mapped completely
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>

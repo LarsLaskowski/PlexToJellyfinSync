@@ -39,6 +39,11 @@ public sealed class PlexClient : IPlexClient
     /// </summary>
     private const int MaxPlotLength = 4000;
 
+    /// <summary>
+    /// Number of history entries requested per page
+    /// </summary>
+    private const int HistoryPageSize = 500;
+
     #endregion // Constants
 
     #region Fields
@@ -413,25 +418,62 @@ public sealed class PlexClient : IPlexClient
     /// <inheritdoc/>
     public async Task<IReadOnlyList<PlexHistoryEntry>> GetHistorySinceAsync(DateTimeOffset since, int accountId, CancellationToken cancellationToken)
     {
-        var url = $"/status/sessions/history/all?sort=viewedAt:desc&accountID={accountId}&X-Plex-Container-Start=0&X-Plex-Container-Size=500";
-        var response = await GetAsync<PlexMetadataResponse>(url, cancellationToken).ConfigureAwait(false);
-        var entries = response?.MediaContainer?.Metadata;
+        var result = new List<PlexHistoryEntry>();
+        var start = 0;
 
-        if (entries is null)
+        while (true)
         {
-            return [];
+            var url = $"/status/sessions/history/all?sort=viewedAt:desc&accountID={accountId}&X-Plex-Container-Start={start}&X-Plex-Container-Size={HistoryPageSize}";
+            var response = await GetAsync<PlexMetadataResponse>(url, cancellationToken).ConfigureAwait(false);
+            var entries = response?.MediaContainer?.Metadata;
+
+            if (entries is null || entries.Count == 0)
+            {
+                break;
+            }
+
+            var reachedSince = false;
+
+            foreach (var entry in entries)
+            {
+                if (entry.ViewedAt is not > 0 || string.IsNullOrWhiteSpace(entry.RatingKey))
+                {
+                    continue;
+                }
+
+                var viewedAt = DateTimeOffset.FromUnixTimeSeconds(entry.ViewedAt!.Value);
+
+                if (viewedAt <= since)
+                {
+                    // Entries are sorted descending by viewed-at, so once one entry on a page is at
+                    // or before "since", later pages would be too; stop paging after this page.
+                    reachedSince = true;
+
+                    continue;
+                }
+
+                var entryAccountId = entry.AccountId ?? accountId;
+
+                if (entryAccountId == accountId)
+                {
+                    result.Add(new PlexHistoryEntry
+                               {
+                                   RatingKey = entry.RatingKey!,
+                                   AccountId = entryAccountId,
+                                   ViewedAt = viewedAt
+                               });
+                }
+            }
+
+            if (reachedSince || entries.Count < HistoryPageSize)
+            {
+                break;
+            }
+
+            start += HistoryPageSize;
         }
 
-        return entries.Where(e => e.ViewedAt is > 0 && string.IsNullOrWhiteSpace(e.RatingKey) == false)
-                      .Select(e => new PlexHistoryEntry
-                                   {
-                                       RatingKey = e.RatingKey!,
-                                       AccountId = e.AccountId ?? accountId,
-                                       ViewedAt = DateTimeOffset.FromUnixTimeSeconds(e.ViewedAt!.Value)
-                                   })
-                      .Where(e => e.ViewedAt > since && e.AccountId == accountId)
-                      .OrderBy(e => e.ViewedAt)
-                      .ToList();
+        return result.OrderBy(e => e.ViewedAt).ToList();
     }
 
     /// <inheritdoc/>

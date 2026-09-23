@@ -16,6 +16,12 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     public Dictionary<string, string> Responses { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// JSON payloads to be served in order for successive requests to the same path, keyed by the
+    /// absolute request path; checked before <see cref="Responses"/> and consumed one at a time
+    /// </summary>
+    public Dictionary<string, Queue<string>> ResponseSequences { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Path and query of every received request, in order
     /// </summary>
     public List<string> Requests { get; } = [];
@@ -31,7 +37,20 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
 
         Requests.Add(uri is null ? string.Empty : uri.PathAndQuery);
 
-        if (uri is null || Responses.TryGetValue(uri.AbsolutePath, out var json) == false)
+        if (uri is null)
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+
+        if (ResponseSequences.TryGetValue(uri.AbsolutePath, out var sequence) && sequence.Count > 0)
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                                   {
+                                       Content = new StringContent(sequence.Dequeue(), Encoding.UTF8, "application/json")
+                                   });
+        }
+
+        if (Responses.TryGetValue(uri.AbsolutePath, out var json) == false)
         {
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         }
