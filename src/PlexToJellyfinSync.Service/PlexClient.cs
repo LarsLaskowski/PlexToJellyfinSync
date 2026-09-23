@@ -44,6 +44,11 @@ public sealed class PlexClient : IPlexClient
     /// </summary>
     private const int HistoryPageSize = 500;
 
+    /// <summary>
+    /// Number of items requested per page when reading a library section or a series' episodes
+    /// </summary>
+    private const int LibraryPageSize = 200;
+
     #endregion // Constants
 
     #region Fields
@@ -384,6 +389,41 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <summary>
+    /// Read all pages of a metadata listing endpoint and map the entries to media items
+    /// </summary>
+    /// <param name="baseUrl">Relative request URL, without paging parameters</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of mapped media items</returns>
+    private async Task<IReadOnlyList<MediaItem>> GetPagedMediaItemsAsync(string baseUrl, CancellationToken cancellationToken)
+    {
+        var result = new List<MediaItem>();
+        var start = 0;
+
+        while (true)
+        {
+            var url = $"{baseUrl}?X-Plex-Container-Start={start}&X-Plex-Container-Size={LibraryPageSize}";
+            var response = await GetAsync<PlexMetadataResponse>(url, cancellationToken).ConfigureAwait(false);
+            var entries = response?.MediaContainer?.Metadata;
+
+            if (entries is null || entries.Count == 0)
+            {
+                break;
+            }
+
+            result.AddRange(entries.Select(MapMediaItem).OfType<MediaItem>());
+
+            if (entries.Count < LibraryPageSize)
+            {
+                break;
+            }
+
+            start += LibraryPageSize;
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Perform a GET request and deserialize the JSON response
     /// </summary>
     /// <typeparam name="T">Response type</typeparam>
@@ -507,31 +547,15 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<MediaItem>> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<MediaItem>> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
     {
-        var response = await GetAsync<PlexMetadataResponse>($"/library/metadata/{showRatingKey}/allLeaves", cancellationToken).ConfigureAwait(false);
-        var entries = response?.MediaContainer?.Metadata;
-
-        if (entries is null)
-        {
-            return [];
-        }
-
-        return entries.Select(MapMediaItem).OfType<MediaItem>().ToList();
+        return GetPagedMediaItemsAsync($"/library/metadata/{showRatingKey}/allLeaves", cancellationToken);
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<MediaItem>> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<MediaItem>> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken)
     {
-        var response = await GetAsync<PlexMetadataResponse>($"/library/sections/{libraryKey}/all", cancellationToken).ConfigureAwait(false);
-        var entries = response?.MediaContainer?.Metadata;
-
-        if (entries is null)
-        {
-            return [];
-        }
-
-        return entries.Select(MapMediaItem).OfType<MediaItem>().ToList();
+        return GetPagedMediaItemsAsync($"/library/sections/{libraryKey}/all", cancellationToken);
     }
 
     #endregion // IPlexClient

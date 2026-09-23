@@ -712,6 +712,67 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// The episodes request carries paging parameters bounding the container size
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetEpisodesSendsContainerPaging()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/library/metadata/500/allLeaves"] = EpisodesJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        await client.GetEpisodesAsync("500", CancellationToken.None);
+
+        Assert.HasCount(1, handler.Requests, "A single, incomplete page should not trigger a further request!");
+        Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
+        Assert.Contains("X-Plex-Container-Size=200", handler.Requests[0], "The request should bound the page size!");
+    }
+
+    /// <summary>
+    /// A full first page of episodes is followed by a second page instead of being silently truncated
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetEpisodesPagesBeyondFirstFullPage()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        // Page 1: a full 200-entry page.
+        var firstPageEntries = Enumerable.Range(0, 200)
+                                         .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "type": "episode", "grandparentRatingKey": "500" }""");
+        var firstPageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", firstPageEntries)}} ] } }""";
+
+        // Page 2: a single entry, ending the pagination.
+        const string secondPageJson = """
+                                      {
+                                        "MediaContainer": {
+                                          "Metadata": [
+                                            { "ratingKey": "2000", "type": "episode", "grandparentRatingKey": "500" }
+                                          ]
+                                        }
+                                      }
+                                      """;
+
+        handler.ResponseSequences["/library/metadata/500/allLeaves"] = new Queue<string>([firstPageJson, secondPageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A full first page should trigger a second, paged request!");
+        Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
+        Assert.Contains("X-Plex-Container-Start=200", handler.Requests[1], "The second request should start after the first page!");
+        Assert.HasCount(201, episodes, "Episodes from both pages should be reported, not silently truncated at the container size!");
+    }
+
+    /// <summary>
     /// Library items are mapped and a missing metadata list yields an empty result
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -765,6 +826,67 @@ public sealed class PlexClientTests
 
         Assert.HasCount(1, items, "Only the item with a valid rating key should be reported!");
         Assert.AreEqual("Heat", items[0].Title, "The valid item should have been mapped!");
+    }
+
+    /// <summary>
+    /// The library items request carries paging parameters bounding the container size
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetLibraryItemsSendsContainerPaging()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/library/sections/1/all"] = MovieJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        await client.GetLibraryItemsAsync("1", CancellationToken.None);
+
+        Assert.HasCount(1, handler.Requests, "A single, incomplete page should not trigger a further request!");
+        Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
+        Assert.Contains("X-Plex-Container-Size=200", handler.Requests[0], "The request should bound the page size!");
+    }
+
+    /// <summary>
+    /// A full first page of library items is followed by a second page instead of being silently truncated
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetLibraryItemsPagesBeyondFirstFullPage()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        // Page 1: a full 200-entry page.
+        var firstPageEntries = Enumerable.Range(0, 200)
+                                         .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "type": "movie" }""");
+        var firstPageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", firstPageEntries)}} ] } }""";
+
+        // Page 2: a single entry, ending the pagination.
+        const string secondPageJson = """
+                                      {
+                                        "MediaContainer": {
+                                          "Metadata": [
+                                            { "ratingKey": "2000", "type": "movie" }
+                                          ]
+                                        }
+                                      }
+                                      """;
+
+        handler.ResponseSequences["/library/sections/1/all"] = new Queue<string>([firstPageJson, secondPageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A full first page should trigger a second, paged request!");
+        Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
+        Assert.Contains("X-Plex-Container-Start=200", handler.Requests[1], "The second request should start after the first page!");
+        Assert.HasCount(201, items, "Items from both pages should be reported, not silently truncated at the container size!");
     }
 
     /// <summary>
