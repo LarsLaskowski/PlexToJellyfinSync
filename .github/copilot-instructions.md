@@ -39,6 +39,12 @@ together.
 - Do **not** create branches, tags, or perform any other Git write operations without being explicitly
   told to do so
 - Read-only Git commands (`git status`, `git diff`, `git log`, etc.) are always allowed
+- **Exception:** when the user explicitly asks to run the `fix-issue` or `create-pr` skill (see
+  [Related skills](#related-skills)), that request **is** the user's explicit approval for the commit,
+  push and pull-request steps those two skills document — no further confirmation is needed for those
+  steps. This does not cover a skill the assistant decides to invoke on its own, and it covers only the
+  Git actions that skill's own documented steps perform. Every other action, including any Git step
+  outside those two skills, still needs that explicit approval.
 
 ---
 
