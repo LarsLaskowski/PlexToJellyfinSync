@@ -138,6 +138,25 @@ public sealed class PlexClientTests
 
     #endregion // Constants
 
+    #region Fields
+
+    private readonly TestContext _testContext;
+
+    #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public PlexClientTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
+
     #region Methods
 
     /// <summary>
@@ -1025,7 +1044,7 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        await using var enumerator = client.GetLibraryItemsAsync("1", CancellationToken.None).GetAsyncEnumerator();
+        await using var enumerator = client.GetLibraryItemsAsync("1", CancellationToken.None).GetAsyncEnumerator(_testContext.CancellationToken);
 
         var hasFirstItem = await enumerator.MoveNextAsync();
 
