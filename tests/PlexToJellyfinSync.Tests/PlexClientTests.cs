@@ -358,8 +358,8 @@ public sealed class PlexClientTests
         var entries = await client.GetHistorySinceAsync(since, 4, CancellationToken.None);
 
         Assert.HasCount(2, handler.Requests, "A full first page should trigger a second, paged request!");
-        StringAssert.Contains(handler.Requests[0], "X-Plex-Container-Start=0", "The first request should start at offset zero!");
-        StringAssert.Contains(handler.Requests[1], "X-Plex-Container-Start=500", "The second request should start after the first page!");
+        Assert.Contains("X-Plex-Container-Start=0", handler.Requests[0], "The first request should start at offset zero!");
+        Assert.Contains("X-Plex-Container-Start=500", handler.Requests[1], "The second request should start after the first page!");
         Assert.HasCount(500, entries, "All entries from the first page should be reported, not silently truncated!");
         Assert.AreEqual("1499", entries[0].RatingKey, "The oldest entry from the first page should be first once ordered ascending!");
         Assert.AreEqual("1000", entries[^1].RatingKey, "The newest entry from the first page should be last once ordered ascending!");

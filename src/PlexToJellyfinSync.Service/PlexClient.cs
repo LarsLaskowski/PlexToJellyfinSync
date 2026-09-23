@@ -228,6 +228,51 @@ public sealed class PlexClient : IPlexClient
         return text.Substring(0, end);
     }
 
+    /// <summary>
+    /// Filter and append the valid, newer-than-"since" entries of a history page to the result, for
+    /// the requested account
+    /// </summary>
+    /// <param name="page">Raw history entries of the page</param>
+    /// <param name="since">Lower bound (exclusive) for the viewed-at timestamp</param>
+    /// <param name="accountId">Account id to filter for</param>
+    /// <param name="result">List to append matching entries to</param>
+    /// <returns><c>true</c> if an entry at or before "since" was seen on this page</returns>
+    private static bool AppendHistoryPage(IReadOnlyList<PlexMetadata> page, DateTimeOffset since, int accountId, List<PlexHistoryEntry> result)
+    {
+        var reachedSince = false;
+
+        foreach (var entry in page)
+        {
+            if (entry.ViewedAt is not > 0 || string.IsNullOrWhiteSpace(entry.RatingKey))
+            {
+                continue;
+            }
+
+            var viewedAt = DateTimeOffset.FromUnixTimeSeconds(entry.ViewedAt.Value);
+
+            if (viewedAt <= since)
+            {
+                reachedSince = true;
+
+                continue;
+            }
+
+            var entryAccountId = entry.AccountId ?? accountId;
+
+            if (entryAccountId == accountId)
+            {
+                result.Add(new PlexHistoryEntry
+                           {
+                               RatingKey = entry.RatingKey,
+                               AccountId = entryAccountId,
+                               ViewedAt = viewedAt
+                           });
+            }
+        }
+
+        return reachedSince;
+    }
+
     #endregion // Static methods
 
     #region Methods
@@ -432,38 +477,9 @@ public sealed class PlexClient : IPlexClient
                 break;
             }
 
-            var reachedSince = false;
-
-            foreach (var entry in entries)
-            {
-                if (entry.ViewedAt is not > 0 || string.IsNullOrWhiteSpace(entry.RatingKey))
-                {
-                    continue;
-                }
-
-                var viewedAt = DateTimeOffset.FromUnixTimeSeconds(entry.ViewedAt!.Value);
-
-                if (viewedAt <= since)
-                {
-                    // Entries are sorted descending by viewed-at, so once one entry on a page is at
-                    // or before "since", later pages would be too; stop paging after this page.
-                    reachedSince = true;
-
-                    continue;
-                }
-
-                var entryAccountId = entry.AccountId ?? accountId;
-
-                if (entryAccountId == accountId)
-                {
-                    result.Add(new PlexHistoryEntry
-                               {
-                                   RatingKey = entry.RatingKey!,
-                                   AccountId = entryAccountId,
-                                   ViewedAt = viewedAt
-                               });
-                }
-            }
+            // Entries are sorted descending by viewed-at, so once one entry on a page is at or
+            // before "since", later pages would be too; stop paging after this page.
+            var reachedSince = AppendHistoryPage(entries, since, accountId, result);
 
             if (reachedSince || entries.Count < HistoryPageSize)
             {
