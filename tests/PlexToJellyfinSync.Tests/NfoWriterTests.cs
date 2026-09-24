@@ -142,7 +142,7 @@ public sealed class NfoWriterTests
         var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
         const string expectedContent = "<?xml version=\"1.0\" encoding=\"utf-8\"?><movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>";
 
-        await File.WriteAllTextAsync(nfoPath, "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount><lastplayed>2024-01-01 00:00:00</lastplayed></movie>");
+        await File.WriteAllTextAsync(nfoPath, "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount><lastplayed>2024-01-01 00:00:00</lastplayed></movie>", _testContext.CancellationToken);
 
         var item = new MediaItem
                    {
@@ -156,7 +156,7 @@ public sealed class NfoWriterTests
                    };
 
         var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
-        var content = await File.ReadAllTextAsync(nfoPath);
+        var content = await File.ReadAllTextAsync(nfoPath, _testContext.CancellationToken);
 
         Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "Removing the stale last played element alone should still be reported as a change!");
         Assert.AreEqual(expectedContent, content, "Only the last played element should be removed, with every other node left exactly as it was!");
@@ -176,7 +176,7 @@ public sealed class NfoWriterTests
         const string originalContent = "<movie>\n  <title>Custom Title</title>\n  <watched>false</watched>\n  <playcount>0</playcount>\n  <lastplayed>2024-01-01 00:00:00</lastplayed>\n</movie>";
         const string expectedContent = "<?xml version=\"1.0\" encoding=\"utf-8\"?><movie>\n  <title>Custom Title</title>\n  <watched>false</watched>\n  <playcount>0</playcount>\n</movie>";
 
-        await File.WriteAllTextAsync(nfoPath, originalContent);
+        await File.WriteAllTextAsync(nfoPath, originalContent, _testContext.CancellationToken);
 
         var item = new MediaItem
                    {
@@ -190,7 +190,7 @@ public sealed class NfoWriterTests
                    };
 
         var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
-        var content = await File.ReadAllTextAsync(nfoPath);
+        var content = await File.ReadAllTextAsync(nfoPath, _testContext.CancellationToken);
 
         Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "Removing the stale last played element alone should still be reported as a change!");
         Assert.AreEqual(expectedContent, content, "Only the last played element and its own leading indentation should be removed, with every other node and its whitespace left exactly as it was!");
@@ -208,7 +208,7 @@ public sealed class NfoWriterTests
         var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
         var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
 
-        await File.WriteAllTextAsync(nfoPath, "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>");
+        await File.WriteAllTextAsync(nfoPath, "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>", _testContext.CancellationToken);
 
         var item = new MediaItem
                    {
