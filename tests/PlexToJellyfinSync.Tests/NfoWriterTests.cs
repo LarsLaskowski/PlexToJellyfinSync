@@ -129,6 +129,104 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// When the new watch state has no last played value but "watched" and "playcount" are
+    /// otherwise unchanged, a stale "lastplayed" element left over from a previous write is still
+    /// removed rather than left dangling, and that removal alone is enough to report a change
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterLastPlayedBecomesNullRemovesElement()
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        const string expectedContent = "<?xml version=\"1.0\" encoding=\"utf-8\"?><movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>";
+
+        await File.WriteAllTextAsync(nfoPath, "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount><lastplayed>2024-01-01 00:00:00</lastplayed></movie>");
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Should Not Overwrite",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = false,
+                                   PlayCount = 0
+                               }
+                   };
+
+        var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
+        var content = await File.ReadAllTextAsync(nfoPath);
+
+        Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "Removing the stale last played element alone should still be reported as a change!");
+        Assert.AreEqual(expectedContent, content, "Only the last played element should be removed, with every other node left exactly as it was!");
+    }
+
+    /// <summary>
+    /// Removing a stale "lastplayed" element from a hand-indented, multi-line NFO also removes its
+    /// leading indentation whitespace, and touches nothing else in the file
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterLastPlayedBecomesNullOnIndentedFileRemovesElementAndIndentation()
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        const string originalContent = "<movie>\n  <title>Custom Title</title>\n  <watched>false</watched>\n  <playcount>0</playcount>\n  <lastplayed>2024-01-01 00:00:00</lastplayed>\n</movie>";
+        const string expectedContent = "<?xml version=\"1.0\" encoding=\"utf-8\"?><movie>\n  <title>Custom Title</title>\n  <watched>false</watched>\n  <playcount>0</playcount>\n</movie>";
+
+        await File.WriteAllTextAsync(nfoPath, originalContent);
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Should Not Overwrite",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = false,
+                                   PlayCount = 0
+                               }
+                   };
+
+        var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
+        var content = await File.ReadAllTextAsync(nfoPath);
+
+        Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "Removing the stale last played element alone should still be reported as a change!");
+        Assert.AreEqual(expectedContent, content, "Only the last played element and its own leading indentation should be removed, with every other node and its whitespace left exactly as it was!");
+    }
+
+    /// <summary>
+    /// When the new watch state matches an existing NFO exactly, including having no last played
+    /// value where none is present on disk, nothing is written
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterUnchangedWatchStateWithoutLastPlayedSkips()
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        await File.WriteAllTextAsync(nfoPath, "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>");
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Should Not Overwrite",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = false,
+                                   PlayCount = 0
+                               }
+                   };
+
+        var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "An already-absent last played value must not be reported as a change!");
+    }
+
+    /// <summary>
     /// When creation is disabled and no file exists nothing is written
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>

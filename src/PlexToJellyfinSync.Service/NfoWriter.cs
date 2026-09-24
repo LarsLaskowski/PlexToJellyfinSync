@@ -117,6 +117,31 @@ public sealed class NfoWriter : INfoWriter
     }
 
     /// <summary>
+    /// Remove a child element if present and report whether a change occurred
+    /// </summary>
+    /// <param name="root">Root element</param>
+    /// <param name="name">Child element name</param>
+    /// <returns>True if the element was removed</returns>
+    private static bool RemoveChild(XElement root, string name)
+    {
+        var element = root.Element(name);
+
+        if (element is null)
+        {
+            return false;
+        }
+
+        if (element.PreviousNode is XText precedingWhitespace && string.IsNullOrWhiteSpace(precedingWhitespace.Value))
+        {
+            precedingWhitespace.Remove();
+        }
+
+        element.Remove();
+
+        return true;
+    }
+
+    /// <summary>
     /// Add a child element when the value is not empty
     /// </summary>
     /// <param name="root">Root element</param>
@@ -328,6 +353,10 @@ public sealed class NfoWriter : INfoWriter
         if (watch.LastPlayed.HasValue)
         {
             changed |= SetChild(root, "lastplayed", watch.LastPlayed.Value.LocalDateTime.ToString(_nfoOptions.DateTimeFormat, CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            changed |= RemoveChild(root, "lastplayed");
         }
 
         return changed;
