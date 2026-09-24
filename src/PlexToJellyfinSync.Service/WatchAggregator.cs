@@ -22,18 +22,14 @@ public sealed class WatchAggregator
         }
 
         var allWatched = children.All(c => c.Watched);
-        var lastPlayed = children.Where(c => c.LastPlayed.HasValue)
-                                 .Select(c => c.LastPlayed!.Value)
-                                 .DefaultIfEmpty()
-                                 .Max();
 
         return new WatchInfo
                {
                    Watched = allWatched,
                    PlayCount = allWatched ? 1 : 0,
-                   LastPlayed = lastPlayed == default
-                                    ? null
-                                    : lastPlayed
+                   LastPlayed = allWatched
+                                    ? children.Select(c => c.LastPlayed).Max()
+                                    : null
                };
     }
 

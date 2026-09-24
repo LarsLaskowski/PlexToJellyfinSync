@@ -103,8 +103,10 @@ Studio standard for solution files, not a migration artifact.
      recovered on the next `ReconcileAsync` run.
 3. **`WatchAggregator`** (`src/PlexToJellyfinSync.Service/WatchAggregator.cs`) has one job:
    given a collection of `WatchInfo`, return `Watched = true` only if every child is watched, and
-   `LastPlayed` as the maximum across children. It is the single source of truth for how season-
-   and series-level watch state is derived from episodes.
+   `LastPlayed` as the maximum across children — but only when every child is watched; a partially
+   watched aggregate always reports `LastPlayed = null`, so the two fields never contradict each
+   other. It is the single source of truth for how season- and series-level watch state is derived
+   from episodes.
 4. **`PlexClient`** (`src/PlexToJellyfinSync.Service/PlexClient.cs`) is the only component that
    talks to the Plex HTTP API (`GET /accounts`, `/library/sections`,
    `/status/sessions/history/all`, `/library/metadata/{key}`, `/library/metadata/{key}/allLeaves`,
@@ -144,10 +146,13 @@ Studio standard for solution files, not a migration artifact.
    - If the target file exists, it is parsed with `XDocument` (`LoadOptions.PreserveWhitespace`)
      and only the `watched` / `playcount` / `lastplayed` elements are updated in place —
      `SetChild` compares the existing value first so a write is skipped entirely
-     (`NfoWriteOutcome.Skipped`) when nothing actually changed. This is why the README can
-     promise that "existing `.nfo` files are left untouched except for the watch fields": every
-     other element is only ever written once, at file-creation time in `BuildDocument`, and never
-     touched again on an update pass.
+     (`NfoWriteOutcome.Skipped`) when nothing actually changed. When the incoming `WatchInfo` has
+     no `LastPlayed` value, an existing `lastplayed` element is removed rather than left in place,
+     so a season or series that goes from fully watched back to partially watched never keeps a
+     stale timestamp alongside `watched=false`. This is why the README can promise that "existing
+     `.nfo` files are left untouched except for the watch fields": every other element is only
+     ever written once, at file-creation time in `BuildDocument`, and never touched again on an
+     update pass.
    - If the file does not exist and `Sync:CreateMissingNfo` is `true`, a full `BuildDocument` is
      built from the `MediaItem` (title, plot, genres, unique ids with a Plex-native `type`
      attribute, `premiered`/`aired`, `dateadded` for movies, …) and written with indentation; an
