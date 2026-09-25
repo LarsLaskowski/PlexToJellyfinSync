@@ -96,7 +96,7 @@ Studio standard for solution files, not a migration artifact.
      through `HandleError` like any other failure.
    - Within a run, every per-item call (writing a history entry's item, a reconciled movie or
      episode, or a show's season/series aggregates) is additionally wrapped in its own try/catch
-     (`HandleItemError`) so one poisoned item — a malformed NFO, an I/O error, a transient Plex
+     (`HandleItemError`) so one poisoned item — a read-only NFO, an I/O error, a transient Plex
      timeout — does not abort the rest of the loop. Such a failure is counted in
      `SyncStatusViewData.Errors` without clearing `PlexConnected`, and in `ProcessHistoryAsync` the
      high-water mark still advances past the failing entry; the item's watch state is only
@@ -143,8 +143,11 @@ Studio standard for solution files, not a migration artifact.
      (per `Nfo:MovieFilenameStrategy` — `PreferExistingMovieNfo` checks for an existing
      `movie.nfo` on disk and falls back to the video's own name), `<video>.nfo` for episodes,
      `season.nfo` for seasons, `tvshow.nfo` for series.
-   - If the target file exists, it is parsed with `XDocument` (`LoadOptions.PreserveWhitespace`)
-     and only the `watched` / `playcount` / `lastplayed` elements are updated in place —
+   - If the target file exists, it is parsed with `XDocument` (`LoadOptions.PreserveWhitespace`).
+     An existing file that fails to parse (broken or non-XML content) is logged as a warning,
+     reported as `NfoWriteOutcome.Skipped`, and left untouched on disk rather than rebuilt or
+     retried. Otherwise only the `watched` / `playcount` / `lastplayed` elements are updated in
+     place —
      `SetChild` compares the existing value first so a write is skipped entirely
      (`NfoWriteOutcome.Skipped`) when nothing actually changed. When the incoming `WatchInfo` has
      no `LastPlayed` value, an existing `lastplayed` element is removed rather than left in place,
@@ -161,7 +164,7 @@ Studio standard for solution files, not a migration artifact.
      may have hand-edited.
    - Output is UTF-8 without a byte-order mark (`_utf8NoBom`), matching what Jellyfin's NFO
      reader expects.
-   - Every write (create, rebuild, or watch-state update) is serialized to a sibling `<name>.tmp`
+   - Every write (create or watch-state update) is serialized to a sibling `<name>.tmp`
      file first and only replaces the target via an atomic `File.Move(overwrite: true)` once the
      write has fully succeeded, preserving the target's existing Unix file mode so a shared media
      volume keeps its permissions; a failed write deletes the temp file and leaves the original
