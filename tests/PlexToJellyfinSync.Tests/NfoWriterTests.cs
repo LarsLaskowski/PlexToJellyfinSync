@@ -227,6 +227,40 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// A malformed or non-XML existing NFO is skipped with a warning instead of throwing, and the
+    /// broken file is left untouched on disk
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterMalformedExistingNfoSkips()
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        const string originalContent = "<movie><title>Unterminated";
+
+        await File.WriteAllTextAsync(nfoPath, originalContent, _testContext.CancellationToken);
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Heat",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = true,
+                                   PlayCount = 1
+                               }
+                   };
+
+        var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
+        var content = await File.ReadAllTextAsync(nfoPath, _testContext.CancellationToken);
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "A malformed existing NFO must be skipped rather than throwing!");
+        Assert.AreEqual(originalContent, content, "A malformed existing NFO must be left untouched on disk!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind when the existing NFO could not be parsed!");
+    }
+
+    /// <summary>
     /// When creation is disabled and no file exists nothing is written
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
