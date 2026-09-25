@@ -468,17 +468,20 @@ public sealed class NfoWriter : INfoWriter
             if (File.Exists(targetPath))
             {
                 var xml = await File.ReadAllTextAsync(targetPath, cancellationToken).ConfigureAwait(false);
-                var document = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
-                var root = document.Root;
+                XDocument document;
 
-                if (root is null)
+                try
                 {
-                    document = BuildDocument(item);
-                    await SaveAsync(document, targetPath, indent: true, cancellationToken).ConfigureAwait(false);
+                    document = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
+                }
+                catch (XmlException exception)
+                {
+                    _logger.LogWarning(exception, "Skipping malformed NFO {Path}: existing content could not be parsed as XML", targetPath);
 
-                    return NfoWriteOutcome.Updated;
+                    return NfoWriteOutcome.Skipped;
                 }
 
+                var root = document.Root!;
                 var changed = ApplyWatchState(root, item.Watch);
 
                 if (changed == false)
