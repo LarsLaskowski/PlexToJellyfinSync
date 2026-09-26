@@ -26,6 +26,12 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// </summary>
     public List<string> Requests { get; } = [];
 
+    /// <summary>
+    /// Status codes to serve for a given absolute request path instead of the default 200/404,
+    /// checked before <see cref="Responses"/> is consulted
+    /// </summary>
+    public Dictionary<string, HttpStatusCode> StatusCodes { get; } = new(StringComparer.Ordinal);
+
     #endregion // Properties
 
     #region HttpMessageHandler
@@ -33,6 +39,8 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// <inheritdoc/>
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var uri = request.RequestUri;
 
         Requests.Add(uri is null ? string.Empty : uri.PathAndQuery);
@@ -40,6 +48,11 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
         if (uri is null)
         {
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+
+        if (StatusCodes.TryGetValue(uri.AbsolutePath, out var statusCode))
+        {
+            return Task.FromResult(new HttpResponseMessage(statusCode));
         }
 
         if (ResponseSequences.TryGetValue(uri.AbsolutePath, out var sequence) && sequence.Count > 0)

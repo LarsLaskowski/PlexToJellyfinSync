@@ -1,3 +1,5 @@
+using System.Net;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -216,6 +218,46 @@ public sealed class PlexClientTests
         var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
 
         Assert.AreEqual(1, ownerId, "A failing account request should fall back to account id 1!");
+    }
+
+    /// <summary>
+    /// A canceled request to auto-detect the owner account id propagates the cancellation instead of
+    /// being swallowed and defaulting to account id 1
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetOwnerAccountIdWithCanceledTokenPropagatesCancellation()
+    {
+        using var handler = new StubHttpMessageHandler();
+        using var httpClient = CreateHttpClient(handler);
+        using var cancellation = new CancellationTokenSource();
+
+        var client = CreateClient(httpClient);
+
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await client.GetOwnerAccountIdAsync(cancellation.Token),
+                                                             "A canceled auto-detect request should propagate the cancellation!");
+    }
+
+    /// <summary>
+    /// An unauthorized response to the auto-detect request propagates instead of being swallowed and
+    /// masked as a benign "could not auto-detect" fallback to account id 1
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetOwnerAccountIdWithUnauthorizedResponsePropagatesException()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.StatusCodes["/accounts"] = HttpStatusCode.Unauthorized;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        await Assert.ThrowsAsync<HttpRequestException>(async () => await client.GetOwnerAccountIdAsync(CancellationToken.None),
+                                                       "An unauthorized auto-detect response should be surfaced instead of defaulting to account id 1!");
     }
 
     /// <summary>
