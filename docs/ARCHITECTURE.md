@@ -162,8 +162,17 @@ Studio standard for solution files, not a migration artifact.
      existing file being merely updated is saved *without* re-indenting, so `XDocument`'s
      `PreserveWhitespace` load/save round-trip does not reformat content a human or another tool
      may have hand-edited.
-   - Output is UTF-8 without a byte-order mark (`_utf8NoBom`), matching what Jellyfin's NFO
-     reader expects.
+   - A newly created file is written as UTF-8 without a byte-order mark (`_utf8NoBom`), matching
+     what Jellyfin's NFO reader expects. An existing file being updated keeps whatever encoding
+     `StreamReader`'s byte-order-mark sniffing detects when the file is read — UTF-8 with or without
+     a BOM, or UTF-16/UTF-32 identified by their BOM — reused as `SaveAsync`'s `Encoding` when it is
+     written back, so a UTF-8-with-BOM or UTF-16 file produced by Kodi or a Windows tool is not
+     silently converted to UTF-8 without a BOM on the next watch-state update, and a BOM-less UTF-8
+     file stays that way. Only the byte-order mark is consulted, not the file's own `<?xml
+     encoding="...">` declaration: a BOM-less file naming another encoding there is still decoded and
+     re-written as UTF-8, normalizing non-ASCII bytes to `U+FFFD` in the process, exactly as it was
+     before this change; a BOM-less UTF-16/UTF-32 file fails to parse as XML at all and is skipped as
+     malformed, same as today.
    - Every write (create or watch-state update) is serialized to a sibling `<name>.tmp`
      file first and only replaces the target via an atomic `File.Move(overwrite: true)` once the
      write has fully succeeded, preserving the target's existing Unix file mode so a shared media

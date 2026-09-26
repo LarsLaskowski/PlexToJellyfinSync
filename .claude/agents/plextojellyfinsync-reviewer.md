@@ -75,7 +75,11 @@ deliberate guarantees in `docs/ARCHITECTURE.md` and the stability policy in
   `playcount` / `lastplayed` elements, and an unchanged value skips the
   write entirely (`NfoWriteOutcome.Skipped`)
 - an update pass saves without re-indenting, so hand-edited files are not
-  reformatted, and output stays UTF-8 without BOM
+  reformatted; a newly created file is UTF-8 without BOM, and an update keeps
+  whatever encoding its byte-order mark identifies (UTF-8 with or without a
+  BOM, or UTF-16/UTF-32 with one) — a BOM-less file in another declared
+  encoding still normalizes to UTF-8, since only the BOM is consulted, not
+  the declaration
 - `PathMapper` rejects `/../` sequences and **requires** a matching mapping;
   an unmapped path returns `null` and the item is skipped, never passed
   through unchanged

@@ -160,19 +160,37 @@ public sealed class NfoWriter : INfoWriter
     #region Methods
 
     /// <summary>
+    /// Read an existing NFO file's text content along with the encoding actually used on disk, so a
+    /// later save can re-emit the same byte order mark instead of always falling back to UTF-8 without one
+    /// </summary>
+    /// <param name="path">Existing NFO file path</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>File content and the encoding detected from its byte order mark, if any</returns>
+    private static async Task<(string Content, Encoding Encoding)> ReadExistingAsync(string path, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var reader = new StreamReader(stream, _utf8NoBom, detectEncodingFromByteOrderMarks: true);
+
+        var content = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
+        return (content, reader.CurrentEncoding);
+    }
+
+    /// <summary>
     /// Serialize an NFO document to disk, replacing the target atomically
     /// </summary>
     /// <param name="document">Document to serialize</param>
     /// <param name="path">Target path</param>
     /// <param name="indent">Whether to indent the output</param>
+    /// <param name="encoding">Encoding to serialize with, including its byte order mark</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Task</returns>
-    private static async Task SaveAsync(XDocument document, string path, bool indent, CancellationToken cancellationToken)
+    private static async Task SaveAsync(XDocument document, string path, bool indent, Encoding encoding, CancellationToken cancellationToken)
     {
         var settings = new XmlWriterSettings
                        {
                            Async = true,
-                           Encoding = _utf8NoBom,
+                           Encoding = encoding,
                            Indent = indent,
                            OmitXmlDeclaration = false
                        };
@@ -467,7 +485,8 @@ public sealed class NfoWriter : INfoWriter
         {
             if (File.Exists(targetPath))
             {
-                var xml = await File.ReadAllTextAsync(targetPath, cancellationToken).ConfigureAwait(false);
+                var (xml, encoding) = await ReadExistingAsync(targetPath, cancellationToken).ConfigureAwait(false);
+
                 XDocument document;
 
                 try
@@ -489,7 +508,7 @@ public sealed class NfoWriter : INfoWriter
                     return NfoWriteOutcome.Skipped;
                 }
 
-                await SaveAsync(document, targetPath, indent: false, cancellationToken).ConfigureAwait(false);
+                await SaveAsync(document, targetPath, indent: false, encoding, cancellationToken).ConfigureAwait(false);
                 _logger.LogInformation("Updated watch state in {Path}", targetPath);
 
                 return NfoWriteOutcome.Updated;
@@ -509,7 +528,7 @@ public sealed class NfoWriter : INfoWriter
 
             var newDocument = BuildDocument(item);
 
-            await SaveAsync(newDocument, targetPath, indent: true, cancellationToken).ConfigureAwait(false);
+            await SaveAsync(newDocument, targetPath, indent: true, _utf8NoBom, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Created NFO {Path}", targetPath);
 
             return NfoWriteOutcome.Created;
