@@ -511,8 +511,9 @@ public sealed class PlexClient : IPlexClient
                 }
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
+            // Propagates both a genuine cancellation and an HttpClient-internal timeout; the caller already distinguishes the two.
             throw;
         }
         catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
@@ -521,7 +522,7 @@ public sealed class PlexClient : IPlexClient
 
             throw;
         }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
         {
             _logger.LogWarning(ex, "Could not auto-detect the Plex owner account id, defaulting to 1");
         }

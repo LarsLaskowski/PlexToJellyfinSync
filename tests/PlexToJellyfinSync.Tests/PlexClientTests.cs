@@ -285,13 +285,13 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
-    /// A request timeout unrelated to the caller's own cancellation token is treated as a normal
-    /// auto-detect failure and falls back to the default owner account id, rather than propagating as
-    /// if the caller itself had canceled
+    /// A request timeout unrelated to the caller's own cancellation token still propagates instead of
+    /// being swallowed and defaulting to account id 1, since the caller distinguishes it from a genuine
+    /// cancellation and records it as a normal, retried sync failure
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    public async Task PlexClientGetOwnerAccountIdWithTimeoutFallsBackToDefaultOwner()
+    public async Task PlexClientGetOwnerAccountIdWithTimeoutPropagatesException()
     {
         using var handler = new StubHttpMessageHandler();
 
@@ -301,9 +301,8 @@ public sealed class PlexClientTests
 
         var client = CreateClient(httpClient);
 
-        var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
-
-        Assert.AreEqual(1, ownerId, "A timeout unrelated to the caller's own token should fall back to account id 1!");
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await client.GetOwnerAccountIdAsync(CancellationToken.None),
+                                                             "A timeout unrelated to the caller's own token should propagate instead of defaulting to account id 1!");
     }
 
     /// <summary>
