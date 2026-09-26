@@ -1,3 +1,5 @@
+using System.Net;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -216,6 +218,91 @@ public sealed class PlexClientTests
         var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
 
         Assert.AreEqual(1, ownerId, "A failing account request should fall back to account id 1!");
+    }
+
+    /// <summary>
+    /// A canceled request to auto-detect the owner account id propagates the cancellation instead of
+    /// being swallowed and defaulting to account id 1
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetOwnerAccountIdWithCanceledTokenPropagatesCancellation()
+    {
+        using var handler = new StubHttpMessageHandler();
+        using var httpClient = CreateHttpClient(handler);
+        using var cancellation = new CancellationTokenSource();
+
+        var client = CreateClient(httpClient);
+
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await client.GetOwnerAccountIdAsync(cancellation.Token),
+                                                             "A canceled auto-detect request should propagate the cancellation!");
+    }
+
+    /// <summary>
+    /// An unauthorized or forbidden response to the auto-detect request propagates instead of being
+    /// swallowed and masked as a benign "could not auto-detect" fallback to account id 1
+    /// </summary>
+    /// <param name="statusCode">Status code Plex answers the auto-detect request with</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow(HttpStatusCode.Unauthorized, DisplayName = "401 Unauthorized")]
+    [DataRow(HttpStatusCode.Forbidden, DisplayName = "403 Forbidden")]
+    public async Task PlexClientGetOwnerAccountIdWithAuthFailureResponsePropagatesException(HttpStatusCode statusCode)
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.StatusCodes["/accounts"] = statusCode;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        await Assert.ThrowsAsync<HttpRequestException>(async () => await client.GetOwnerAccountIdAsync(CancellationToken.None),
+                                                       "An auth failure on the auto-detect response should be surfaced instead of defaulting to account id 1!");
+    }
+
+    /// <summary>
+    /// A malformed JSON response to the auto-detect request still falls back to the default owner
+    /// account id
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetOwnerAccountIdWithMalformedResponseFallsBackToDefaultOwner()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/accounts"] = "{ not valid json";
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, ownerId, "A malformed auto-detect response should fall back to account id 1!");
+    }
+
+    /// <summary>
+    /// A request timeout unrelated to the caller's own cancellation token still propagates instead of
+    /// being swallowed and defaulting to account id 1, since the caller distinguishes it from a genuine
+    /// cancellation and records it as a normal, retried sync failure
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetOwnerAccountIdWithTimeoutPropagatesException()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Exceptions["/accounts"] = () => new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await client.GetOwnerAccountIdAsync(CancellationToken.None),
+                                                             "A timeout unrelated to the caller's own token should propagate instead of defaulting to account id 1!");
     }
 
     /// <summary>
