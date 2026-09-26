@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
@@ -510,7 +511,18 @@ public sealed class PlexClient : IPlexClient
                 }
             }
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            // Propagates both a genuine cancellation and an HttpClient-internal timeout; the caller already distinguishes the two.
+            throw;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            _logger.LogWarning(ex, "Plex rejected the request to auto-detect the owner account id, check the configured token");
+
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
         {
             _logger.LogWarning(ex, "Could not auto-detect the Plex owner account id, defaulting to 1");
         }
