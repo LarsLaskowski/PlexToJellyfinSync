@@ -265,7 +265,7 @@ public sealed class NfoWriterTests
         var decodedContent = originalEncoding.GetString(bytes, expectedPreamble.Length, bytes.Length - expectedPreamble.Length);
 
         Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "Outcome should be Updated!");
-        CollectionAssert.AreEqual(expectedPreamble, bytes.Take(expectedPreamble.Length).ToArray(), "The original file's byte order mark should be preserved after the update!");
+        Assert.AreSequenceEqual(expectedPreamble, bytes.Take(expectedPreamble.Length).ToArray(), "The original file's byte order mark should be preserved after the update!");
         Assert.AreEqual(expectedContent, decodedContent, "The file content, re-encoded with the original encoding, should match exactly!");
     }
 
