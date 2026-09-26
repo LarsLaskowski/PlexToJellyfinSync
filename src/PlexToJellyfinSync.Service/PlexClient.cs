@@ -518,8 +518,6 @@ public sealed class PlexClient : IPlexClient
         }
         catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            _logger.LogWarning(ex, "Plex rejected the request to auto-detect the owner account id, check the configured token");
-
             throw;
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException)
