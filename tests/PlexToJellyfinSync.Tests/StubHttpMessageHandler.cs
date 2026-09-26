@@ -32,6 +32,13 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// </summary>
     public Dictionary<string, HttpStatusCode> StatusCodes { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Exceptions to throw for a given absolute request path instead of returning a response, checked
+    /// before <see cref="StatusCodes"/>; used to simulate transport failures such as an
+    /// <see cref="HttpClient"/>-internal timeout that is unrelated to the caller's own cancellation token
+    /// </summary>
+    public Dictionary<string, Func<Exception>> Exceptions { get; } = new(StringComparer.Ordinal);
+
     #endregion // Properties
 
     #region HttpMessageHandler
@@ -48,6 +55,11 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
         if (uri is null)
         {
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+
+        if (Exceptions.TryGetValue(uri.AbsolutePath, out var exceptionFactory))
+        {
+            return Task.FromException<HttpResponseMessage>(exceptionFactory());
         }
 
         if (StatusCodes.TryGetValue(uri.AbsolutePath, out var statusCode))

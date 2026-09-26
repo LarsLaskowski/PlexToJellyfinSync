@@ -117,9 +117,12 @@ Studio standard for solution files, not a migration artifact.
    and request each further page of `X-Plex-Container-Start`/`-Size` lazily, only once the caller has
    consumed the previous page's items, instead of fetching and buffering every page before returning
    (see the reconcile trade-off in point 2). `GetOwnerAccountIdAsync` prefers the configured
-   `Plex:OwnerAccountId`; only
-   when that is unset does it query `/accounts` and fall back to account id `1` if that call
-   fails, so a misconfigured or unreachable Plex server never blocks startup.
+   `Plex:OwnerAccountId`; only when that is unset does it query `/accounts`. An unreachable server,
+   a malformed response or a request timeout still falls back to account id `1`, so a flaky Plex
+   server never blocks startup, but a `401`/`403` (a misconfigured token) and a genuine
+   cancellation of the caller's token both propagate instead of being masked as that same benign
+   fallback — `ProcessHistoryAsync` records the run as a failure and clears `PlexConnected` for
+   either, and owner resolution is retried on the next poll since the id is not cached on failure.
 5. **`PathMapper`** (`src/PlexToJellyfinSync.Service/PathMapper.cs`) rewrites the Plex-reported
    file path prefix into this container's local mount point using the longest matching
    `PathMappings` entry. It explicitly rejects paths containing `/../`, ending in `/..`, starting

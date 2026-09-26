@@ -241,23 +241,69 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
-    /// An unauthorized response to the auto-detect request propagates instead of being swallowed and
-    /// masked as a benign "could not auto-detect" fallback to account id 1
+    /// An unauthorized or forbidden response to the auto-detect request propagates instead of being
+    /// swallowed and masked as a benign "could not auto-detect" fallback to account id 1
     /// </summary>
+    /// <param name="statusCode">Status code Plex answers the auto-detect request with</param>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    public async Task PlexClientGetOwnerAccountIdWithUnauthorizedResponsePropagatesException()
+    [DataRow(HttpStatusCode.Unauthorized, DisplayName = "401 Unauthorized")]
+    [DataRow(HttpStatusCode.Forbidden, DisplayName = "403 Forbidden")]
+    public async Task PlexClientGetOwnerAccountIdWithAuthFailureResponsePropagatesException(HttpStatusCode statusCode)
     {
         using var handler = new StubHttpMessageHandler();
 
-        handler.StatusCodes["/accounts"] = HttpStatusCode.Unauthorized;
+        handler.StatusCodes["/accounts"] = statusCode;
 
         using var httpClient = CreateHttpClient(handler);
 
         var client = CreateClient(httpClient);
 
         await Assert.ThrowsAsync<HttpRequestException>(async () => await client.GetOwnerAccountIdAsync(CancellationToken.None),
-                                                       "An unauthorized auto-detect response should be surfaced instead of defaulting to account id 1!");
+                                                       "An auth failure on the auto-detect response should be surfaced instead of defaulting to account id 1!");
+    }
+
+    /// <summary>
+    /// A malformed JSON response to the auto-detect request still falls back to the default owner
+    /// account id
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetOwnerAccountIdWithMalformedResponseFallsBackToDefaultOwner()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/accounts"] = "{ not valid json";
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, ownerId, "A malformed auto-detect response should fall back to account id 1!");
+    }
+
+    /// <summary>
+    /// A request timeout unrelated to the caller's own cancellation token is treated as a normal
+    /// auto-detect failure and falls back to the default owner account id, rather than propagating as
+    /// if the caller itself had canceled
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetOwnerAccountIdWithTimeoutFallsBackToDefaultOwner()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Exceptions["/accounts"] = () => new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout");
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, ownerId, "A timeout unrelated to the caller's own token should fall back to account id 1!");
     }
 
     /// <summary>
