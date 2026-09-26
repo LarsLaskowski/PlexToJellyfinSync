@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using System.Text;
 
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -224,6 +225,48 @@ public sealed class NfoWriterTests
         var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
 
         Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "An already-absent last played value must not be reported as a change!");
+    }
+
+    /// <summary>
+    /// Updating an existing NFO keeps whatever encoding and byte order mark the file already had on
+    /// disk, instead of always re-emitting UTF-8 without one
+    /// </summary>
+    /// <param name="codePage">Code page of the encoding the original file was written with</param>
+    /// <param name="emitBom">Whether the original file was written with a byte order mark</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow(65001, true, DisplayName = "UTF-8 with BOM")]
+    [DataRow(65001, false, DisplayName = "UTF-8 without BOM")]
+    [DataRow(1200, true, DisplayName = "UTF-16 with BOM")]
+    public async Task NfoWriterExistingNfoPreservesOriginalEncoding(int codePage, bool emitBom)
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        var originalEncoding = CreateEncodingWithBom(codePage, emitBom);
+
+        await File.WriteAllTextAsync(nfoPath, "<movie><title>Custom Title</title><watched>false</watched><playcount>0</playcount></movie>", originalEncoding, _testContext.CancellationToken);
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Should Not Overwrite",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = true,
+                                   PlayCount = 3
+                               }
+                   };
+
+        var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
+        var bytes = await File.ReadAllBytesAsync(nfoPath, _testContext.CancellationToken);
+        var expectedPreamble = originalEncoding.GetPreamble();
+        var expectedContent = $"<?xml version=\"1.0\" encoding=\"{originalEncoding.WebName}\"?><movie><title>Custom Title</title><watched>true</watched><playcount>3</playcount></movie>";
+        var decodedContent = originalEncoding.GetString(bytes, expectedPreamble.Length, bytes.Length - expectedPreamble.Length);
+
+        Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "Outcome should be Updated!");
+        CollectionAssert.AreEqual(expectedPreamble, bytes.Take(expectedPreamble.Length).ToArray(), "The original file's byte order mark should be preserved after the update!");
+        Assert.AreEqual(expectedContent, decodedContent, "The file content, re-encoded with the original encoding, should match exactly!");
     }
 
     /// <summary>
@@ -507,6 +550,19 @@ public sealed class NfoWriterTests
 
         Assert.AreEqual(NfoWriteOutcome.Created, outcome, "A mapped root that is the filesystem root should still accept writes under it!");
         Assert.IsTrue(File.Exists(Path.ChangeExtension(moviePath, ".nfo")), "NFO file should have been created!");
+    }
+
+    /// <summary>
+    /// Create an encoding for the given code page, with or without a byte order mark
+    /// </summary>
+    /// <param name="codePage">Code page of the encoding to create</param>
+    /// <param name="emitBom">Whether the encoding should emit a byte order mark</param>
+    /// <returns>Encoding matching the given code page and byte order mark setting</returns>
+    private static Encoding CreateEncodingWithBom(int codePage, bool emitBom)
+    {
+        return codePage == Encoding.Unicode.CodePage
+                   ? new UnicodeEncoding(bigEndian: false, byteOrderMark: emitBom)
+                   : new UTF8Encoding(encoderShouldEmitUTF8Identifier: emitBom);
     }
 
     /// <summary>
