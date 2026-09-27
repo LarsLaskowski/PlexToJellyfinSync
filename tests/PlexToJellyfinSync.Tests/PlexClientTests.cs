@@ -162,6 +162,29 @@ public sealed class PlexClientTests
     #region Methods
 
     /// <summary>
+    /// Each outgoing request asks the injected <see cref="IHttpClientFactory"/> for a client, instead of
+    /// a single client instance being captured for the lifetime of this (singleton) client
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientEachRequestAsksHttpClientFactoryForAClient()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/accounts"] = AccountsJson;
+        handler.Responses["/library/sections"] = LibrariesJson;
+
+        using var httpClient = CreateHttpClient(handler);
+        var factory = new FakeHttpClientFactory(httpClient);
+        var client = new PlexClient(factory, NullLogger<PlexClient>.Instance, Options.Create(new PlexOptions()));
+
+        await client.GetOwnerAccountIdAsync(CancellationToken.None);
+        await client.GetLibrariesAsync(CancellationToken.None);
+
+        Assert.AreEqual(2, factory.CreateClientCallCount, "Each of the two requests should ask the factory for a client!");
+    }
+
+    /// <summary>
     /// A configured owner account id is used without contacting Plex
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -1189,7 +1212,7 @@ public sealed class PlexClientTests
     /// <returns>The Plex client under test</returns>
     private static PlexClient CreateClient(HttpClient httpClient, PlexOptions? options = null)
     {
-        return new PlexClient(httpClient, NullLogger<PlexClient>.Instance, Options.Create(options ?? new PlexOptions()));
+        return new PlexClient(new FakeHttpClientFactory(httpClient), NullLogger<PlexClient>.Instance, Options.Create(options ?? new PlexOptions()));
     }
 
     #endregion // Methods

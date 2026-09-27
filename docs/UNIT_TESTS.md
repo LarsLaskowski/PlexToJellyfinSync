@@ -20,12 +20,12 @@ pattern.
 
    A few tests exercise a real collaborator instead of a fake to verify wiring:
    `ServiceCollectionExtensionsTests` builds a real `ServiceProvider` from
-   `AddPlexToJellyfinSync` and resolves services/options/typed `HttpClient` from it; `PlexClient`
-   is tested against a real `HttpClient` wired to `StubHttpMessageHandler` so the actual JSON
-   deserialization and URL construction is exercised end to end; `SyncOrchestratorTests` drives
-   the real `SyncOrchestrator` against fakes for its dependencies (`FakePlexClient`,
-   `FakeStateStore`, `RecordingNfoWriter`, `StubPathMapper`) to verify the orchestration logic
-   itself, not just each collaborator in isolation.
+   `AddPlexToJellyfinSync` and resolves services/options/the named Plex `HttpClient` (via
+   `IHttpClientFactory`) from it; `PlexClient` is tested against a real `HttpClient` wired to
+   `StubHttpMessageHandler` so the actual JSON deserialization and URL construction is exercised
+   end to end; `SyncOrchestratorTests` drives the real `SyncOrchestrator` against fakes for its
+   dependencies (`FakePlexClient`, `FakeStateStore`, `RecordingNfoWriter`, `StubPathMapper`) to
+   verify the orchestration logic itself, not just each collaborator in isolation.
 
 3. **Load tests**
 
@@ -96,6 +96,9 @@ of hand-written fakes/stubs, each implementing a `Core.Abstractions` interface d
 - `StubHttpMessageHandler : HttpMessageHandler` — returns a preconfigured response for the real
   `HttpClient` used by `PlexClientTests`, so JSON parsing and URL construction run for real while
   the network call itself is intercepted.
+- `FakeHttpClientFactory : IHttpClientFactory` — returns a preconfigured `HttpClient` for every
+  request and counts how often one was requested, standing in for `PlexClient`'s injected
+  `IHttpClientFactory` in `PlexClientTests`.
 - `StubDashboardLoginService : IDashboardLoginService` — preconfigured `LoginResult` for
   `LoginEndpointsTests`.
 - `TestTimeProvider : TimeProvider` — a controllable clock for `LoginThrottleTests`, so lockout

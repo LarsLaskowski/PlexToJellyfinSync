@@ -70,6 +70,21 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     /// <summary>
+    /// The Plex client is registered as a singleton, resolving its HTTP client from
+    /// <see cref="IHttpClientFactory"/> on every request instead of one being captured by a typed client
+    /// registration
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsRegistersPlexClientAsSingleton()
+    {
+        using var provider = BuildProvider();
+
+        Assert.AreSame(provider.GetRequiredService<IPlexClient>(),
+                       provider.GetRequiredService<IPlexClient>(),
+                       "The Plex client should be a singleton!");
+    }
+
+    /// <summary>
     /// The registration binds every configuration section
     /// </summary>
     [TestMethod]
