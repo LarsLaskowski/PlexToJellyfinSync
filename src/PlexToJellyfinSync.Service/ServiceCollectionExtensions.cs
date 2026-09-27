@@ -44,25 +44,30 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPathMapper, PathMapper>();
         services.AddSingleton<INfoWriter, NfoWriter>();
         services.AddSingleton<IStateStore, StateStore>();
+        services.AddSingleton<IPlexClient, PlexClient>();
         services.AddSingleton<ISyncOrchestrator, SyncOrchestrator>();
 
-        services.AddHttpClient<IPlexClient, PlexClient>((serviceProvider, client) =>
-                                                        {
-                                                            var options = serviceProvider.GetRequiredService<IOptions<PlexOptions>>().Value;
+        // Registered as a named client, not a typed client (AddHttpClient<IPlexClient, PlexClient>), so
+        // PlexClient can ask IHttpClientFactory for a fresh client per request instead of one client
+        // instance being captured for the app's lifetime by the singleton PlexClient above.
+        services.AddHttpClient(nameof(IPlexClient),
+                               (serviceProvider, client) =>
+                               {
+                                   var options = serviceProvider.GetRequiredService<IOptions<PlexOptions>>().Value;
 
-                                                            if (string.IsNullOrWhiteSpace(options.BaseUrl) == false)
-                                                            {
-                                                                client.BaseAddress = new Uri(options.BaseUrl);
-                                                            }
+                                   if (string.IsNullOrWhiteSpace(options.BaseUrl) == false)
+                                   {
+                                       client.BaseAddress = new Uri(options.BaseUrl);
+                                   }
 
-                                                            if (string.IsNullOrWhiteSpace(options.Token) == false)
-                                                            {
-                                                                client.DefaultRequestHeaders.Add("X-Plex-Token", options.Token);
-                                                            }
+                                   if (string.IsNullOrWhiteSpace(options.Token) == false)
+                                   {
+                                       client.DefaultRequestHeaders.Add("X-Plex-Token", options.Token);
+                                   }
 
-                                                            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                                                            client.Timeout = TimeSpan.FromSeconds(30);
-                                                        });
+                                   client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                                   client.Timeout = TimeSpan.FromSeconds(30);
+                               });
 
         return services;
     }

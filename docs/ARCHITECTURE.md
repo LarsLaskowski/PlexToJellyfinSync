@@ -298,8 +298,13 @@ Studio standard for solution files, not a migration artifact.
   point for everything under `PlexToJellyfinSync.Service`: it binds every `Options` class to its
   configuration section, registers every service as a singleton (the whole pipeline is one
   sequential background worker — there is no per-request or per-scope service in the sync path),
-  and configures the `PlexClient` `HttpClient` (base address, `X-Plex-Token` header, `Accept:
-  application/json`, 30s timeout) via `AddHttpClient<IPlexClient, PlexClient>`.
+  and configures the Plex `HttpClient` (base address, `X-Plex-Token` header, `Accept:
+  application/json`, 30s timeout) via `AddHttpClient(nameof(IPlexClient), …)`. This is a *named*
+  client rather than a typed client (`AddHttpClient<IPlexClient, PlexClient>`) on purpose:
+  `PlexClient` is itself a singleton, so a typed client's single `HttpClient` instance would be
+  captured for the process's lifetime and `IHttpClientFactory`'s handler rotation would never take
+  effect. Instead `PlexClient` holds the injected `IHttpClientFactory` and calls
+  `CreateClient(nameof(IPlexClient))` for every outgoing request.
 - All options classes live in `PlexToJellyfinSync.Core.Options` and bind to a `SectionName`
   matching their configuration key (`Plex`, `Sync`, `Nfo`, `State`, `Dashboard`); `PathMappings`
   binds directly to `List<PathMapping>` at the configuration root rather than through a named

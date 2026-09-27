@@ -57,7 +57,7 @@ public sealed class PlexClient : IPlexClient
 
     private static readonly JsonSerializerOptions _jsonOptions = PlexJsonOptions.Default;
 
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<PlexClient> _logger;
     private readonly PlexOptions _options;
 
@@ -68,12 +68,12 @@ public sealed class PlexClient : IPlexClient
     /// <summary>
     /// Constructor
     /// </summary>
-    /// <param name="httpClient">Configured HTTP client</param>
+    /// <param name="httpClientFactory">Factory used to obtain a configured HTTP client for every outgoing request</param>
     /// <param name="logger">Logging interface</param>
     /// <param name="options">Plex options</param>
-    public PlexClient(HttpClient httpClient, ILogger<PlexClient> logger, IOptions<PlexOptions> options)
+    public PlexClient(IHttpClientFactory httpClientFactory, ILogger<PlexClient> logger, IOptions<PlexOptions> options)
     {
-        _httpClient = httpClient;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
         _options = options.Value;
     }
@@ -473,7 +473,11 @@ public sealed class PlexClient : IPlexClient
     private async Task<T?> GetAsync<T>(string url, CancellationToken cancellationToken)
         where T : class
     {
-        using var response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+        // Requested per call rather than captured at construction time, so IHttpClientFactory's handler
+        // rotation still applies even though this client is injected into a singleton consumer.
+        var httpClient = _httpClientFactory.CreateClient(nameof(IPlexClient));
+
+        using var response = await httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
 
