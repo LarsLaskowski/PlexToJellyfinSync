@@ -33,7 +33,7 @@ public sealed class LogFilterCache
     private string? _filter;
 
     /// <summary>
-    /// Whether an entry was skipped since the last <see cref="Reset"/>, so the next update can no longer be applied incrementally
+    /// Whether an entry was skipped since the last resync, so the next update can no longer be applied incrementally
     /// </summary>
     private bool _needsResync;
 
@@ -68,13 +68,22 @@ public sealed class LogFilterCache
     }
 
     /// <summary>
-    /// Apply a possibly changed level or text filter, rebuilding the cache only when it actually changed or a resync is pending
+    /// Apply a possibly changed level or text filter, rebuilding the cache only when it actually changed or a resync is
+    /// pending, in which case the rebuild uses the given live entries rather than the possibly stale cached ones
     /// </summary>
+    /// <param name="currentEntries">The current chronological entries, used only when a resync is pending</param>
     /// <param name="minLevel">The minimum level an entry must have to be included</param>
     /// <param name="filter">Optional case-insensitive text an entry's message must contain to be included</param>
-    public void ApplyFilter(LogLevel minLevel, string? filter)
+    public void ApplyFilter(IReadOnlyList<LogEntry> currentEntries, LogLevel minLevel, string? filter)
     {
-        if (_needsResync == false && minLevel == _minLevel && filter == _filter)
+        if (_needsResync)
+        {
+            Reset(currentEntries, minLevel, filter);
+
+            return;
+        }
+
+        if (minLevel == _minLevel && filter == _filter)
         {
             return;
         }
@@ -92,22 +101,26 @@ public sealed class LogFilterCache
 
     /// <summary>
     /// Fold a single newly added entry into the cache instead of re-filtering the whole buffer, falling back to a full
-    /// rebuild when a resync is pending or the buffer changed by more than the one entry this call accounts for
+    /// rebuild whenever the live entries turn out to hold more than just that one addition since the last update -
+    /// which happens when a resync is pending, or when several additions were made before their handlers ran
     /// </summary>
     /// <param name="addedEntry">The entry that was just added</param>
     /// <param name="updatedEntries">The full chronological entries after the addition</param>
     public void Append(LogEntry addedEntry, IReadOnlyList<LogEntry> updatedEntries)
     {
-        if (_needsResync)
+        if (_needsResync == false && _entries.Count > 0 && ReferenceEquals(_entries[^1], addedEntry))
+        {
+            return;
+        }
+
+        if (IsSingleAppend(addedEntry, updatedEntries) == false)
         {
             Reset(updatedEntries, _minLevel, _filter);
 
             return;
         }
 
-        var evicted = _entries.Count > 0 && (updatedEntries.Count == 0 || ReferenceEquals(updatedEntries[0], _entries[0]) == false)
-                          ? _entries[0]
-                          : null;
+        var evicted = updatedEntries.Count == _entries.Count && _entries.Count > 0 ? _entries[0] : null;
 
         _entries = updatedEntries;
 
@@ -120,6 +133,33 @@ public sealed class LogFilterCache
         {
             _filtered.Insert(0, addedEntry);
         }
+    }
+
+    /// <summary>
+    /// Determine whether the given live entries are exactly the cached entries plus the one added entry, with at most
+    /// the single oldest entry evicted - the only shape the incremental path can correctly account for
+    /// </summary>
+    /// <param name="addedEntry">The entry that was just added</param>
+    /// <param name="updatedEntries">The full chronological entries after the addition</param>
+    /// <returns>True when the incremental path applies</returns>
+    private bool IsSingleAppend(LogEntry addedEntry, IReadOnlyList<LogEntry> updatedEntries)
+    {
+        if (_needsResync || updatedEntries.Count == 0 || ReferenceEquals(updatedEntries[^1], addedEntry) == false)
+        {
+            return false;
+        }
+
+        if (_entries.Count == 0)
+        {
+            return updatedEntries.Count == 1;
+        }
+
+        if (updatedEntries.Count != _entries.Count && updatedEntries.Count != _entries.Count + 1)
+        {
+            return false;
+        }
+
+        return ReferenceEquals(updatedEntries[^2], _entries[^1]);
     }
 
     #endregion // Methods

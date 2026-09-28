@@ -84,7 +84,7 @@ public sealed partial class Logs : IDisposable
     /// <returns>The filtered entries in reverse chronological order</returns>
     private IReadOnlyList<LogEntry> Filtered()
     {
-        _logCache.ApplyFilter(_minLevel, _filter);
+        _logCache.ApplyFilter(LogStore.GetEntries(), _minLevel, _filter);
 
         return _logCache.Filtered;
     }

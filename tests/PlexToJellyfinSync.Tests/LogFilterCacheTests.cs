@@ -130,7 +130,7 @@ public sealed class LogFilterCacheTests
                       };
 
         cache.Reset(entries, LogLevel.Warning, null);
-        cache.ApplyFilter(LogLevel.Trace, null);
+        cache.ApplyFilter(entries, LogLevel.Trace, null);
 
         Assert.HasCount(2, cache.Filtered, "Lowering the minimum level should surface the previously excluded entry!");
     }
@@ -151,9 +151,40 @@ public sealed class LogFilterCacheTests
 
         var before = cache.Filtered;
 
-        cache.ApplyFilter(LogLevel.Trace, null);
+        cache.ApplyFilter(entries, LogLevel.Trace, null);
 
         Assert.AreSame(before, cache.Filtered, "Reapplying the same level and filter should not rebuild the cache!");
+    }
+
+    /// <summary>
+    /// When a resync is pending, ApplyFilter rebuilds from the given live entries rather than the stale cached ones -
+    /// otherwise a pause/unpause without an intervening entry would clear the pending resync using outdated data
+    /// </summary>
+    [TestMethod]
+    public void LogFilterCacheApplyFilterWithPendingResyncUsesLiveEntries()
+    {
+        var cache = new LogFilterCache();
+        var stale = CreateEntry(LogLevel.Information, "stale");
+
+        cache.Reset(new List<LogEntry>
+                    {
+                        stale
+                    },
+                    LogLevel.Trace,
+                    null);
+
+        cache.MarkStale();
+
+        var live = CreateEntry(LogLevel.Information, "live");
+        var liveEntries = new List<LogEntry>
+                          {
+                              live
+                          };
+
+        cache.ApplyFilter(liveEntries, LogLevel.Trace, null);
+
+        Assert.HasCount(1, cache.Filtered, "The rebuild should reflect the live entries, not the stale cached ones!");
+        Assert.AreEqual("live", cache.Filtered[0].Message, "The entry added while stale should now be visible!");
     }
 
     /// <summary>
@@ -190,6 +221,71 @@ public sealed class LogFilterCacheTests
         Assert.IsFalse(cache.Filtered.Contains(first), "An entry evicted while stale should not survive the resync!");
         Assert.AreEqual("third", cache.Filtered[0].Message, "The newest entry should come first!");
         Assert.AreEqual("second", cache.Filtered[1].Message, "The entry that survived eviction should still be present!");
+    }
+
+    /// <summary>
+    /// When several entries were added to the store before their handlers ran, the live entries hold more than just the
+    /// one entry the append call names, so the cache falls back to a full rebuild instead of an incorrect incremental one
+    /// </summary>
+    [TestMethod]
+    public void LogFilterCacheAppendWithMultipleUnseenAdditionsFallsBackToFullRebuild()
+    {
+        var cache = new LogFilterCache();
+        var first = CreateEntry(LogLevel.Information, "first");
+
+        cache.Reset(new List<LogEntry>
+                    {
+                        first
+                    },
+                    LogLevel.Trace,
+                    null);
+
+        var addedA = CreateEntry(LogLevel.Information, "a");
+        var addedB = CreateEntry(LogLevel.Information, "b");
+
+        // The store already holds both additions by the time the handler for "a" runs.
+        var updatedEntries = new List<LogEntry>
+                             {
+                                 first,
+                                 addedA,
+                                 addedB
+                             };
+
+        cache.Append(addedA, updatedEntries);
+
+        Assert.HasCount(3, cache.Filtered, "The full rebuild should include every live entry exactly once!");
+        Assert.AreEqual("b", cache.Filtered[0].Message, "The newest entry should come first!");
+    }
+
+    /// <summary>
+    /// A second handler for an entry a prior burst-triggered rebuild already included is a no-op, so it is not inserted twice
+    /// </summary>
+    [TestMethod]
+    public void LogFilterCacheAppendWithAlreadySyncedEntryIsNoOp()
+    {
+        var cache = new LogFilterCache();
+        var first = CreateEntry(LogLevel.Information, "first");
+        var addedA = CreateEntry(LogLevel.Information, "a");
+        var addedB = CreateEntry(LogLevel.Information, "b");
+
+        cache.Reset(new List<LogEntry>
+                    {
+                        first
+                    },
+                    LogLevel.Trace,
+                    null);
+
+        var updatedEntries = new List<LogEntry>
+                             {
+                                 first,
+                                 addedA,
+                                 addedB
+                             };
+
+        cache.Append(addedA, updatedEntries);
+        cache.Append(addedB, updatedEntries);
+
+        Assert.HasCount(3, cache.Filtered, "The entry already included by the earlier rebuild should not be inserted again!");
     }
 
     /// <summary>
