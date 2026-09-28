@@ -286,16 +286,52 @@ public sealed class LogFilterCacheTests
     }
 
     /// <summary>
+    /// When a burst of several unseen additions arrives, only the first callback - whose entry is not yet tracked -
+    /// triggers a rebuild; a later callback for an entry that same rebuild already folded in is a no-op instead of
+    /// triggering another redundant rebuild, even though its own entry is not the last one in the live snapshot
+    /// </summary>
+    [TestMethod]
+    public void LogFilterCacheAppendWithBurstOfUnseenAdditionsRebuildsOnlyOnce()
+    {
+        var cache = new LogFilterCache();
+        var baseline = DateTimeOffset.UnixEpoch;
+        var first = CreateEntry(LogLevel.Information, "first", baseline);
+
+        cache.Reset([first], LogLevel.Trace, null);
+
+        var rebuildCountBeforeBurst = cache.RebuildCount;
+        var addedA = CreateEntry(LogLevel.Information, "a", baseline.AddMilliseconds(1));
+        var addedB = CreateEntry(LogLevel.Information, "b", baseline.AddMilliseconds(2));
+        var addedC = CreateEntry(LogLevel.Information, "c", baseline.AddMilliseconds(3));
+        var updatedEntries = new List<LogEntry>
+                             {
+                                 first,
+                                 addedA,
+                                 addedB,
+                                 addedC
+                             };
+
+        cache.Append(addedA, updatedEntries);
+        cache.Append(addedB, updatedEntries);
+        cache.Append(addedC, updatedEntries);
+
+        Assert.AreEqual(rebuildCountBeforeBurst + 1, cache.RebuildCount, "Only the first callback in the burst should trigger a rebuild!");
+        Assert.HasCount(4, cache.Filtered, "Every live entry should be present exactly once after the burst!");
+        Assert.AreEqual("c", cache.Filtered[0].Message, "The newest entry should come first!");
+    }
+
+    /// <summary>
     /// Create a log entry with the given level and message
     /// </summary>
     /// <param name="level">Log level of the entry</param>
     /// <param name="message">Message of the entry</param>
+    /// <param name="timestamp">The entry's timestamp, defaulting to the current time when not given</param>
     /// <returns>The log entry</returns>
-    private static LogEntry CreateEntry(LogLevel level, string message)
+    private static LogEntry CreateEntry(LogLevel level, string message, DateTimeOffset? timestamp = null)
     {
         return new LogEntry
                {
-                   Timestamp = DateTimeOffset.UtcNow,
+                   Timestamp = timestamp ?? DateTimeOffset.UtcNow,
                    Level = level,
                    Category = "Test",
                    Message = message
