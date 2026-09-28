@@ -117,6 +117,34 @@ public sealed class LogFilterCacheTests
     }
 
     /// <summary>
+    /// A single-entry buffer (the minimum LogBufferSize clamps to) evicts and replaces its sole entry without throwing
+    /// </summary>
+    [TestMethod]
+    public void LogFilterCacheAppendWithSingleEntryBufferReplacesEntry()
+    {
+        var cache = new LogFilterCache();
+        var only = CreateEntry(LogLevel.Information, "only");
+
+        cache.Reset(new List<LogEntry>
+                    {
+                        only
+                    },
+                    LogLevel.Trace,
+                    null);
+
+        var added = CreateEntry(LogLevel.Information, "newest");
+        var updatedEntries = new List<LogEntry>
+                             {
+                                 added
+                             };
+
+        cache.Append(added, updatedEntries);
+
+        Assert.HasCount(1, cache.Filtered, "A single-entry buffer should still hold exactly one entry after the append!");
+        Assert.AreEqual("newest", cache.Filtered[0].Message, "The sole entry should have been replaced by the newly added one!");
+    }
+
+    /// <summary>
     /// Changing the minimum level rebuilds the filtered view
     /// </summary>
     [TestMethod]

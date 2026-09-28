@@ -159,6 +159,11 @@ public sealed class LogFilterCache
             return false;
         }
 
+        if (updatedEntries.Count == 1)
+        {
+            return true;
+        }
+
         return ReferenceEquals(updatedEntries[^2], _entries[^1]);
     }
 
