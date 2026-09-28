@@ -32,6 +32,26 @@ public sealed partial class Logs : IDisposable
     /// </summary>
     private bool _paused;
 
+    /// <summary>
+    /// Cached result of the last <see cref="Filtered"/> computation
+    /// </summary>
+    private List<LogEntry> _filteredCache = [];
+
+    /// <summary>
+    /// The entries snapshot the cached filtered result was computed from
+    /// </summary>
+    private List<LogEntry>? _cachedEntries;
+
+    /// <summary>
+    /// The minimum level the cached filtered result was computed with
+    /// </summary>
+    private LogLevel _cachedMinLevel;
+
+    /// <summary>
+    /// The message filter the cached filtered result was computed with
+    /// </summary>
+    private string? _cachedFilter;
+
     #endregion // Fields
 
     #region Properties
@@ -77,14 +97,22 @@ public sealed partial class Logs : IDisposable
     }
 
     /// <summary>
-    /// Filter the entries by level and message text
+    /// Filter the entries by level and message text, recomputing only when the buffer, level or filter changed
     /// </summary>
     /// <returns>The filtered entries in reverse chronological order</returns>
-    private IEnumerable<LogEntry> Filtered()
+    private List<LogEntry> Filtered()
     {
-        return _entries.Where(e => e.Level >= _minLevel)
-                       .Where(e => string.IsNullOrEmpty(_filter) || e.Message.Contains(_filter, StringComparison.OrdinalIgnoreCase))
-                       .Reverse();
+        if (ReferenceEquals(_cachedEntries, _entries) && _cachedMinLevel == _minLevel && _cachedFilter == _filter)
+        {
+            return _filteredCache;
+        }
+
+        _filteredCache = LogFiltering.Apply(_entries, _minLevel, _filter);
+        _cachedEntries = _entries;
+        _cachedMinLevel = _minLevel;
+        _cachedFilter = _filter;
+
+        return _filteredCache;
     }
 
     #endregion // Methods
