@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 using Microsoft.Extensions.Options;
 
 using PlexToJellyfinSync.Core.Abstractions;
@@ -16,6 +18,8 @@ public sealed class InMemoryLogStore : ILogStore
     private readonly Lock _lock = new();
     private readonly Queue<LogEntry> _entries = new();
     private readonly int _capacity;
+    private ReadOnlyCollection<LogEntry> _snapshot = Array.Empty<LogEntry>().AsReadOnly();
+    private bool _snapshotStale = true;
 
     #endregion // Fields
 
@@ -46,7 +50,13 @@ public sealed class InMemoryLogStore : ILogStore
     {
         lock (_lock)
         {
-            return _entries.ToList();
+            if (_snapshotStale)
+            {
+                _snapshot = _entries.ToArray().AsReadOnly();
+                _snapshotStale = false;
+            }
+
+            return _snapshot;
         }
     }
 
@@ -61,6 +71,8 @@ public sealed class InMemoryLogStore : ILogStore
             {
                 _entries.Dequeue();
             }
+
+            _snapshotStale = true;
         }
 
         EntryAdded?.Invoke(entry);

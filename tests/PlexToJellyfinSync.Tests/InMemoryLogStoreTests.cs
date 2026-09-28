@@ -102,6 +102,37 @@ public sealed class InMemoryLogStoreTests
     }
 
     /// <summary>
+    /// Repeated reads between additions reuse the same cached snapshot instead of re-copying the buffer
+    /// </summary>
+    [TestMethod]
+    public void InMemoryLogStoreRepeatedGetEntriesWithoutAddReturnsSameSnapshot()
+    {
+        var store = CreateStore(10);
+
+        store.Add(CreateEntry("first"));
+
+        var first = store.GetEntries();
+        var second = store.GetEntries();
+
+        Assert.AreSame(first, second, "Reads without an intervening Add should share one snapshot!");
+    }
+
+    /// <summary>
+    /// The returned snapshot cannot be mutated, since it is cached and shared across callers
+    /// </summary>
+    [TestMethod]
+    public void InMemoryLogStoreGetEntriesReturnsReadOnlySnapshot()
+    {
+        var store = CreateStore(10);
+
+        store.Add(CreateEntry("first"));
+
+        var entries = (IList<LogEntry>)store.GetEntries();
+
+        Assert.ThrowsExactly<NotSupportedException>(() => entries[0] = CreateEntry("tampered"), "The cached snapshot should not be writable through the returned list!");
+    }
+
+    /// <summary>
     /// Every addition notifies the subscribers with the added entry
     /// </summary>
     [TestMethod]
