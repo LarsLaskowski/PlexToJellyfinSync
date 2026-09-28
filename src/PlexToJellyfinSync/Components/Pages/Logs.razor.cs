@@ -13,9 +13,9 @@ public sealed partial class Logs : IDisposable
     #region Fields
 
     /// <summary>
-    /// Currently displayed log entries
+    /// Incrementally maintained, filtered view of the log buffer
     /// </summary>
-    private List<LogEntry> _entries = [];
+    private readonly LogFilterCache _logCache = new();
 
     /// <summary>
     /// Minimum level of entries to display
@@ -31,26 +31,6 @@ public sealed partial class Logs : IDisposable
     /// Indicates whether live updates are paused
     /// </summary>
     private bool _paused;
-
-    /// <summary>
-    /// Cached result of the last <see cref="Filtered"/> computation
-    /// </summary>
-    private List<LogEntry> _filteredCache = [];
-
-    /// <summary>
-    /// The entries snapshot the cached filtered result was computed from
-    /// </summary>
-    private List<LogEntry>? _cachedEntries;
-
-    /// <summary>
-    /// The minimum level the cached filtered result was computed with
-    /// </summary>
-    private LogLevel _cachedMinLevel;
-
-    /// <summary>
-    /// The message filter the cached filtered result was computed with
-    /// </summary>
-    private string? _cachedFilter;
 
     #endregion // Fields
 
@@ -79,40 +59,34 @@ public sealed partial class Logs : IDisposable
     }
 
     /// <summary>
-    /// Handle a newly added log entry by refreshing the view unless paused or filtered out
+    /// Handle a newly added log entry by folding it into the cache and refreshing the view unless paused or filtered out
     /// </summary>
     /// <param name="entry">The added log entry</param>
     private void OnEntryAdded(LogEntry entry)
     {
         if (_paused || entry.Level < _minLevel)
         {
+            InvokeAsync(_logCache.MarkStale);
+
             return;
         }
 
         InvokeAsync(() =>
                     {
-                        _entries = LogStore.GetEntries().ToList();
+                        _logCache.Append(entry, LogStore.GetEntries());
                         StateHasChanged();
                     });
     }
 
     /// <summary>
-    /// Filter the entries by level and message text, recomputing only when the buffer, level or filter changed
+    /// Get the entries matching the current level and message filter, recomputing only when they actually changed
     /// </summary>
     /// <returns>The filtered entries in reverse chronological order</returns>
-    private List<LogEntry> Filtered()
+    private IReadOnlyList<LogEntry> Filtered()
     {
-        if (ReferenceEquals(_cachedEntries, _entries) && _cachedMinLevel == _minLevel && _cachedFilter == _filter)
-        {
-            return _filteredCache;
-        }
+        _logCache.ApplyFilter(_minLevel, _filter);
 
-        _filteredCache = LogFiltering.Apply(_entries, _minLevel, _filter);
-        _cachedEntries = _entries;
-        _cachedMinLevel = _minLevel;
-        _cachedFilter = _filter;
-
-        return _filteredCache;
+        return _logCache.Filtered;
     }
 
     #endregion // Methods
@@ -125,7 +99,7 @@ public sealed partial class Logs : IDisposable
         _minLevel = LogLevel.Information;
         _filter = string.Empty;
         _paused = false;
-        _entries = LogStore.GetEntries().ToList();
+        _logCache.Reset(LogStore.GetEntries(), _minLevel, _filter);
         LogStore.EntryAdded += OnEntryAdded;
     }
 
