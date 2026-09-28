@@ -13,9 +13,9 @@ public sealed partial class Logs : IDisposable
     #region Fields
 
     /// <summary>
-    /// Currently displayed log entries
+    /// Incrementally maintained, filtered view of the log buffer
     /// </summary>
-    private List<LogEntry> _entries = [];
+    private readonly LogFilterCache _logCache = new();
 
     /// <summary>
     /// Minimum level of entries to display
@@ -59,32 +59,34 @@ public sealed partial class Logs : IDisposable
     }
 
     /// <summary>
-    /// Handle a newly added log entry by refreshing the view unless paused or filtered out
+    /// Handle a newly added log entry by folding it into the cache and refreshing the view unless paused or filtered out
     /// </summary>
     /// <param name="entry">The added log entry</param>
     private void OnEntryAdded(LogEntry entry)
     {
         if (_paused || entry.Level < _minLevel)
         {
+            InvokeAsync(_logCache.MarkStale);
+
             return;
         }
 
         InvokeAsync(() =>
                     {
-                        _entries = LogStore.GetEntries().ToList();
+                        _logCache.Append(entry, LogStore.GetEntries());
                         StateHasChanged();
                     });
     }
 
     /// <summary>
-    /// Filter the entries by level and message text
+    /// Get the entries matching the current level and message filter, recomputing only when they actually changed
     /// </summary>
     /// <returns>The filtered entries in reverse chronological order</returns>
-    private IEnumerable<LogEntry> Filtered()
+    private IReadOnlyList<LogEntry> Filtered()
     {
-        return _entries.Where(e => e.Level >= _minLevel)
-                       .Where(e => string.IsNullOrEmpty(_filter) || e.Message.Contains(_filter, StringComparison.OrdinalIgnoreCase))
-                       .Reverse();
+        _logCache.ApplyFilter(LogStore.GetEntries(), _minLevel, _filter);
+
+        return _logCache.Filtered;
     }
 
     #endregion // Methods
@@ -97,7 +99,7 @@ public sealed partial class Logs : IDisposable
         _minLevel = LogLevel.Information;
         _filter = string.Empty;
         _paused = false;
-        _entries = LogStore.GetEntries().ToList();
+        _logCache.Reset(LogStore.GetEntries(), _minLevel, _filter);
         LogStore.EntryAdded += OnEntryAdded;
     }
 
