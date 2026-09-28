@@ -46,6 +46,12 @@ public sealed class LogFilterCache
     /// </summary>
     public IReadOnlyList<LogEntry> Filtered => _filtered;
 
+    /// <summary>
+    /// The number of times the cache has been fully rebuilt from <see cref="Reset"/>, so callers and tests can verify
+    /// that a burst of additions costs a single rebuild rather than one per entry
+    /// </summary>
+    public int RebuildCount { get; private set; }
+
     #endregion // Properties
 
     #region Methods
@@ -62,6 +68,7 @@ public sealed class LogFilterCache
         _minLevel = minLevel;
         _filter = filter;
         _needsResync = false;
+        RebuildCount++;
 
         _filtered.Clear();
         _filtered.AddRange(LogFiltering.Apply(entries, minLevel, filter));
@@ -108,7 +115,7 @@ public sealed class LogFilterCache
     /// <param name="updatedEntries">The full chronological entries after the addition</param>
     public void Append(LogEntry addedEntry, IReadOnlyList<LogEntry> updatedEntries)
     {
-        if (_needsResync == false && _entries.Count > 0 && ReferenceEquals(_entries[^1], addedEntry))
+        if (_needsResync == false && IsAlreadyTracked(addedEntry))
         {
             return;
         }
@@ -133,6 +140,30 @@ public sealed class LogFilterCache
         {
             _filtered.Insert(0, addedEntry);
         }
+    }
+
+    /// <summary>
+    /// Determine whether the given entry is already present in the tracked entries, scanning backward from the end and
+    /// stopping once an entry's timestamp falls below the given entry's - entries are normally appended in chronological
+    /// order, which bounds the scan in the common case. If two entries were logged concurrently and their timestamps are
+    /// not strictly ordered, the scan may stop before reaching the entry and report it as not yet tracked; that only
+    /// costs the same fallback rebuild this method replaces and never produces an incorrect result. This keeps every
+    /// later callback in a burst a no-op once an earlier one already folded every addition in via a full rebuild,
+    /// instead of only recognizing the single most recent callback the way a plain last-entry check would
+    /// </summary>
+    /// <param name="entry">The entry to look for</param>
+    /// <returns>True when the entry is already tracked</returns>
+    private bool IsAlreadyTracked(LogEntry entry)
+    {
+        for (var index = _entries.Count - 1; index >= 0 && _entries[index].Timestamp >= entry.Timestamp; index--)
+        {
+            if (ReferenceEquals(_entries[index], entry))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
