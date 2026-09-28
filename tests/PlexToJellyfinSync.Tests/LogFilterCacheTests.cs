@@ -93,13 +93,7 @@ public sealed class LogFilterCacheTests
         var oldest = CreateEntry(LogLevel.Information, "oldest");
         var middle = CreateEntry(LogLevel.Information, "middle");
 
-        cache.Reset(new List<LogEntry>
-                    {
-                        oldest,
-                        middle
-                    },
-                    LogLevel.Trace,
-                    null);
+        cache.Reset([oldest, middle], LogLevel.Trace, null);
 
         var added = CreateEntry(LogLevel.Information, "newest");
         var updatedEntries = new List<LogEntry>
@@ -111,7 +105,7 @@ public sealed class LogFilterCacheTests
         cache.Append(added, updatedEntries);
 
         Assert.HasCount(2, cache.Filtered, "The evicted entry should have been replaced by the newly added one!");
-        Assert.IsFalse(cache.Filtered.Contains(oldest), "The entry evicted from the buffer should no longer be shown!");
+        Assert.DoesNotContain(oldest, cache.Filtered, "The entry evicted from the buffer should no longer be shown!");
         Assert.AreEqual("newest", cache.Filtered[0].Message, "The newest entry should come first!");
         Assert.AreEqual("middle", cache.Filtered[1].Message, "The surviving entry should still follow it!");
     }
@@ -125,12 +119,7 @@ public sealed class LogFilterCacheTests
         var cache = new LogFilterCache();
         var only = CreateEntry(LogLevel.Information, "only");
 
-        cache.Reset(new List<LogEntry>
-                    {
-                        only
-                    },
-                    LogLevel.Trace,
-                    null);
+        cache.Reset([only], LogLevel.Trace, null);
 
         var added = CreateEntry(LogLevel.Information, "newest");
         var updatedEntries = new List<LogEntry>
@@ -194,12 +183,7 @@ public sealed class LogFilterCacheTests
         var cache = new LogFilterCache();
         var stale = CreateEntry(LogLevel.Information, "stale");
 
-        cache.Reset(new List<LogEntry>
-                    {
-                        stale
-                    },
-                    LogLevel.Trace,
-                    null);
+        cache.Reset([stale], LogLevel.Trace, null);
 
         cache.MarkStale();
 
@@ -225,12 +209,7 @@ public sealed class LogFilterCacheTests
         var first = CreateEntry(LogLevel.Information, "first");
         var second = CreateEntry(LogLevel.Information, "second");
 
-        cache.Reset(new List<LogEntry>
-                    {
-                        first
-                    },
-                    LogLevel.Trace,
-                    null);
+        cache.Reset([first], LogLevel.Trace, null);
 
         // Two entries are skipped while paused, evicting "first" from the live buffer.
         cache.MarkStale();
@@ -246,7 +225,7 @@ public sealed class LogFilterCacheTests
         cache.Append(third, updatedEntries);
 
         Assert.HasCount(2, cache.Filtered, "The resync should reflect the current buffer, not an incremental guess!");
-        Assert.IsFalse(cache.Filtered.Contains(first), "An entry evicted while stale should not survive the resync!");
+        Assert.DoesNotContain(first, cache.Filtered, "An entry evicted while stale should not survive the resync!");
         Assert.AreEqual("third", cache.Filtered[0].Message, "The newest entry should come first!");
         Assert.AreEqual("second", cache.Filtered[1].Message, "The entry that survived eviction should still be present!");
     }
@@ -261,12 +240,7 @@ public sealed class LogFilterCacheTests
         var cache = new LogFilterCache();
         var first = CreateEntry(LogLevel.Information, "first");
 
-        cache.Reset(new List<LogEntry>
-                    {
-                        first
-                    },
-                    LogLevel.Trace,
-                    null);
+        cache.Reset([first], LogLevel.Trace, null);
 
         var addedA = CreateEntry(LogLevel.Information, "a");
         var addedB = CreateEntry(LogLevel.Information, "b");
@@ -296,12 +270,7 @@ public sealed class LogFilterCacheTests
         var addedA = CreateEntry(LogLevel.Information, "a");
         var addedB = CreateEntry(LogLevel.Information, "b");
 
-        cache.Reset(new List<LogEntry>
-                    {
-                        first
-                    },
-                    LogLevel.Trace,
-                    null);
+        cache.Reset([first], LogLevel.Trace, null);
 
         var updatedEntries = new List<LogEntry>
                              {
