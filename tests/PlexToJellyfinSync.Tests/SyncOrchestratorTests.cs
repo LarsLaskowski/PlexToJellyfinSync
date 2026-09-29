@@ -61,7 +61,8 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
-    /// The very first run only seeds the high-water mark and does not read the history
+    /// The very first run only seeds the high-water mark and does not read the history or resolve the owner
+    /// account id
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
@@ -76,6 +77,7 @@ public sealed class SyncOrchestratorTests
         Assert.IsNotNull(_stateStore.HighWaterMark, "The first run should seed the high-water mark!");
         Assert.HasCount(1, _stateStore.Writes, "The first run should persist the high-water mark exactly once!");
         Assert.IsNull(_plexClient.LastHistorySince, "The first run should not read the watch history!");
+        Assert.AreEqual(0, _plexClient.OwnerAccountIdCalls, "The seeding-only first run should not resolve or cache the owner account id!");
         Assert.IsEmpty(_nfoWriter.Writes, "The first run should not write any NFO file!");
         Assert.IsTrue(snapshot.PlexConnected, "The first run should mark Plex as connected!");
         Assert.IsNotNull(snapshot.LastPollAt, "The first run should record the poll timestamp!");
@@ -566,6 +568,32 @@ public sealed class SyncOrchestratorTests
         await orchestrator.ProcessHistoryAsync(CancellationToken.None);
 
         Assert.AreEqual(1, _plexClient.OwnerAccountIdCalls, "The owner account id should be cached after the first resolution!");
+    }
+
+    /// <summary>
+    /// A cycle that fails after the owner account id was resolved must not pin a possibly wrong id (for example a
+    /// transient-failure fallback) for the rest of the process; the next cycle should re-resolve it
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorFailedCycleReResolvesOwnerAccountIdOnNextRun()
+    {
+        _stateStore.HighWaterMark = _since;
+        _plexClient.OwnerAccountId = 1;
+        _plexClient.HistoryException = new InvalidOperationException("plex is down");
+
+        var orchestrator = CreateOrchestrator();
+
+        // A first cycle resolves and would otherwise cache owner account id 1, then fails.
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        _plexClient.HistoryException = null;
+        _plexClient.OwnerAccountId = 7;
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        Assert.AreEqual(2, _plexClient.OwnerAccountIdCalls, "A failed cycle should not pin the owner account id, so the next cycle re-resolves it!");
+        Assert.AreEqual(7, _plexClient.LastHistoryAccountId, "The re-resolved owner account id should be used by the next cycle!");
     }
 
     /// <summary>
