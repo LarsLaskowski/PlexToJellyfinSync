@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using PlexToJellyfinSync.Service;
@@ -95,7 +96,8 @@ public sealed class SyncStatusServiceTests
     [TestMethod]
     public void SyncStatusServiceUpdateThrowingSubscriberIsIsolated()
     {
-        var service = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
+        var logger = new RecordingSyncStatusLogger();
+        var service = new SyncStatusService(logger);
         var raised = 0;
 
         service.Changed += () => throw new InvalidOperationException("UI failure");
@@ -105,6 +107,8 @@ public sealed class SyncStatusServiceTests
 
         Assert.AreEqual(1, raised, "A subscriber after a throwing one should still be notified!");
         Assert.AreEqual(3L, service.GetSnapshot().ItemsProcessed, "The update should be applied despite the throwing subscriber!");
+        Assert.HasCount(1, logger.Warnings, "The throwing subscriber should be logged exactly once as a warning!");
+        Assert.IsInstanceOfType<InvalidOperationException>(logger.Warnings[0], "The logged warning should carry the subscriber's exception!");
     }
 
     /// <summary>
