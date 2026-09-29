@@ -69,7 +69,9 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     #region Methods
 
     /// <summary>
-    /// Resolve and cache the Plex owner account id
+    /// Resolve and cache the Plex owner account id; the cache is cleared when a cycle fails, so a fallback id
+    /// resolved during that cycle is retried on the next poll instead of pinning a bad guess indefinitely. A
+    /// fallback resolved during a cycle that then succeeds is still cached until the next failed cycle
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Owner account id</returns>
@@ -97,12 +99,15 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     }
 
     /// <summary>
-    /// Handle an error by logging it and updating the status
+    /// Handle an error by logging it, updating the status and clearing the cached owner account id so a possibly
+    /// wrong id resolved during this cycle (for example a transient-failure fallback) is not pinned for the
+    /// remaining lifetime of the process; the next cycle re-resolves it
     /// </summary>
     /// <param name="ex">Exception</param>
     private void HandleError(Exception ex)
     {
         _logger.LogError(ex, "Synchronization run failed");
+        _ownerAccountId = null;
         _status.Update(s =>
                        {
                            s.Errors++;
@@ -350,7 +355,6 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
         try
         {
-            var ownerId = await ResolveOwnerAsync(cancellationToken).ConfigureAwait(false);
             var since = await _stateStore.GetHighWaterMarkAsync(cancellationToken).ConfigureAwait(false);
 
             if (since is null)
@@ -368,6 +372,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
                 return;
             }
 
+            var ownerId = await ResolveOwnerAsync(cancellationToken).ConfigureAwait(false);
             var entries = await _plexClient.GetHistorySinceAsync(since.Value, ownerId, cancellationToken).ConfigureAwait(false);
 
             _status.Update(s => s.PlexConnected = true);

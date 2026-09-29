@@ -119,14 +119,19 @@ Studio standard for solution files, not a migration artifact.
    (see the reconcile trade-off in point 2). `GetOwnerAccountIdAsync` prefers the configured
    `Plex:OwnerAccountId`; only when that is unset does it query `/accounts`. An unreachable server
    or a malformed response still falls back to account id `1`, so a flaky Plex server never blocks
-   startup — `SyncOrchestrator.ResolveOwnerAsync` caches that fallback for the life of the process,
-   the same as a successfully resolved id. A `401`/`403` (a misconfigured token) and any
-   cancellation — the caller's own token as well as an `HttpClient`-internal per-request timeout —
-   propagate instead of being masked as that same fallback, so the id is never cached on failure and
-   resolution is retried on the next poll. `ProcessHistoryAsync` records a propagated `401`/`403` or
-   timeout as a normal sync failure (`SyncStatusViewData.Errors` and `PlexConnected = false`); a
-   genuine cancellation of the caller's own token is instead rethrown unrecorded, since the run
-   itself is being torn down.
+   startup — `SyncOrchestrator.ResolveOwnerAsync` caches that fallback the same as a successfully
+   resolved id, and only resolves it at all once `ProcessHistoryAsync` has a persisted high-water
+   mark to poll with, so the very first cycle (which only seeds that mark) never resolves or caches
+   an owner id in the first place. If a cycle that did resolve one then fails for any reason
+   (`SyncStatusViewData.PlexConnected = false`), `SyncOrchestrator.HandleError` clears the cache so
+   the next poll re-resolves the owner instead of pinning a possibly wrong guess for the life of the
+   process; a fallback resolved during a cycle that goes on to succeed anyway is still cached until
+   the next failed cycle. A `401`/`403` (a misconfigured token) and any cancellation — the caller's
+   own token as well as an `HttpClient`-internal per-request timeout — propagate instead of being
+   masked as that same fallback, so the id is never cached on failure and resolution is retried on
+   the next poll. `ProcessHistoryAsync` records a propagated `401`/`403` or timeout as a normal sync
+   failure (`SyncStatusViewData.Errors` and `PlexConnected = false`); a genuine cancellation of the
+   caller's own token is instead rethrown unrecorded, since the run itself is being torn down.
 5. **`PathMapper`** (`src/PlexToJellyfinSync.Service/PathMapper.cs`) rewrites the Plex-reported
    file path prefix into this container's local mount point using the longest matching
    `PathMappings` entry. It explicitly rejects paths containing `/../`, ending in `/..`, starting
