@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 using PlexToJellyfinSync.Core.Abstractions;
 using PlexToJellyfinSync.Core.Models;
 
@@ -11,6 +13,7 @@ public sealed class SyncStatusService : ISyncStatusProvider
     #region Fields
 
     private readonly Lock _lock = new();
+    private readonly ILogger<SyncStatusService> _logger;
     private readonly SyncStatusViewData _status;
 
     #endregion // Fields
@@ -20,8 +23,10 @@ public sealed class SyncStatusService : ISyncStatusProvider
     /// <summary>
     /// Constructor
     /// </summary>
-    public SyncStatusService()
+    /// <param name="logger">Logger</param>
+    public SyncStatusService(ILogger<SyncStatusService> logger)
     {
+        _logger = logger;
         _status = new SyncStatusViewData
                   {
                       StartedAt = DateTimeOffset.UtcNow
@@ -70,7 +75,25 @@ public sealed class SyncStatusService : ISyncStatusProvider
             mutate(_status);
         }
 
-        Changed?.Invoke();
+        var handlers = Changed;
+
+        if (handlers is null)
+        {
+            return;
+        }
+
+        // A faulty subscriber (a dashboard component) must not disturb the caller, usually the sync cycle
+        foreach (var handler in handlers.GetInvocationList().Cast<Action>())
+        {
+            try
+            {
+                handler();
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "A status change subscriber threw an exception and was skipped");
+            }
+        }
     }
 
     #endregion // ISyncStatusProvider
