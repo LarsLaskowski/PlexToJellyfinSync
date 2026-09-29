@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging.Abstractions;
+
 using PlexToJellyfinSync.Service;
 
 namespace PlexToJellyfinSync.Tests;
@@ -16,7 +18,7 @@ public sealed class SyncStatusServiceTests
     [TestMethod]
     public void SyncStatusServiceNewInstanceReportsIdleState()
     {
-        var service = new SyncStatusService();
+        var service = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
 
         var snapshot = service.GetSnapshot();
 
@@ -32,7 +34,7 @@ public sealed class SyncStatusServiceTests
     [TestMethod]
     public void SyncStatusServiceUpdateIsVisibleInSnapshot()
     {
-        var service = new SyncStatusService();
+        var service = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
 
         service.Update(status =>
                        {
@@ -54,7 +56,7 @@ public sealed class SyncStatusServiceTests
     [TestMethod]
     public void SyncStatusServiceSnapshotIsDetachedCopy()
     {
-        var service = new SyncStatusService();
+        var service = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
 
         service.Update(status => status.ItemsProcessed = 5);
 
@@ -76,7 +78,7 @@ public sealed class SyncStatusServiceTests
     [TestMethod]
     public void SyncStatusServiceUpdateRaisesChanged()
     {
-        var service = new SyncStatusService();
+        var service = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
         var raised = 0;
 
         service.Changed += () => raised++;
@@ -88,12 +90,30 @@ public sealed class SyncStatusServiceTests
     }
 
     /// <summary>
+    /// A throwing subscriber neither propagates into the caller nor blocks the other subscribers
+    /// </summary>
+    [TestMethod]
+    public void SyncStatusServiceUpdateThrowingSubscriberIsIsolated()
+    {
+        var service = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
+        var raised = 0;
+
+        service.Changed += () => throw new InvalidOperationException("UI failure");
+        service.Changed += () => raised++;
+
+        service.Update(status => status.ItemsProcessed = 3);
+
+        Assert.AreEqual(1, raised, "A subscriber after a throwing one should still be notified!");
+        Assert.AreEqual(3L, service.GetSnapshot().ItemsProcessed, "The update should be applied despite the throwing subscriber!");
+    }
+
+    /// <summary>
     /// Concurrent updates are serialized and no increment is lost
     /// </summary>
     [TestMethod]
     public void SyncStatusServiceConcurrentUpdatesLoseNoIncrement()
     {
-        var service = new SyncStatusService();
+        var service = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
 
         Parallel.For(0, 500, _ => service.Update(status => status.ItemsProcessed++));
 
@@ -106,7 +126,7 @@ public sealed class SyncStatusServiceTests
     [TestMethod]
     public void SyncStatusServiceConcurrentSnapshotsStayConsistent()
     {
-        var service = new SyncStatusService();
+        var service = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
 
         Parallel.For(0,
                      500,

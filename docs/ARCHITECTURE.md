@@ -217,7 +217,8 @@ Studio standard for solution files, not a migration artifact.
 8. **`SyncStatusService`** (`src/PlexToJellyfinSync.Service/SyncStatusService.cs`) holds one
    mutable `SyncStatusViewData` behind a `Lock`, exposes immutable snapshots via `GetSnapshot()`,
    and raises a `Changed` event on every `Update()` so the Blazor dashboard can re-render without
-   polling. `/health` and `Dashboard.razor` both read through this same snapshot.
+   polling; each subscriber is invoked in isolation, so a throwing handler is logged and skipped instead of
+   reaching the sync cycle. `/health` and `Dashboard.razor` both read through this same snapshot.
 
 ---
 

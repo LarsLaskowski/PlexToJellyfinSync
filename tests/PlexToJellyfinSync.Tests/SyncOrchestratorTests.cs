@@ -28,7 +28,7 @@ public sealed class SyncOrchestratorTests
     private RecordingNfoWriter _nfoWriter = new();
     private StubPathMapper _pathMapper = new();
     private FakeStateStore _stateStore = new();
-    private SyncStatusService _status = new();
+    private SyncStatusService _status = new(NullLogger<SyncStatusService>.Instance);
 
     #endregion // Fields
 
@@ -57,7 +57,7 @@ public sealed class SyncOrchestratorTests
         _nfoWriter = new RecordingNfoWriter();
         _pathMapper = new StubPathMapper();
         _stateStore = new FakeStateStore();
-        _status = new SyncStatusService();
+        _status = new SyncStatusService(NullLogger<SyncStatusService>.Instance);
     }
 
     /// <summary>
