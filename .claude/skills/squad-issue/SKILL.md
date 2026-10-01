@@ -52,7 +52,7 @@ action yourself — including follow-up issues the Lead decides on.
    `squad-lead` in mode `decide`; an accepted gap is recorded in `log.md`.
 7. **Code check.** Launch `squad-code-officer` with the base ref — the only member that runs
    `reihitsu-format` and fixes `RH####` / `S####` diagnostics. Then verify yourself, without formatting:
-   `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` shows zero `RH####` and no `S####` in a
+   `reihitsu-format --check ./` exits 0, `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` shows zero `RH####` and no `S####` in a
    changed file, `dotnet test PlexToJellyfinSync.slnx -c Release --no-build` is green with the same
    tests, and the coverage check still passes. Structural items handed back go to `squad-dev` (or
    `squad-tester`), followed by another code check. CI does not check formatting; this is the only gate.

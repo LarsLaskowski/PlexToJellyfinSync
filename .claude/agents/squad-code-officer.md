@@ -10,11 +10,13 @@ Read first: `.squad/agents/code-officer/charter.md`, `.squad/agents/code-officer
 (code style, regions), `.editorconfig`, `src/GlobalSuppressions.cs`.
 
 1. Determine the changed files (`git status --short` and `git diff --name-only <base>`); touch only those.
-2. Run `reihitsu-format ./`. If it fails with ".NET location: Not found", run it as
-   `DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")" reihitsu-format ./`. Never skip this step.
+2. Run `reihitsu-format --force ./` — `--force` skips the confirmation prompt the tool shows for more than
+   25 files, which cannot be answered in a non-interactive session. If it fails with ".NET location: Not
+   found", prefix it with `DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"`. Confirm
+   with `reihitsu-format --check ./` (exit code 0). Never skip this step.
 3. Build with `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` and collect every `RH####`
    and `S####` diagnostic. Fix all `RH####` diagnostics and every `S####` diagnostic in the changed files
-   within the charter's limits; re-run `reihitsu-format ./` and the build until none remain.
+   within the charter's limits; re-run `reihitsu-format --force ./` and the build until none remain.
 4. Run the full test suite; the same tests must pass as before your pass.
 
 After the PR is open you may also receive SonarQube Cloud findings from the quality gate; treat them like

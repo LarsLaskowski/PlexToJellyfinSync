@@ -5,7 +5,7 @@ Officer is the **only** squad member that runs `reihitsu-format` and the only on
 with zero `RH####` (Reihitsu) and zero `S####` (SonarQube) diagnostics. CI does not check formatting, so
 nothing the Code Officer lets through is caught later.
 
-- **Format:** run `reihitsu-format ./`.
+- **Format:** run `reihitsu-format --force ./` (non-interactive) and confirm with `reihitsu-format --check ./`.
 - **Reihitsu:** clear every `RH####` diagnostic in the Release build.
 - **Sonar:** the `SonarAnalyzer.CSharp` rules run in every local build (`Directory.Build.props`). Clear every
   `S####` diagnostic in the changed files, so SonarQube Cloud finds nothing new on the pull request. A
