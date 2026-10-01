@@ -9,8 +9,9 @@ Fix a reported GitHub issue with the squad defined in `.squad/`. You are the **o
 the members as subagents, pass their outputs on (they cannot talk to each other), enforce the loop limits
 from `.squad/routing.md`, and run every Git and GitHub step yourself.
 
-Invoking this skill is the user's approval for the commit, push and pull-request steps below (see
-`CLAUDE.md`, golden rules). The user is the **Product Manager**: only contact them when the Lead returns
+Commits and pushes to the work branch are always allowed (see `CLAUDE.md`, golden rules); commit and
+push after each completed step so no work is lost. Invoking this skill is the user's approval for opening
+the pull request in step 9, once the Lead has approved it. The user is the **Product Manager**: only contact them when the Lead returns
 `RESULT: ESCALATE`, then relay the Lead's question verbatim with its options and wait.
 
 Everything that ends up in the repository or on GitHub — branch, commit message, PR title and body, code

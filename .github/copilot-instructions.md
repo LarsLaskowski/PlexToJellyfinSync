@@ -33,18 +33,14 @@ together.
 
 ## Git Workflow
 
-- **Never commit or push automatically**: Do **not** run `git commit`, `git push`, or any combination
-  thereof without **explicit user approval**
-- After making changes, present a summary of the modifications and **ask the user** before committing
-- Do **not** create branches, tags, or perform any other Git write operations without being explicitly
-  told to do so
-- Read-only Git commands (`git status`, `git diff`, `git log`, etc.) are always allowed
-- **Exception:** when the user explicitly asks to run the `create-pr`, `squad-issue` or `squad-spec` skill (see
-  [Related skills](#related-skills)), that request **is** the user's explicit approval for the commit,
-  push and pull-request steps those skills document — no further confirmation is needed for those
-  steps. This does not cover a skill the assistant decides to invoke on its own, and it covers only the
-  Git actions that skill's own documented steps perform. Every other action, including any Git step
-  outside those skills, still needs that explicit approval.
+- **Commits and pushes are always allowed** without asking: commit finished work and push it to the
+  current feature branch (creating that branch if needed), so nothing is lost when a session ends. This
+  does **not** cover: pushing to or committing directly on `main`, force-pushing or otherwise rewriting
+  published history, deleting branches, and creating tags (a `v*` tag triggers a release) — those still
+  need explicit user approval.
+- **Pull requests are only opened by the squad or by the user.** The `squad-issue` and `squad-spec`
+  skills open a PR after the Lead's approval; outside the squad, a PR is opened only when the user
+  explicitly asks for one (e.g. by running the `create-pr` skill). Never open a PR on your own initiative.
 
 ---
 

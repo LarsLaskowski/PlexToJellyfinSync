@@ -25,5 +25,5 @@ differ. Follow `squad-issue` steps 2–10 with these changes:
 - **Pull request (step 9):** reference the spec folder instead of `Closes #<number>` (use `Closes #<n>`
   only if a feature request issue exists).
 
-Invoking this skill is the user's approval for the commit, push and pull-request steps (see `CLAUDE.md`,
-golden rules). The user is the Product Manager and is only asked when the Lead escalates.
+Commits and pushes to the work branch are always allowed (see `CLAUDE.md`, golden rules); invoking this
+skill is the user's approval for opening the pull request once the Lead has approved it. The user is the Product Manager and is only asked when the Lead escalates.
