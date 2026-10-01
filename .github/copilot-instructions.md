@@ -39,12 +39,12 @@ together.
 - Do **not** create branches, tags, or perform any other Git write operations without being explicitly
   told to do so
 - Read-only Git commands (`git status`, `git diff`, `git log`, etc.) are always allowed
-- **Exception:** when the user explicitly asks to run the `fix-issue` or `create-pr` skill (see
+- **Exception:** when the user explicitly asks to run the `create-pr`, `squad-issue` or `squad-spec` skill (see
   [Related skills](#related-skills)), that request **is** the user's explicit approval for the commit,
-  push and pull-request steps those two skills document — no further confirmation is needed for those
+  push and pull-request steps those skills document — no further confirmation is needed for those
   steps. This does not cover a skill the assistant decides to invoke on its own, and it covers only the
   Git actions that skill's own documented steps perform. Every other action, including any Git step
-  outside those two skills, still needs that explicit approval.
+  outside those skills, still needs that explicit approval.
 
 ---
 
@@ -128,18 +128,33 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 
 - `create-pr` — verify (format, build, tests), review the change locally, then open a PR
   following [`pull_request_template.md`](pull_request_template.md).
-- `fix-issue` — reproduce a reported issue as a failing unit test, implement a minimal fix, and
-  open a PR referencing the issue.
+- `squad-issue` — fix a GitHub issue with the squad: the Lead plans, Security reviews the plan, the
+  Tester writes failing tests first, the Dev implements, the Style Manager aligns the style, Reviewer
+  and Security review the diff, the Lead approves, then a PR referencing the issue is opened.
+- `squad-spec` — the same squad pipeline for a new feature, planned as `spec.md`, `plan.md` and
+  `tasks.md` under `specs/`.
 - `review-pr` — review an open pull request against this project's C#, analyzer, security and
   unit-test conventions, and post the findings with an explicit verdict.
 
 Review runs as a subagent defined in `.claude/agents/plextojellyfinsync-reviewer.md` (read-only,
-pinned to Opus, fresh context). `create-pr` and `fix-issue` call it *before* pushing, so a change
+pinned to Opus, fresh context). `create-pr` and the squad skills call it *before* pushing, so a change
 is reviewed while it is still local; `review-pr` calls the same agent for a pull request that is
 already open. The review checklist, the integration-surface sweep, the blocking/non-blocking
 severity model and the "round 1 is a full review, later rounds review only the delta" rule live in
 that one file, so they are identical either way. An agent without subagent support follows the same
 file inline.
+
+The squad skills run a multi-role pipeline defined in [`.squad/`](../.squad/team.md) — Lead (plan, decisions,
+PR approval), Security (plan and diff), Tester (tests first), Dev, Style Manager and Reviewer — as
+subagents under `.claude/agents/squad-*.md`, with the loop limits and escalation rules in
+[`.squad/routing.md`](../.squad/routing.md). Their working records (`plan.md`, `log.md`, for features also
+`spec.md` and `tasks.md`) live under `specs/`. The user acts as Product Manager and is only asked when
+the Lead escalates.
+
+The reasoning behind code decisions — why something was built the way it was — is recorded by the Lead
+as one decision record per decision in [`docs/decisions/`](../docs/decisions/README.md) (append-only,
+superseded rather than rewritten), not in `ARCHITECTURE.md`. Read the relevant records before changing
+code they cover, and do not contradict an accepted record without superseding it.
 
 Two rules these skills enforce that are easy to get wrong:
 

@@ -4,6 +4,8 @@ This document describes how PlexToJellyfinSync is put together and, where the re
 recoverable from the code or existing docs, *why* it looks the way it does. It complements
 [`README.md`](../README.md) (setup and configuration), [`CONTRIBUTING.md`](CONTRIBUTING.md)
 (workflow) and [`UNIT_TESTS.md`](UNIT_TESTS.md) (test conventions) rather than repeating them.
+The reasoning behind individual decisions — the options considered and the trade-offs accepted — is
+recorded in [`decisions/`](decisions/README.md).
 
 ---
 
@@ -358,7 +360,7 @@ Several files carry near-duplicate project guidance for different AI tools:
 [`CLAUDE.md`](../CLAUDE.md) (Claude Code), [`AGENTS.md`](../AGENTS.md) (Codex/generic agents), and
 [`.github/copilot-instructions.md`](../.github/copilot-instructions.md) (GitHub Copilot), plus
 per-workflow skill files under `.claude/skills/` and `.github/skills/` (kept identical between
-the two locations) that encode the create-PR, fix-issue and review-PR workflows in more procedural
+the two locations) that encode the create-PR, squad (issue and feature) and review-PR workflows in more procedural
 detail. All of these are meant to stay consistent with each other and with this document,
 `CONTRIBUTING.md` and `UNIT_TESTS.md` — a change to project conventions should be reflected in
 every one of them, not just the one the current tool happens to read.
@@ -366,12 +368,22 @@ every one of them, not just the one the current tool happens to read.
 The review those skills run is defined once, in
 [`.claude/agents/plextojellyfinsync-reviewer.md`](../.claude/agents/plextojellyfinsync-reviewer.md):
 a read-only reviewer with its own integration-surface sweep, convention checklist and
-blocking/non-blocking severity model. `create-pr` and `fix-issue` run it against the local branch
+blocking/non-blocking severity model. `create-pr` and the squad skills run it against the local branch
 *before* pushing, so a change arrives on GitHub already reviewed instead of accumulating review
 rounds afterwards; `review-pr` runs the same definition against an already-open pull request. The
 loop is bounded deliberately — round 1 is a full review, every later round looks only at the delta,
 and only blocking findings earn another round — because a fresh full re-review of unchanged code
 always finds something new.
+
+The squad skills (`squad-issue`, `squad-spec`) wrap that review in a larger, bounded pipeline described
+in [`.squad/routing.md`](../.squad/routing.md): an Opus Lead plans and owns every decision including PR
+approval, a Security member reviews the plan before any code exists (at most two rejections) and the
+diff afterwards, tests are written first, a style-only pass runs *before* the review so the reviewed
+code is the merged code, and the review loop is one full pass plus at most two delta rounds. Every limit
+ends in a Lead decision, and only a decision the Lead cannot make reaches the human. The reasoning behind
+individual choices is kept out of this document and recorded instead as decision records in
+[`docs/decisions/`](decisions/README.md); this document describes how the system works and links a record
+where a guarantee or flow is the result of one.
 
 Two consequences of that arrangement are load-bearing and easy to undo by accident:
 
@@ -387,5 +399,6 @@ Two consequences of that arrangement are load-bearing and easy to undo by accide
 
 ## Undocumented decisions
 
-If a future change introduces a decision without a stated reason, add it here instead of leaving
-the gap for the next person. None are currently outstanding.
+If a future change introduces a decision without a stated reason, record it as a decision record in
+[`decisions/`](decisions/README.md) instead of leaving the gap for the next person. None are currently
+outstanding.
