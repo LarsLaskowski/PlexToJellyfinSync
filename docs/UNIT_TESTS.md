@@ -257,9 +257,24 @@ dotnet test PlexToJellyfinSync.slnx -c Release --no-build --logger trx --collect
 This produces a `coverage.opencover.xml` file, which CI feeds into SonarQube Cloud analysis (see
 `.github/workflows/ci.yml`).
 
+**Threshold: at least 80 % line coverage on new or changed production code, and at least 80 % overall**
+— the same measure as SonarQube's "coverage on new code". Check it locally before a push:
+
+```shell
+dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
+python3 .squad/tools/coverage-check.py origin/main ./TestResults
+```
+
+The script lists every changed file under `src/` with its covered/coverable changed lines and the
+uncovered line numbers, and exits non-zero below the threshold. Lines that genuinely cannot be covered by
+a unit test (for example host startup glue) need an explicit, recorded decision — they are not silently
+accepted.
+
 ## Checklist for new tests
 
 - [ ] New production code has accompanying unit tests — this is mandatory, not optional.
+- [ ] At least 80 % line coverage on new/changed production code and overall
+      (`.squad/tools/coverage-check.py`).
 - [ ] Test class named `{TypeUnderTest}Tests`, placed directly in
       `tests/PlexToJellyfinSync.Tests/` (no subfolders).
 - [ ] Test method named `{TypeUnderTest}{Scenario}{ExpectedResult}` (PascalCase, no underscores).

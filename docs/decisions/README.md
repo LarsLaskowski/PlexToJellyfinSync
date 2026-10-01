@@ -34,3 +34,4 @@ links the record.
 | [0006](0006-item-level-error-isolation.md) | Isolate failures per item and keep the worker alive | Accepted | 2026-10-01 |
 | [0007](0007-dashboard-auth-model.md) | Dashboard is open by default, optionally protected by a token | Accepted | 2026-10-01 |
 | [0008](0008-named-httpclient-for-singleton-plexclient.md) | Named HttpClient for the singleton PlexClient | Accepted | 2026-10-01 |
+| [0009](0009-quality-gates-before-the-pull-request.md) | Quality gates before the pull request | Accepted | 2026-10-01 |

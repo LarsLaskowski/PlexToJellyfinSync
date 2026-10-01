@@ -1,6 +1,6 @@
 ---
 name: squad-issue
-description: Use when the user asks to fix a specific GitHub issue in PlexToJellyfinSync. Runs the squad pipeline (Lead plans, Security reviews the plan, Tester writes failing tests first, Dev implements, Style Manager, Reviewer + Security review, Lead approves) and opens a PR referencing the issue.
+description: Use when the user asks to fix a specific GitHub issue in PlexToJellyfinSync. Runs the squad pipeline (Lead plans, Security reviews the plan, Tester writes failing tests first, Dev implements to 80% coverage, Code Officer clears format/Reihitsu/Sonar, Reviewer + Security review, Lead approves) and opens a PR referencing the issue.
 ---
 
 # Squad Issue
@@ -33,19 +33,26 @@ comments, files under `specs/` — is written in **English**.
    exist and fail on the current code (unless the Tester justified why one cannot). A fix without a
    reproducing test is only acceptable when the bug genuinely needs a live Plex/Jellyfin instance — then
    the PR says so.
-5. **Implement.** Launch `squad-dev` with the plan and the test names. If the Dev disputes a test, launch
-   `squad-lead` in mode `decide`; the Tester changes the test only if the Lead says so.
-6. **Style pass.** Launch `squad-style` with the base ref. Then run yourself: `reihitsu-format ./`,
-   `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` (zero `RH####` diagnostics),
-   `dotnet test PlexToJellyfinSync.slnx -c Release --no-build`. If the style pass broke something or
-   changed structure, revert those edits and hand the issue to `squad-dev`.
+5. **Implement and cover.** Launch `squad-dev` with the plan and the test names. If the Dev disputes a
+   test, launch `squad-lead` in mode `decide`; the Tester changes the test only if the Lead says so. Then
+   launch `squad-tester` in mode `coverage`; repeat Dev/Tester until
+   `python3 .squad/tools/coverage-check.py <base-ref> <results-dir>` passes (≥ 80 % line coverage on
+   new/changed production code and overall). Lines the Tester reports as not unit-testable go to
+   `squad-lead` in mode `decide`; an accepted gap is recorded in `log.md`.
+6. **Code check.** Launch `squad-code-officer` with the base ref — it is the only member that runs
+   `reihitsu-format` and fixes `RH####` / `S####` diagnostics. Then verify yourself, without formatting:
+   `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` shows zero `RH####` diagnostics and no
+   `S####` diagnostic in a changed file, `dotnet test PlexToJellyfinSync.slnx -c Release --no-build` is
+   green with the same tests, and the coverage check still passes. Structural items the Code Officer hands
+   back go to `squad-dev` (or `squad-tester` for tests), followed by another code check. CI does not check
+   formatting, so this step is the only gate.
 7. **Review.** Launch `plextojellyfinsync-reviewer` (round 1, full) and `squad-security` in mode `diff`
    in parallel, both against the base ref. Blocking findings from either → `squad-dev` fixes them →
-   re-run step 6's verification → next round reviews only the delta. At most **2 fix rounds** after round
+   coverage check and step 6 again → next round reviews only the delta. At most **2 fix rounds** after round
    1; if blocking findings remain, launch `squad-lead` in mode `decide`. Non-blocking findings: the Lead
    decides per finding — fix now, or open a linked GitHub issue now.
 8. **PR approval.** Launch `squad-lead` in mode `approve-pr` with the base ref, the verification result
-   and the review outcome. `NOT APPROVED` → handle the reasons (back to step 5 or 7, counting against the
+   (build, tests, coverage output) and the review outcome. `NOT APPROVED` → handle the reasons (back to step 5 or 7, counting against the
    review loop limit) or let the Lead decide/escalate. On `APPROVED`, the change's decision records are
    `Accepted` and listed in `docs/decisions/README.md`.
 9. **Pull request** (Dev role, performed by you). Commit — subject ≤ 80 characters, no first person, no

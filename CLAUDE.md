@@ -26,12 +26,17 @@ together.
   steps. This does not cover a skill the assistant decides to invoke on its own, and it covers only the
   Git actions that skill's own documented steps perform. Every other action, including any Git step
   outside those skills, still needs that explicit approval.
-- Run `reihitsu-format ./` after editing C# and before building.
+- Run `reihitsu-format ./` after editing C# and before building. CI does **not** check formatting, so
+  it must be clean before a push. In the squad skills only the Code Officer runs it.
 - Add new C# packages via **Central Package Management** (`Directory.Packages.props`); do not put
   version numbers in individual `.csproj` files.
-- Every C# project uses the **Reihitsu.Analyzer** (no StyleCop.Analyzers).
-- A build must finish with **zero Reihitsu (`RH####`) warnings and errors**. Treat every `RH`
-  diagnostic as a failure and fix it before considering the work done.
+- Every C# project uses the **Reihitsu.Analyzer** and the **SonarAnalyzer.CSharp** rules (no
+  StyleCop.Analyzers), so SonarQube issues surface in the local build, not first in the CI analysis.
+- A build must finish with **zero Reihitsu (`RH####`) warnings and errors** and no SonarQube (`S####`)
+  diagnostic in a changed file. Treat every such diagnostic as a failure and fix it before considering
+  the work done (in the squad skills, the Code Officer owns this).
+- New or changed production code needs **at least 80 % line coverage**
+  (`.squad/tools/coverage-check.py`, see [`UNIT_TESTS.md`](docs/UNIT_TESTS.md#code-coverage)).
 - Wrap every type's members in `#region` blocks **as you write the code** — never leave a type
   un-regioned and never add the regions only after an analyzer warning. Group by member kind
   (`Constants`, `Fields`, `Constructors`, `Properties`, `Events`, `Methods`, …). For a region that
@@ -81,8 +86,8 @@ Single test: `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Test
 - **Central Package Management** via `Directory.Packages.props`
   (`<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>`); never put versions in
   individual `.csproj` files.
-- **Reihitsu.Analyzer** is a dev dependency in every project (via `Directory.Build.props`); there is no
-  StyleCop.Analyzers.
+- **Reihitsu.Analyzer** and **SonarAnalyzer.CSharp** are dev dependencies in every project (via
+  `Directory.Build.props`); there is no StyleCop.Analyzers.
 - **Solution format** is `.slnx` (XML-based) at the repository root.
 
 ## Code style
@@ -111,7 +116,8 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 - `create-pr` — verify (format, build, tests), review the change locally, then open a PR
   following [`.github/pull_request_template.md`](.github/pull_request_template.md).
 - `squad-issue` — fix a GitHub issue with the squad: the Lead plans, Security reviews the plan, the
-  Tester writes failing tests first, the Dev implements, the Style Manager aligns the style, Reviewer
+  Tester writes failing tests first, the Dev implements to ≥ 80 % coverage, the Code Officer clears
+  format, Reihitsu and Sonar diagnostics, Reviewer
   and Security review the diff, the Lead approves, then a PR referencing the issue is opened.
 - `squad-spec` — the same squad pipeline for a new feature, planned as `spec.md`, `plan.md` and
   `tasks.md` under `specs/`.
@@ -127,7 +133,7 @@ that one file, so they are identical either way. An agent without subagent suppo
 file inline.
 
 The squad skills run a multi-role pipeline defined in [`.squad/`](.squad/team.md) — Lead (plan, decisions,
-PR approval), Security (plan and diff), Tester (tests first), Dev, Style Manager and Reviewer — as
+PR approval), Security (plan and diff), Tester (tests first, coverage), Dev, Code Officer (format, Reihitsu, Sonar) and Reviewer — as
 subagents under `.claude/agents/squad-*.md`, with the loop limits and escalation rules in
 [`.squad/routing.md`](.squad/routing.md). Their working records (`plan.md`, `log.md`, for features also
 `spec.md` and `tasks.md`) live under `specs/`. The user acts as Product Manager and is only asked when

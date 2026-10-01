@@ -107,8 +107,11 @@ Follow the PR template in [`.github/pull_request_template.md`](../.github/pull_r
 Detailed C# code-style rules (naming, `#region` layout, formatting, XML docs, null handling) are
 documented in [`CLAUDE.md`](../CLAUDE.md) and [`.github/copilot-instructions.md`](../.github/copilot-instructions.md)
 and are binding for all contributions. Run `reihitsu-format ./` before opening a pull request; a
-clean build must show **zero Reihitsu (`RH####`) warnings and errors** — CI enforces this by
-running the formatter and failing the build on any resulting diff.
+clean build must show **zero Reihitsu (`RH####`) warnings and errors** and no SonarQube (`S####`)
+diagnostic in a changed file (the `SonarAnalyzer.CSharp` rules run in every local build). CI does
+**not** re-check formatting — a pull request is expected to arrive clean (see
+[decision 0009](decisions/0009-quality-gates-before-the-pull-request.md)). New or changed production
+code needs at least 80 % line coverage (see [`UNIT_TESTS.md`](UNIT_TESTS.md#code-coverage)).
 
 ## Versioning and releases
 

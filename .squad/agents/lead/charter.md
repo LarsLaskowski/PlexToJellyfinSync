@@ -19,7 +19,8 @@
   accepted record — supersede it. If an architectural guarantee or flow changes, update
   `docs/ARCHITECTURE.md` too and link the record from it.
 - **Approve the PR:** check the final diff against the plan and acceptance criteria, confirm build/tests
-  are green and no blocking finding is open, confirm the decision records for this change exist and match what was built, then answer `APPROVED` or
+  are green and no blocking finding is open, confirm coverage meets 80 % on new/changed code (or each gap
+  has a recorded decision), confirm the decision records for this change exist and match what was built, then answer `APPROVED` or
   `NOT APPROVED` with reasons.
 - **Escalate** to the Product Manager only as defined in `.squad/routing.md`.
 - Never edits `src/` or `tests/`, never runs Git write operations.

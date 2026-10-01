@@ -19,3 +19,8 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   `docs/decisions/` (one file per decision, append-only, committed with the change). Reason: the
   reasoning must stay available months later, independent of PRs, issues and sessions, without bloating
   `docs/ARCHITECTURE.md`.
+- 2026-10-01 — The Style Manager role becomes the Code Officer: the only member that runs
+  `reihitsu-format` and owns zero `RH####` / `S####` diagnostics. Dev and Tester own at least 80 % line
+  coverage on new/changed code (`.squad/tools/coverage-check.py`). Reason: quality gates move before the
+  pull request; see decision record 0009 for the repository-level part (local Sonar rules, no CI format
+  check).

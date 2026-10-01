@@ -332,12 +332,13 @@ Studio standard for solution files, not a migration artifact.
 - The image expects two volumes: a **writable** media volume (so `NfoWriter` can create/update
   `.nfo` files next to the media) and a `/config` volume for `StateStore`'s `state.json`; both must
   be writable by the container's non-root UID.
-- **CI** (`.github/workflows/ci.yml`) restores, runs `reihitsu-format --check ./` (with the CLI
-  installed via `--prerelease` so it matches the pinned analyzer) and fails the build on any
-  unformatted file, builds, runs tests with coverage
+- **CI** (`.github/workflows/ci.yml`) restores, builds, runs tests with coverage
   (`XPlat Code Coverage`, OpenCover format), and — when `SONAR_TOKEN` is available (not exposed to
   Dependabot or fork PRs) — feeds the coverage into SonarQube Cloud analysis
-  (`networlddev_PlexToJellyfinSync`).
+  (`networlddev_PlexToJellyfinSync`). CI deliberately does **not** check formatting: formatting, Reihitsu
+  and Sonar diagnostics are cleared before a push (in the squad, by the Code Officer), with the
+  `SonarAnalyzer.CSharp` rules running in every local build — see
+  [decision 0009](decisions/0009-quality-gates-before-the-pull-request.md).
 - **CodeQL** (`.github/workflows/codeql.yml`) runs on push/PR to `main` and weekly on a schedule,
   analyzing both C# and JavaScript/TypeScript in `build-mode: none` (no compiled build needed for
   CodeQL's extraction).
@@ -378,8 +379,9 @@ always finds something new.
 The squad skills (`squad-issue`, `squad-spec`) wrap that review in a larger, bounded pipeline described
 in [`.squad/routing.md`](../.squad/routing.md): an Opus Lead plans and owns every decision including PR
 approval, a Security member reviews the plan before any code exists (at most two rejections) and the
-diff afterwards, tests are written first, a style-only pass runs *before* the review so the reviewed
-code is the merged code, and the review loop is one full pass plus at most two delta rounds. Every limit
+diff afterwards, tests are written first and new/changed code reaches at least 80 % line coverage, a
+Code Officer clears formatting, Reihitsu and Sonar diagnostics *before* the review so the reviewed code
+is the merged code, and the review loop is one full pass plus at most two delta rounds. Every limit
 ends in a Lead decision, and only a decision the Lead cannot make reaches the human. The reasoning behind
 individual choices is kept out of this document and recorded instead as decision records in
 [`docs/decisions/`](decisions/README.md); this document describes how the system works and links a record

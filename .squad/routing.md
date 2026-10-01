@@ -20,8 +20,8 @@ work folder's `log.md`.
 | 1 | Plan                    | Lead           | `plan.md` (feature: `spec.md` first, then `plan.md` + `tasks.md`), decision records as `Proposed` |
 | 2 | Plan security review    | Security       | `APPROVED` → step 3; `CHANGES_REQUIRED` → back to step 1          |
 | 3 | Tests first             | Tester         | tests for the acceptance criteria; must **fail** on the current code (or justify why they cannot) |
-| 4 | Implementation          | Dev            | production code until the step-3 tests and the full suite are green |
-| 5 | Style pass              | Style Manager  | style-only edits; same tests green, zero `RH####` diagnostics     |
+| 4 | Implementation + coverage | Dev, Tester  | step-3 tests and full suite green; ≥ 80 % line coverage on new/changed code and overall (`.squad/tools/coverage-check.py`) |
+| 5 | Code check              | Code Officer   | `reihitsu-format`, zero `RH####`, no `S####` in changed files; same tests green, no structural change |
 | 6 | Review                  | Reviewer + Security | no blocking findings → step 7; blocking → back to Dev (step 4) |
 | 7 | PR approval             | Lead           | decision records `Accepted` and indexed; `APPROVED` → step 8; otherwise Lead decides (see escalation) |
 | 8 | Pull request            | Dev (via orchestrator) | commit, push, open PR                                     |
@@ -35,8 +35,11 @@ work folder's `log.md`.
   decides: accept with justification, split into a follow-up issue, abort, or escalate.
 - **Dev ↔ Tester disagreements:** if the Dev believes a step-3 test is wrong, the Lead decides (the
   test is not changed silently). This does not count against a loop limit.
-- **Style pass breaks something** (build, tests, or a structural change): the style edit is reverted and
-  the Dev fixes it; the Style Manager never changes behavior.
+- **Code check needs a structural change** (or breaks build/tests): the Code Officer's edit is reverted
+  and the item goes to the Dev (or Tester for tests), then the code check runs again; the Code Officer
+  never changes behavior. Not counted against a loop limit.
+- **Coverage below 80 %:** Dev and Tester iterate; lines that cannot be covered by a unit test go to the
+  Lead, whose decision is recorded in `log.md`.
 
 ## Escalation to the Product Manager
 

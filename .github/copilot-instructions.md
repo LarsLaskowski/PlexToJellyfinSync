@@ -69,15 +69,21 @@ Use the solution file at the repository root (`.slnx` format):
 - Run one test project: `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj -c Release --no-build`
 - Run one test method: `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj --filter "FullyQualifiedName~Namespace.ClassName.MethodName"`
 
-Run `reihitsu-format ./` after source changes and before running a build. The command is available as
+Run `reihitsu-format ./` after source changes and before running a build. CI does **not** check
+formatting, so it must be clean before a push; in the squad skills only the Code Officer runs it. The command is available as
 a .NET tool and can be installed with `dotnet tool install -g Reihitsu.Cli --prerelease` if it is
 missing; `--prerelease` keeps the CLI in sync with the prerelease **Reihitsu.Analyzer** pinned in
 `Directory.Packages.props`.
-Static analysis runs during build through the **Reihitsu.Analyzer** (added to every project). There is
-**no StyleCop.Analyzers**.
+Static analysis runs during build through the **Reihitsu.Analyzer** and the **SonarAnalyzer.CSharp** rules
+(both added to every project), so SonarQube issues surface in the local build, not first in the CI
+analysis. There is **no StyleCop.Analyzers**.
 
-A build must finish with **zero Reihitsu (`RH####`) warnings and errors**. Treat every `RH` diagnostic
-as a failure and fix it before considering the work done — do not leave analyzer warnings behind.
+A build must finish with **zero Reihitsu (`RH####`) warnings and errors** and no SonarQube (`S####`)
+diagnostic in a changed file. Treat every such diagnostic as a failure and fix it before considering the
+work done — do not leave analyzer warnings behind (in the squad skills, the Code Officer owns this).
+
+New or changed production code needs **at least 80 % line coverage**
+(`.squad/tools/coverage-check.py`, see [`UNIT_TESTS.md`](../docs/UNIT_TESTS.md#code-coverage)).
 
 ---
 
@@ -88,7 +94,7 @@ as a failure and fix it before considering the work done — do not leave analyz
 - **Implicit Usings**: Enabled (`<ImplicitUsings>enable</ImplicitUsings>`)
 - **Documentation XML**: Enabled (`<GenerateDocumentationFile>true</GenerateDocumentationFile>`)
 - **Central Package Management**: `Directory.Packages.props` with `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>`
-- **Code Analysis**: `Reihitsu.Analyzer` as a dev dependency in every project (via `Directory.Build.props`)
+- **Code Analysis**: `Reihitsu.Analyzer` and `SonarAnalyzer.CSharp` as dev dependencies in every project (via `Directory.Build.props`)
 - **Solution Format**: `.slnx` (XML-based)
 
 ### Multi-Project Architecture
@@ -129,7 +135,8 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 - `create-pr` — verify (format, build, tests), review the change locally, then open a PR
   following [`pull_request_template.md`](pull_request_template.md).
 - `squad-issue` — fix a GitHub issue with the squad: the Lead plans, Security reviews the plan, the
-  Tester writes failing tests first, the Dev implements, the Style Manager aligns the style, Reviewer
+  Tester writes failing tests first, the Dev implements to ≥ 80 % coverage, the Code Officer clears
+  format, Reihitsu and Sonar diagnostics, Reviewer
   and Security review the diff, the Lead approves, then a PR referencing the issue is opened.
 - `squad-spec` — the same squad pipeline for a new feature, planned as `spec.md`, `plan.md` and
   `tasks.md` under `specs/`.
@@ -145,7 +152,7 @@ that one file, so they are identical either way. An agent without subagent suppo
 file inline.
 
 The squad skills run a multi-role pipeline defined in [`.squad/`](../.squad/team.md) — Lead (plan, decisions,
-PR approval), Security (plan and diff), Tester (tests first), Dev, Style Manager and Reviewer — as
+PR approval), Security (plan and diff), Tester (tests first, coverage), Dev, Code Officer (format, Reihitsu, Sonar) and Reviewer — as
 subagents under `.claude/agents/squad-*.md`, with the loop limits and escalation rules in
 [`.squad/routing.md`](../.squad/routing.md). Their working records (`plan.md`, `log.md`, for features also
 `spec.md` and `tasks.md`) live under `specs/`. The user acts as Product Manager and is only asked when

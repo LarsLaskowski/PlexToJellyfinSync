@@ -23,7 +23,8 @@ The orchestrator tells you which **mode** to run:
   Record the outcome in `log.md`, and as a decision record when it affects the code (e.g. a finding
   accepted unfixed, work split into a follow-up issue).
 - `approve-pr` — review the final diff (`git diff <base>...HEAD` plus uncommitted changes) against the
-  plan and acceptance criteria and the green build/test result you are given. Make sure every decision
+  plan and acceptance criteria and the green build/test result and coverage-check output you are given
+  (≥ 80 % on new/changed code and overall, or a recorded Lead decision for each accepted gap). Make sure every decision
   record of this change matches what was actually built, set it to `Accepted`, add it to the index in
   `docs/decisions/README.md`, and update `docs/ARCHITECTURE.md` if a guarantee or flow changed. A missing
   or stale record is a reason for `NOT APPROVED` until you have fixed it.

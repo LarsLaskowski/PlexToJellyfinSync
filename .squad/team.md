@@ -13,7 +13,7 @@ roles run as subagents under `.claude/agents/`, driven by the invoking session (
 | Security        | [charter](agents/security/charter.md)  | `squad-security`              | Opus   | nothing (read-only)  |
 | Tester          | [charter](agents/tester/charter.md)    | `squad-tester`                | Sonnet | `tests/`             |
 | Dev             | [charter](agents/dev/charter.md)       | `squad-dev`                   | Sonnet | `src/`               |
-| Style Manager   | [charter](agents/style/charter.md)     | `squad-style`                 | Sonnet | `src/`, `tests/` (style only) |
+| Code Officer    | [charter](agents/code-officer/charter.md) | `squad-code-officer`       | Sonnet | `src/`, `tests/` (format, analyzer and style fixes only) |
 | Reviewer        | [charter](agents/reviewer/charter.md)  | `plextojellyfinsync-reviewer` | Opus   | nothing (read-only)  |
 | Product Manager | —                                      | the human user                | —      | answers escalations  |
 
@@ -25,7 +25,8 @@ Lead cannot resolve.
 ## Shared rules (apply to every member)
 
 `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md` and `docs/UNIT_TESTS.md` are binding:
-Reihitsu (`RH####`) clean build, `#region` blocks while writing, unit tests for all new code, English for
-everything that ends up in the repository or on GitHub. Subagents never run Git write operations; only
+`#region` blocks while writing, unit tests for all new code with at least 80 % line coverage on
+new/changed production code, English for everything that ends up in the repository or on GitHub. Inside
+the squad, only the Code Officer runs `reihitsu-format` and owns zero `RH####` / `S####` diagnostics. Subagents never run Git write operations; only
 the orchestrator commits, pushes and opens the pull request, and only within a squad skill the user
 invoked (see `CLAUDE.md`, golden rules).
