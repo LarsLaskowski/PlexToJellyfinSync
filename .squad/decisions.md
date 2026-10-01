@@ -15,8 +15,8 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
 - 2026-10-01 — Invoking `squad-issue` or `squad-spec` is the user's approval for the commit, push and
   pull-request steps those skills document. Reason: the Lead approves the PR; the Product Manager should
   not be a routine gate.
-- 2026-10-01 — Commits and pushes to a feature branch are always allowed (not to `main`, no force-push,
-  no tags); pull requests are only opened by the squad (after the Lead's approval) or when the user asks.
+- 2026-10-01 — Commits and pushes to a feature branch are always allowed (never to `main` — every
+  change goes through a branch and a pull request; no force-push, no tags without approval); pull requests are only opened by the squad (after the Lead's approval) or when the user asks.
   Reason: work is secured continuously instead of waiting for approval, while the PR stays a deliberate
   step.
 - 2026-10-01 — The Lead records the reasoning behind code decisions as decision records in

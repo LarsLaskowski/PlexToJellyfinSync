@@ -84,7 +84,8 @@ checklist there before opening a pull request.
 ### Submitting a pull request
 
 If you'd like to contribute by fixing a bug, implementing a feature, or even correcting typos in
-the documentation, you'll need to submit a pull request.
+the documentation, you'll need to submit a pull request. Nothing is ever committed or pushed directly
+to `main` — every change goes through a separate branch and a pull request.
 
 Before submitting a pull request, be sure to [rebase](https://www.atlassian.com/git/tutorials/merging-vs-rebasing)
 your branch onto the current `main`. Do not use `git merge` or the *merge* button provided by

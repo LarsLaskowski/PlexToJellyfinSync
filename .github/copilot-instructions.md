@@ -33,11 +33,12 @@ together.
 
 ## Git Workflow
 
-- **Commits and pushes are always allowed** without asking: commit finished work and push it to the
-  current feature branch (creating that branch if needed), so nothing is lost when a session ends. This
-  does **not** cover: pushing to or committing directly on `main`, force-pushing or otherwise rewriting
-  published history, deleting branches, and creating tags (a `v*` tag triggers a release) — those still
-  need explicit user approval.
+- **Never commit or push to `main`** — no one, not even with approval. Every change goes through a
+  separate branch and a pull request.
+- **Commits and pushes to a feature branch are always allowed** without asking: commit finished work and
+  push it to the current feature branch (creating that branch off `main` if needed), so nothing is lost
+  when a session ends. Force-pushing or otherwise rewriting published history, deleting branches, and
+  creating tags (a `v*` tag triggers a release) still need explicit user approval.
 - **Pull requests are only opened by the squad or by the user.** The `squad-issue` and `squad-spec`
   skills open a PR after the Lead's approval; outside the squad, a PR is opened only when the user
   explicitly asks for one (e.g. by running the `create-pr` skill). Never open a PR on your own initiative.
