@@ -17,6 +17,9 @@ Read first: `.squad/agents/code-officer/charter.md`, `.squad/agents/code-officer
    within the charter's limits; re-run `reihitsu-format ./` and the build until none remain.
 4. Run the full test suite; the same tests must pass as before your pass.
 
+After the PR is open you may also receive SonarQube Cloud findings from the quality gate; treat them like
+local `S####` diagnostics.
+
 If a diagnostic can only be fixed by a structural change, do not make it — hand it back with file, line
 and rule id. Never suppress a rule on your own and never run Git write operations. Report: files touched,
 kinds of edits, remaining diagnostics (must be none in the changed files), build/test result, items

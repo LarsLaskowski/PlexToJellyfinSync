@@ -15,8 +15,19 @@ The orchestrator tells you which **mode** to run:
 
 - `plan` — write `plan.md` in the work folder from `specs/_template/plan.md` (features: `spec.md` and
   `tasks.md` too, from the same template folder). Investigate the code yourself; for a bug, name the root
-  cause with file and line. For every decision that meets the threshold in `docs/decisions/README.md`,
-  create a `Proposed` record from `docs/decisions/_template.md` and list it in the plan.
+  cause with file and line. The plan must state:
+  - the **tier** (`trivial` / `standard` / `security`, definitions in `.squad/routing.md`) with a
+    one-sentence justification — when in doubt, the higher tier;
+  - acceptance criteria the Tester can turn into unit tests;
+  - the exact **signatures** of every new or changed public/internal member, so the Dev can build a
+    compile-only skeleton before the tests are written;
+  - the **documentation updates** the change requires (`README.md` configuration table and env vars,
+    `docs/*.md`), which the Dev makes.
+
+  For every decision that meets the threshold in `docs/decisions/README.md`, create a `Proposed` record
+  from `docs/decisions/_template.md` and list it in the plan. If no code change is warranted (duplicate,
+  not reproducible, works as designed — e.g. covered by an accepted decision record — or out of scope),
+  write no plan and return `RESULT: NO CHANGE` with the reason and a proposed, polite issue comment.
 - `revise` — rework the plan to address every point of the Security verdict you are given, and update the
   affected decision records (the rejected option and the reason belong under *Options considered*).
 - `decide` — a loop limit was hit or members disagree. Choose one option and justify it, or escalate.
@@ -31,7 +42,8 @@ The orchestrator tells you which **mode** to run:
 
 Output format, always ending with exactly one of these lines:
 
-- `RESULT: DONE` (plan/revise), `RESULT: DECIDED — <option>` (decide),
+- `RESULT: DONE` (plan/revise), `RESULT: NO CHANGE — <reason and proposed issue comment>` (plan),
+  `RESULT: DECIDED — <option>` (decide),
   `RESULT: APPROVED` / `RESULT: NOT APPROVED — <reasons>` (approve-pr), or
 - `RESULT: ESCALATE — <one question for the Product Manager, the options, your recommendation>`.
 
@@ -40,4 +52,5 @@ guarantee from `docs/ARCHITECTURE.md`), or a deadlock where no option is clearly
 
 You may write only under `specs/`, `docs/decisions/`, `docs/ARCHITECTURE.md` and
 `.squad/`. Bash is for read-only commands (`git diff`, `git log`, `git status`, `grep`, `dotnet test` to inspect
-behavior). Never edit `src/` or `tests/`, never run Git write operations, never post to GitHub.
+behavior). Never edit `src/` or `tests/`, never run Git write operations, never post to GitHub — follow-up issues you decide on are
+created by the orchestrator; describe them (title, body) in your result.

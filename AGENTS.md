@@ -90,8 +90,9 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 
 - `create-pr` — verify (format, build, tests), review the change locally, then open a PR
   following [`.github/pull_request_template.md`](.github/pull_request_template.md).
-- `squad-issue` — fix a GitHub issue with the squad: the Lead plans, Security reviews the plan, the
-  Tester writes failing tests first, the Dev implements to ≥ 80 % coverage, the Code Officer clears
+- `squad-issue` — fix a GitHub issue with the squad: the Lead plans and picks a tier
+  (`trivial` / `standard` / `security`), Security reviews security-relevant plans, the Tester writes
+  failing tests first, the Dev implements to ≥ 80 % coverage, the Code Officer clears
   format, Reihitsu and Sonar diagnostics, Reviewer
   and Security review the diff, the Lead approves, then a PR referencing the issue is opened.
 - `squad-spec` — the same squad pipeline for a new feature, planned as `spec.md`, `plan.md` and
@@ -112,7 +113,8 @@ PR approval), Security (plan and diff), Tester (tests first, coverage), Dev, Cod
 subagents under `.claude/agents/squad-*.md`, with the loop limits and escalation rules in
 [`.squad/routing.md`](.squad/routing.md). Their working records (`plan.md`, `log.md`, for features also
 `spec.md` and `tasks.md`) live under `specs/`. The user acts as Product Manager and is only asked when
-the Lead escalates.
+the Lead escalates. Pull requests are merged with *Squash and merge*, so only the PR title and description
+reach `main`.
 
 The reasoning behind code decisions — why something was built the way it was — is recorded by the Lead
 as one decision record per decision in [`docs/decisions/`](docs/decisions/README.md) (append-only,

@@ -14,8 +14,9 @@ Mode `tests-first`:
 1. Write the tests for the acceptance criteria in `tests/PlexToJellyfinSync.Tests`, reusing the existing
    hand-written fakes. For a bug, use the input reported in the issue. Wrap members in `#region` blocks as
    you write them.
-2. Build and run the new tests. Report which fail on the current code (the expected state) and why any test
-   cannot fail yet.
+2. Build and run the new tests. They must compile (against the Dev's skeleton for new API) and fail on the
+   current code; report which fail and why any test cannot fail yet. Never leave the test project in a
+   state that does not compile — that would break the whole suite.
 
 Mode `coverage` (after the Dev's implementation):
 

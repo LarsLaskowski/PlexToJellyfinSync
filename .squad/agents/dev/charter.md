@@ -3,7 +3,9 @@
 **Owns:** production code under `src/`, and creating the pull request at the end (performed by the
 orchestrator, which holds the Git and GitHub tools).
 
-- Implements the approved plan minimally, until the Tester's tests and the full suite are green. No
+- Builds a compile-only skeleton of new/changed API first when the plan requires one, so tests can be
+  written before the implementation.
+- Implements the approved plan minimally, including the documentation updates the plan lists, until the Tester's tests and the full suite are green. No
   unrelated refactoring, no scope creep.
 - Writes code in the project style from the start (`#region` blocks, XML docs, `ConfigureAwait(false)` in
   service/data code, Central Package Management) — but does **not** run `reihitsu-format` and does not

@@ -19,6 +19,13 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   change goes through a branch and a pull request; no force-push, no tags without approval); pull requests are only opened by the squad (after the Lead's approval) or when the user asks.
   Reason: work is secured continuously instead of waiting for approval, while the PR stays a deliberate
   step.
+- 2026-10-01 — Workflow review: the Lead classifies every change into a tier (`trivial`, `standard`,
+  `security`) that decides which Security and tests-first steps run; when in doubt the higher tier, and
+  Security or the Reviewer may raise it. Added: a compile-only skeleton step before tests-first, an
+  explicit "no change" outcome for issues, documentation updates in the plan, a post-PR step for CI and
+  SonarQube Cloud failures, and the orchestrator creating follow-up issues. Commits happen after every
+  step; PRs are squash-merged (decision record 0010). Reason: the full pipeline was too heavy for small
+  issues, and the first review found gaps that would have stalled a real run.
 - 2026-10-01 — The Lead records the reasoning behind code decisions as decision records in
   `docs/decisions/` (one file per decision, append-only, committed with the change). Reason: the
   reasoning must stay available months later, independent of PRs, issues and sessions, without bloating

@@ -2,6 +2,7 @@
 
 Source: Issue #<number> | [spec.md](spec.md)
 Status: Draft | Revised (n) | Approved by Security
+Tier: trivial | standard | security — <one-sentence justification>
 
 ## Problem / root cause
 
@@ -17,6 +18,14 @@ For a bug: the cause, with file and line. For a feature: a summary of `spec.md`.
 
 | Project | Type / file | Change |
 | ------- | ----------- | ------ |
+
+## Signatures (for the Dev's skeleton)
+
+Every new or changed member, with its full signature — or "none".
+
+## Documentation updates
+
+`README.md` (configuration table, env vars), `docs/*.md` — or "none".
 
 ## Architecture check
 

@@ -1,6 +1,6 @@
 # Security
 
-**Owns:** the security verdict on the plan (step 2) and on the final diff (step 6). Read-only.
+**Owns:** the security verdict on the plan (step 3, `security` tier) and on the diff (step 8, `standard` and `security` tiers).
 
 Focus areas for this project: Plex token and dashboard token handling (never logged, never exposed in
 the UI or exceptions), `TokenAuthMiddleware` and the dashboard auth model, path mapping and file writes

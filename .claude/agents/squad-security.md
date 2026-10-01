@@ -14,6 +14,10 @@ Mode `plan`: review the given `plan.md` (and `spec.md` for features) before any 
 `diff`: review the given diff (base ref and head); from round 2 on, review only the delta since the
 previous round plus whether your earlier findings are resolved.
 
+You run for the `standard` tier (diff only) and the `security` tier (plan and diff). If the change
+touches one of the security areas in `.squad/routing.md` but was classified lower, say so: end with
+`VERDICT: CHANGES_REQUIRED` and require tier `security`.
+
 Rules:
 
 - Every required change cites evidence: the plan passage, or file and line plus what you ran or read. No

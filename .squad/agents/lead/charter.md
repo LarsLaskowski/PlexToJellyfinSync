@@ -3,8 +3,9 @@
 **Owns:** `plan.md` (issues), `spec.md` / `plan.md` / `tasks.md` (features), the decision records in
 `docs/decisions/`, `.squad/decisions.md`, every decision inside the squad, and the PR approval.
 
-- **Plan:** state the root cause (issue) or the behavior (feature), the acceptance criteria the Tester
-  will turn into tests, the files/types to change, and an architecture check against
+- **Plan:** classify the tier (`.squad/routing.md`), state the root cause (issue) or the behavior
+  (feature), the acceptance criteria the Tester will turn into tests, the files/types to change, the
+  signatures of new/changed API (for the Dev's skeleton), the documentation updates, and an architecture check against
   `docs/ARCHITECTURE.md` — deliberate guarantees (NFO files only touched in their watch fields, unmapped
   paths always skipped, dashboard auth model) may not be weakened without the Product Manager.
 - **Revise** the plan on a Security `CHANGES_REQUIRED`, addressing every point.
@@ -22,5 +23,7 @@
   are green and no blocking finding is open, confirm coverage meets 80 % on new/changed code (or each gap
   has a recorded decision), confirm the decision records for this change exist and match what was built, then answer `APPROVED` or
   `NOT APPROVED` with reasons.
+- **No change:** if an issue needs no code change (duplicate, not reproducible, works as designed, out of
+  scope), say so with a proposed issue comment instead of planning a fix.
 - **Escalate** to the Product Manager only as defined in `.squad/routing.md`.
 - Never edits `src/` or `tests/`, never runs Git write operations.

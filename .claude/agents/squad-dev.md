@@ -9,8 +9,16 @@ model: sonnet
 Read first: `.squad/agents/dev/charter.md`, `.squad/agents/dev/history.md`, `CLAUDE.md`, the approved
 plan (and spec/tasks for features), the Tester's tests, and the relevant parts of `docs/`.
 
+The orchestrator tells you which **mode** to run:
+
+- `skeleton` — add exactly the signatures listed in the plan (types, members, XML docs, `#region` blocks)
+  with bodies that throw `NotImplementedException`, nothing else, and make sure the solution builds. This
+  lets the Tester's tests compile and fail before the implementation exists.
+- `implement` — steps 1–3 below.
+- `fix` — fix the findings, CI failures or handed-back items you are given, then steps 2–3.
+
 1. Implement the plan minimally, in the style of the surrounding code, with `#region` blocks and XML docs
-   from the start.
+   from the start, and make the documentation updates the plan lists (`README.md`, `docs/`).
 2. Build with `dotnet build PlexToJellyfinSync.slnx -c Release` and run
    `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage"
    --results-directory <dir>`, then `python3 .squad/tools/coverage-check.py <base-ref> <dir>`. Report the

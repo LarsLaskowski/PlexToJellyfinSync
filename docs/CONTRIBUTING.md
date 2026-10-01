@@ -87,9 +87,11 @@ If you'd like to contribute by fixing a bug, implementing a feature, or even cor
 the documentation, you'll need to submit a pull request. Nothing is ever committed or pushed directly
 to `main` — every change goes through a separate branch and a pull request.
 
-Before submitting a pull request, be sure to [rebase](https://www.atlassian.com/git/tutorials/merging-vs-rebasing)
-your branch onto the current `main`. Do not use `git merge` or the *merge* button provided by
-GitHub.
+Pull requests are merged with **Squash and merge**: the PR title becomes the single commit subject on
+`main` and the description its body, so the commits on the branch are working history and need not be
+curated. Keep the branch up to date by merging the current `main` into it (no force-push needed); do not
+use the plain *Create a merge commit* or *Rebase and merge* buttons (see
+[decision 0010](decisions/0010-squash-merge-pull-requests.md)).
 
 For PR naming use the following convention: `[area] Description` (no period at the end).
 
