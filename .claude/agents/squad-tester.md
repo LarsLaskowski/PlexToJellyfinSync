@@ -21,7 +21,7 @@ Mode `tests-first`:
 Mode `coverage` (after the Dev's implementation):
 
 1. Run `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage"
-   --results-directory <dir>` and `python3 .squad/tools/coverage-check.py <base-ref> <dir>`.
+   --results-directory ./TestResults` and `python3 .squad/tools/coverage-check.py`.
 2. Add meaningful tests for the uncovered changed lines until the check passes (≥ 80 % new/changed code and
    overall). Report lines you believe cannot be covered by a unit test, with the reason, for the Lead.
 

@@ -47,7 +47,7 @@ action yourself — including follow-up issues the Lead decides on.
 6. **Implement and cover.** Launch `squad-dev` in mode `implement` with the plan and the test names; it
    also makes the documentation updates the plan lists. If the Dev disputes a test, launch `squad-lead`
    in mode `decide`; the Tester changes a test only if the Lead says so. Then launch `squad-tester` in
-   mode `coverage`; repeat Dev/Tester until `python3 .squad/tools/coverage-check.py origin/main <dir>`
+   mode `coverage`; repeat Dev/Tester until `python3 .squad/tools/coverage-check.py` (after `dotnet test … --collect:"XPlat Code Coverage" --results-directory ./TestResults`)
    passes (≥ 80 % on new/changed production code and overall). Lines reported as not unit-testable go to
    `squad-lead` in mode `decide`; an accepted gap is recorded in `log.md`.
 7. **Code check.** Launch `squad-code-officer` with the base ref — the only member that runs

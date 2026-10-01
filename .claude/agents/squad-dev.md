@@ -21,7 +21,7 @@ The orchestrator tells you which **mode** to run:
    from the start, and make the documentation updates the plan lists (`README.md`, `docs/`).
 2. Build with `dotnet build PlexToJellyfinSync.slnx -c Release` and run
    `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage"
-   --results-directory <dir>`, then `python3 .squad/tools/coverage-check.py <base-ref> <dir>`. Report the
+   --results-directory ./TestResults`, then `python3 .squad/tools/coverage-check.py`. Report the
    coverage result; uncovered changed lines go to the Tester (or are made testable by you).
 3. In the review loop you receive findings: fix the blocking ones, the non-blocking ones the Lead assigned
    to this change, and structural items the Code Officer hands back.

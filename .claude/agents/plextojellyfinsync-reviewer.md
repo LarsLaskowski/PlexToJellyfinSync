@@ -200,8 +200,8 @@ Run, from the repository root:
 dotnet restore PlexToJellyfinSync.slnx
 reihitsu-format --check ./
 dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
-dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory <scratch dir>
-python3 .squad/tools/coverage-check.py <base ref> <scratch dir>
+dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
+python3 .squad/tools/coverage-check.py
 ```
 
 Report failures as blocking findings, and quote the failing line. A formatter

@@ -262,7 +262,7 @@ This produces a `coverage.opencover.xml` file, which CI feeds into SonarQube Clo
 
 ```shell
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
-python3 .squad/tools/coverage-check.py origin/main ./TestResults
+python3 .squad/tools/coverage-check.py
 ```
 
 The script lists every changed file under `src/` with its covered/coverable changed lines and the
