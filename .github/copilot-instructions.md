@@ -79,8 +79,8 @@ A build must finish with **zero Reihitsu (`RH####`) warnings and errors** and no
 diagnostic in a changed file. Treat every such diagnostic as a failure and fix it before considering the
 work done — do not leave analyzer warnings behind (in the squad skills, the Code Officer owns this).
 
-New or changed production code needs **at least 80 % line coverage**
-(`.squad/tools/coverage-check.py`, see [`UNIT_TESTS.md`](../docs/UNIT_TESTS.md#code-coverage)).
+New or changed production code needs **at least 80 % line coverage**, and overall coverage must stay at
+least 80 % (`.squad/tools/coverage-check.py`, see [`UNIT_TESTS.md`](../docs/UNIT_TESTS.md#code-coverage)).
 
 ---
 

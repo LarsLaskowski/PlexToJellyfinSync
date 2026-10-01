@@ -274,7 +274,7 @@ Studio standard for solution files, not a migration artifact.
   bounding memory use without a background sweep timer. **`LoginEndpoints.HandleLoginAsync`**
   (`src/PlexToJellyfinSync/Security/LoginEndpoints.cs`) is the HTTP glue: on `LockedOut` it
   returns `429` with a `Retry-After` header; on `Succeeded` it stores the session id in
-  `IMemoryCache` under `pjf_session:<id>` with an 8-hour sliding lifetime and sets the
+  `IMemoryCache` under `pjf_session:<id>` with a fixed 8-hour (absolute) lifetime and sets the
   `pjf_auth` cookie as `HttpOnly, SameSite=Strict`, and `Secure` only when the request itself
   arrived over HTTPS (`Request.IsHttps`) — a hardcoded `Secure` flag would make the cookie silently
   dropped, and the dashboard therefore unusable, behind the project's own documented plain-HTTP

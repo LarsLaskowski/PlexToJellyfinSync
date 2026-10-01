@@ -11,7 +11,7 @@ loop limits from [`.squad/routing.md`](../../../.squad/routing.md), and perform 
 action yourself — including follow-up issues the Lead decides on.
 
 - **Commits and pushes** to the work branch are always allowed (`CLAUDE.md`, golden rules): commit and
-  push after every completed step. PRs are merged with *Squash and merge*, so only the PR title and
+  push after every completed step once the plan returned `RESULT: DONE` (nothing is committed before). PRs are merged with *Squash and merge*, so only the PR title and
   description reach `main`; intermediate commit messages may name the step, but never contain secrets or
   mention an AI assistant. Never commit to `main`.
 - **Pull request:** invoking this skill is the user's approval for opening the PR in step 10, once the
@@ -57,7 +57,8 @@ action yourself — including follow-up issues the Lead decides on.
    tests, and the coverage check still passes. Structural items handed back go to `squad-dev` (or
    `squad-tester`), followed by another code check. CI does not check formatting; this is the only gate.
 8. **Review.** Launch `plextojellyfinsync-reviewer` (round 1, full) and — for `standard` and `security` —
-   `squad-security` in mode `diff`, in parallel, against the base ref. Either may raise the tier. Blocking
+   `squad-security` in mode `diff`, in parallel, against the base ref. Pass both the work folder
+   (`specs/<folder>/`) so they check the plan's acceptance criteria and tier; either may raise the tier. Blocking
    findings → `squad-dev` fixes them → steps 6 (coverage) and 7 again → next round reviews only the
    delta. At most **2 fix rounds** after round 1; then `squad-lead` in mode `decide`. Non-blocking
    findings: the Lead decides per finding — fix now, or you open a linked GitHub issue now.

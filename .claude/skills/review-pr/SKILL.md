@@ -100,8 +100,9 @@ When acting as the author of a PR under review:
   `Fixed in <sha>: <what changed>`. The reasoning belongs in the commit
   message, where it stays with the code; the reviewer verifies the commit,
   not the reply.
-- Re-run `reihitsu-format ./`, the Release build (zero `RH####` diagnostics)
-  and `dotnet test` before each push — a fix that turns CI red costs more
+- Re-run `reihitsu-format --force ./`, the Release build (zero `RH####`
+  diagnostics, no `S####` in a changed file), `dotnet test` and the coverage
+  check (`.squad/tools/coverage-check.py`) before each push — a fix that turns CI red costs more
   than the finding did.
 - Resolve the thread once it is answered. One summary comment per round beats
   one essay per thread.

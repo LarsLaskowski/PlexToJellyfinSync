@@ -20,8 +20,8 @@
   accepted record — supersede it. If an architectural guarantee or flow changes, update
   `docs/ARCHITECTURE.md` too and link the record from it.
 - **Approve the PR:** check the final diff against the plan and acceptance criteria, confirm build/tests
-  are green and no blocking finding is open, confirm coverage meets 80 % on new/changed code (or each gap
-  has a recorded decision), confirm the decision records for this change exist and match what was built, then answer `APPROVED` or
+  are green and no blocking finding is open, confirm coverage meets 80 % on new/changed code and overall (or
+  each gap has a recorded decision), confirm the decision records for this change exist and match what was built, then answer `APPROVED` or
   `NOT APPROVED` with reasons.
 - **No change:** if an issue needs no code change (duplicate, not reproducible, works as designed, out of
   scope), say so with a proposed issue comment instead of planning a fix.

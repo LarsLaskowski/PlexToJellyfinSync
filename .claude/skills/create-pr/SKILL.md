@@ -31,13 +31,18 @@ in.
    rather than opening the PR without coverage.
 4. **Run local verification** before pushing, from the repository root:
    - `dotnet restore PlexToJellyfinSync.slnx`
-   - `reihitsu-format ./`
+   - `reihitsu-format --force ./` (`--force` skips the confirmation prompt
+     for more than 25 files, which a non-interactive session cannot answer)
    - `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` — the
-     build must finish with **zero Reihitsu (`RH####`) warnings and errors**;
-     treat every `RH` diagnostic as a failure
-   - `dotnet test PlexToJellyfinSync.slnx -c Release --no-build`
+     build must finish with **zero Reihitsu (`RH####`) warnings and errors**
+     and no SonarQube (`S####`) diagnostic in a changed file; treat each as a
+     failure
+   - `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory <dir>`
+     and `python3 .squad/tools/coverage-check.py origin/main <dir>` — at least
+     80 % line coverage on new/changed production code and overall
    Fix any failures before proceeding — do not open a PR with failing checks,
-   unformatted code or outstanding analyzer diagnostics.
+   unformatted code or outstanding analyzer diagnostics. CI does not check
+   formatting, so this step is the only gate for it.
 5. **Commit** with a subject line of at most 80 characters, not written in
    the first person and without a trailing period, and a body of 3–5
    sentences explaining *what* changed and *why* if it is not obvious from

@@ -42,7 +42,8 @@ tier applies; Security or the Reviewer may raise the tier at any point (never lo
 | 11 | After the PR | Dev, Code Officer, Reviewer | CI green, SonarQube Cloud quality gate passed, review comments worked |
 | 12 | Wrap-up | Orchestrator | `history.md` / `.squad/decisions.md` updated, user informed |
 
-Commits and pushes to the work branch happen after every completed step; with *Squash and merge* only
+Commits and pushes to the work branch happen after every completed step from step 2 on, once the plan
+returned `RESULT: DONE` (step 1 and a `NO CHANGE` outcome leave nothing to commit); with *Squash and merge* only
 the PR title and description reach `main`, so intermediate commits may describe the step. They still
 never contain secrets and never mention an AI assistant.
 

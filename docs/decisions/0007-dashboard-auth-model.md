@@ -24,7 +24,7 @@ Option 3:
 - `TokenAuthMiddleware` is a pass-through while `Dashboard:Token` is empty; a startup warning is logged
   when the dashboard is enabled without a token. `Dashboard:Enabled = false` maps only `/health`.
 - With a token: constant-time comparison of SHA-256 hashes, a 256-bit random session id stored in
-  `IMemoryCache` (8 h sliding), cookie `HttpOnly`, `SameSite=Strict`, and `Secure` only when the request
+  `IMemoryCache` with a fixed 8 h lifetime (absolute, not sliding — matching the cookie's `MaxAge`), cookie `HttpOnly`, `SameSite=Strict`, and `Secure` only when the request
   arrived over HTTPS (a hard-coded `Secure` flag would break the plain-HTTP quick start), antiforgery on
   login/logout, exponential login backoff per client IP.
 - Configured secrets are masked in the in-memory log buffer before it reaches the dashboard, because that

@@ -19,9 +19,12 @@ import xml.etree.ElementTree as ET
 
 
 def changed_lines(base_ref):
-    """Return {repo-relative path: set(line numbers)} of lines added or changed in src/**/*.cs."""
+    """Return {repo-relative path: set(line numbers)} of lines added or changed since the merge base
+    with base_ref (working tree included) in src/**/*.cs and src/**/*.razor."""
+    merge_base = subprocess.run(
+        ["git", "merge-base", base_ref, "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
     diff = subprocess.run(
-        ["git", "diff", "-U0", base_ref, "--", "src/*.cs", "src/**/*.cs"],
+        ["git", "diff", "-U0", merge_base, "--", "src/*.cs", "src/**/*.cs", "src/*.razor", "src/**/*.razor"],
         capture_output=True, text=True, check=True).stdout
     result, current = {}, None
     for line in diff.splitlines():

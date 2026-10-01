@@ -41,7 +41,8 @@ Please provide a summary of the tests affected by this work and any unique strat
 
 - [ ] I have added or updated [Unit Tests](../docs/UNIT_TESTS.md) in `PlexToJellyfinSync.Tests` for the change.
 - [ ] I have tested my changes.
-- [ ] I have run `reihitsu-format ./` and the build shows zero Reihitsu (`RH####`) warnings and errors.
+- [ ] I have run `reihitsu-format ./` and the build shows zero Reihitsu (`RH####`) warnings and errors and no SonarQube (`S####`) warning in a changed file.
+- [ ] New or changed production code has at least 80 % line coverage, and overall coverage is at least 80 % (`.squad/tools/coverage-check.py`).
 - [ ] I have updated the project documentation ([`README.md`](../README.md), [`ARCHITECTURE.md`](../docs/ARCHITECTURE.md)) to reflect my changes.
 - [ ] I have read the [CONTRIBUTING](../docs/CONTRIBUTING.md) documentation and followed the project's code style guidelines.
 - [ ] New NuGet packages, if any, were added through Central Package Management (`Directory.Packages.props`).

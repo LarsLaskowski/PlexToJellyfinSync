@@ -29,6 +29,17 @@ round number, and — from round 2 on — the previous round's findings and the
 commits that were supposed to fix them. If no round number is given, assume
 round 1.
 
+When invoked by the squad (`squad-issue` / `squad-spec`), the calling session
+also gives you the work folder (`specs/<folder>/`). Then additionally read
+`.squad/agents/reviewer/charter.md` and the folder's `plan.md` (and `spec.md`
+for features), and report as findings:
+
+- an acceptance criterion from the plan that the diff does not fulfil or that
+  no test pins down (blocking);
+- a tier in `plan.md` that is too low for what the diff touches, per the tier
+  table in `.squad/routing.md` (blocking — the change must go through the
+  higher tier's steps).
+
 ## Round 1 — full review
 
 ### Step 1: map the integration surface, before reading the diff line by line
@@ -189,11 +200,16 @@ Run, from the repository root:
 dotnet restore PlexToJellyfinSync.slnx
 reihitsu-format --check ./
 dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
-dotnet test PlexToJellyfinSync.slnx -c Release --no-build
+dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory <scratch dir>
+python3 .squad/tools/coverage-check.py <base ref> <scratch dir>
 ```
 
 Report failures as blocking findings, and quote the failing line. A formatter
-diff and any `RH####` diagnostic are both blocking — CI fails on them.
+diff, any `RH####` diagnostic, an `S####` diagnostic in a file the diff
+changes, and a failed coverage check (below 80 % on new/changed lines or
+overall) are all blocking: CI no longer checks formatting
+(`docs/decisions/0009-quality-gates-before-the-pull-request.md`), so nothing
+after this review catches them.
 
 ## Round 2 and later — delta review only
 
