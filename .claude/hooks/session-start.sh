@@ -3,7 +3,7 @@
 # build, test and check coverage. Idempotent; does nothing outside remote sessions.
 set -euo pipefail
 
-if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
+if [[ "${CLAUDE_CODE_REMOTE:-}" != "true" ]]; then
   exit 0
 fi
 
@@ -13,7 +13,7 @@ cd "${CLAUDE_PROJECT_DIR:-$(pwd)}"
 dotnet_root="$(dirname "$(readlink -f "$(command -v dotnet)")")"
 export DOTNET_ROOT="$dotnet_root"
 export PATH="$PATH:$HOME/.dotnet/tools"
-if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+if [[ -n "${CLAUDE_ENV_FILE:-}" ]]; then
   {
     echo "export DOTNET_ROOT=\"$dotnet_root\""
     echo "export PATH=\"\$PATH:\$HOME/.dotnet/tools\""

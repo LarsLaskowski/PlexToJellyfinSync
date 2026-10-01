@@ -30,7 +30,10 @@ before the push and again by a `reihitsu-format --check` step in CI. The squad w
 - New or changed production code needs at least 80 % line coverage, and overall coverage at least 80 %,
   checked locally with `.squad/tools/coverage-check.py` (same measure as SonarQube's "coverage on new
   code").
-- The SonarQube Cloud analysis in CI stays: it remains the system of record for the quality gate.
+- The SonarQube Cloud analysis in CI stays: it remains the system of record for the quality gate. Its
+  coverage measure excludes the squad and Claude Code tooling (`.squad/**`, `.claude/**`,
+  `sonar.coverage.exclusions` in `ci.yml`): those scripts are developer tooling, not production code, so
+  the 80 % rule does not apply to them. They are still analyzed for bugs and vulnerabilities.
 
 ## Consequences
 

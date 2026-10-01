@@ -15,14 +15,43 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
+
+
+GIT_REF_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/~^-]*$")
+
+
+def resolve_commit(ref):
+    """Resolve a user-supplied ref to a full commit SHA, rejecting anything that could be read as an option."""
+    if GIT_REF_PATTERN.fullmatch(ref) is None:
+        sys.exit(f"Invalid base ref: {ref!r}")
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "--end-of-options", ref + "^{commit}"],
+        capture_output=True, text=True, check=False)
+    sha = result.stdout.strip()
+    if result.returncode != 0 or re.fullmatch(r"[0-9a-f]{40,64}", sha) is None:
+        sys.exit(f"Unknown base ref: {ref!r}")
+    return sha
+
+
+def safe_results_dir(path):
+    """Return the resolved results directory, which must lie inside the repository or the temp directory."""
+    resolved = os.path.realpath(path)
+    allowed = [os.path.realpath(os.getcwd()), os.path.realpath(tempfile.gettempdir())]
+    if not any(os.path.commonpath([resolved, root]) == root for root in allowed):
+        sys.exit(f"Results directory must be inside the repository or {allowed[1]}: {path!r}")
+    if not os.path.isdir(resolved):
+        sys.exit(f"Results directory not found: {path!r}")
+    return resolved
 
 
 def changed_lines(base_ref):
     """Return {repo-relative path: set(line numbers)} of lines added or changed since the merge base
     with base_ref (working tree included) in src/**/*.cs and src/**/*.razor."""
     merge_base = subprocess.run(
-        ["git", "merge-base", base_ref, "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        ["git", "merge-base", resolve_commit(base_ref), "HEAD"],
+        capture_output=True, text=True, check=True).stdout.strip()
     diff = subprocess.run(
         ["git", "diff", "-U0", merge_base, "--", "src/*.cs", "src/**/*.cs", "src/*.razor", "src/**/*.razor"],
         capture_output=True, text=True, check=True).stdout
@@ -41,7 +70,7 @@ def changed_lines(base_ref):
 
 
 def load_report(results_dir):
-    reports = glob.glob(os.path.join(results_dir, "**", "coverage.cobertura.xml"), recursive=True)
+    reports = glob.glob(os.path.join(safe_results_dir(results_dir), "**", "coverage.cobertura.xml"), recursive=True)
     if not reports:
         sys.exit(f"No coverage.cobertura.xml under {results_dir}")
     root = ET.parse(max(reports, key=os.path.getmtime)).getroot()
