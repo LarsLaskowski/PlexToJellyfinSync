@@ -41,3 +41,5 @@ links the record.
 | [0013](0013-worker-guards-both-orchestrator-calls.md) | Worker guards both orchestrator calls alike | Accepted | 2026-10-02 |
 | [0014](0014-squad-working-records-off-main.md) | Squad working records stay off main, and product PRs never change the squad | Accepted | 2026-10-02 |
 | [0015](0015-container-images-on-docker-hub-only.md) | Container images are published to Docker Hub only | Accepted | 2026-10-02 |
+| [0016](0016-options-validated-at-startup.md) | Options are validated at startup with DataAnnotations | Accepted | 2026-10-02 |
+| [0017](0017-plex-token-stays-optional.md) | The Plex token stays optional | Accepted | 2026-10-02 |

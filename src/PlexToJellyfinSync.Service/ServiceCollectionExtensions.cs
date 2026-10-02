@@ -27,11 +27,11 @@ public static class ServiceCollectionExtensions
     /// <returns>The service collection</returns>
     public static IServiceCollection AddPlexToJellyfinSync(this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<PlexOptions>(configuration.GetSection(PlexOptions.SectionName));
-        services.Configure<SyncOptions>(configuration.GetSection(SyncOptions.SectionName));
+        services.AddOptions<PlexOptions>().Bind(configuration.GetSection(PlexOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<SyncOptions>().Bind(configuration.GetSection(SyncOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.Configure<NfoOptions>(configuration.GetSection(NfoOptions.SectionName));
-        services.Configure<StateOptions>(configuration.GetSection(StateOptions.SectionName));
-        services.Configure<DashboardOptions>(configuration.GetSection(DashboardOptions.SectionName));
+        services.AddOptions<StateOptions>().Bind(configuration.GetSection(StateOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<DashboardOptions>().Bind(configuration.GetSection(DashboardOptions.SectionName)).ValidateDataAnnotations().ValidateOnStart();
         services.Configure<List<PathMapping>>(configuration.GetSection("PathMappings"));
 
         services.AddSingleton(TimeProvider.System);

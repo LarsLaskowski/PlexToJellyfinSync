@@ -89,12 +89,12 @@ double underscore for nesting).
 
 | Key | Env var | Default | Description |
 |---|---|---|---|
-| `Plex:BaseUrl` | `PLEXSYNC__Plex__BaseUrl` | – | Plex base URL (required, e.g. `http://plex:32400`) |
-| `Plex:Token` | `PLEXSYNC__Plex__Token` | – | Plex auth token (`X-Plex-Token`) |
-| `Plex:OwnerAccountId` | `PLEXSYNC__Plex__OwnerAccountId` | auto | Owner account id (auto-detected) |
+| `Plex:BaseUrl` | `PLEXSYNC__Plex__BaseUrl` | – | Plex base URL — **required**, an absolute `http`/`https` URL (e.g. `http://plex:32400`); the container does not start without it |
+| `Plex:Token` | `PLEXSYNC__Plex__Token` | – | Plex auth token (`X-Plex-Token`); required unless Plex allows unauthenticated access from this container's network |
+| `Plex:OwnerAccountId` | `PLEXSYNC__Plex__OwnerAccountId` | auto | Owner account id (auto-detected; ≥ 1) |
 | `Plex:Libraries` | `PLEXSYNC__Plex__Libraries__0` | all | Restrict to library section keys |
-| `Sync:PollIntervalSeconds` | `PLEXSYNC__Sync__PollIntervalSeconds` | `60` | Incremental poll interval |
-| `Sync:FullReconcileIntervalHours` | `PLEXSYNC__Sync__FullReconcileIntervalHours` | `24` | Full reconcile interval |
+| `Sync:PollIntervalSeconds` | `PLEXSYNC__Sync__PollIntervalSeconds` | `60` | Incremental poll interval (5–86400) |
+| `Sync:FullReconcileIntervalHours` | `PLEXSYNC__Sync__FullReconcileIntervalHours` | `24` | Full reconcile interval (1–8760) |
 | `Sync:CreateMissingNfo` | `PLEXSYNC__Sync__CreateMissingNfo` | `true` | Create complete NFO if missing |
 | `Sync:WriteSeriesSeasonAggregates` | `PLEXSYNC__Sync__WriteSeriesSeasonAggregates` | `true` | Write season/series aggregates |
 | `Sync:EpisodeReconcileParallelism` | `PLEXSYNC__Sync__EpisodeReconcileParallelism` | `4` | Concurrent episode writes per series reconcile (minimum 1) |
@@ -102,10 +102,13 @@ double underscore for nesting).
 | `PathMappings:N:Plex` / `:Local` | `PLEXSYNC__PathMappings__N__Plex` / `__Local` | – | Path prefix mapping |
 | `Nfo:DateTimeFormat` | `PLEXSYNC__Nfo__DateTimeFormat` | `yyyy-MM-dd HH:mm:ss` | `lastplayed` format |
 | `Nfo:MovieFilenameStrategy` | `PLEXSYNC__Nfo__MovieFilenameStrategy` | `PreferExistingMovieNfo` | Movie NFO naming |
-| `State:Directory` | `PLEXSYNC__State__Directory` | `/config` | Where `state.json` is stored |
+| `State:Directory` | `PLEXSYNC__State__Directory` | `/config` | Where `state.json` is stored (must not be empty) |
 | `Dashboard:Enabled` | `PLEXSYNC__Dashboard__Enabled` | `true` | Enable the web dashboard |
 | `Dashboard:Token` | `PLEXSYNC__Dashboard__Token` | – | Optional access token |
-| `Dashboard:LogBufferSize` | `PLEXSYNC__Dashboard__LogBufferSize` | `1000` | In-memory log entries |
+| `Dashboard:LogBufferSize` | `PLEXSYNC__Dashboard__LogBufferSize` | `1000` | In-memory log entries (minimum 1) |
+
+Invalid or missing required settings stop the application at startup, before the sync worker or the dashboard
+start, with an error naming the setting (visible in `docker logs`), instead of failing on every sync.
 
 ## Jellyfin setup
 

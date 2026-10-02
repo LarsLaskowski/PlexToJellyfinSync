@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace PlexToJellyfinSync.Core.Options;
 
 /// <summary>
@@ -29,6 +31,7 @@ public sealed class DashboardOptions
     /// <summary>
     /// Number of log entries kept in the in-memory ring buffer
     /// </summary>
+    [Range(1, int.MaxValue, ErrorMessage = "Dashboard:LogBufferSize must be at least 1 (environment variable PLEXSYNC__Dashboard__LogBufferSize).")]
     public int LogBufferSize { get; set; } = 1000;
 
     #endregion // Properties

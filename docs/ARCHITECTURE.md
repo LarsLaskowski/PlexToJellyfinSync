@@ -47,8 +47,8 @@ Studio standard for solution files, not a migration artifact.
 
 1. **`Worker`** (`src/PlexToJellyfinSync/Worker.cs`) is the only `BackgroundService`. On startup
    it runs one reconcile immediately (`SafeReconcileAsync`), then loops: wait
-   `Sync:PollIntervalSeconds` (minimum 5s), call `ISyncOrchestrator.ProcessHistoryAsync` through
-   `SafeProcessHistoryAsync`, and — once `Sync:FullReconcileIntervalHours` (minimum 1h) has elapsed
+   `Sync:PollIntervalSeconds` (validated range 5–86400s; the `Math.Max` floor remains as defense-in-depth), call `ISyncOrchestrator.ProcessHistoryAsync` through
+   `SafeProcessHistoryAsync`, and — once `Sync:FullReconcileIntervalHours` (validated range 1–8760h, same floor) has elapsed
    since the last reconcile — call `ISyncOrchestrator.ReconcileAsync` again through
    `SafeReconcileAsync`. Both guards log and swallow every error except a cancellation of the
    worker's own stopping token, as defense-in-depth on top of the orchestrator's own error handling,
@@ -72,10 +72,10 @@ Studio standard for solution files, not a migration artifact.
      changes `ProcessHistoryAsync` cannot see — for example items marked watched through means
      that do not produce a Plex history entry. The filtered libraries themselves are reconciled
      concurrently, bounded by `Sync:LibraryReconcileParallelism` (`Parallel.ForEachAsync`, minimum 1
-     — a configured value below that is clamped rather than rejected), so wall-clock reconcile time
+     — a configured value below that is rejected at startup; the clamp remains as defense-in-depth), so wall-clock reconcile time
      scales with the slowest library instead of the number of libraries. Within a series library, a
      show's episode writes run concurrently, bounded by `Sync:EpisodeReconcileParallelism`
-     (`Parallel.ForEachAsync`, minimum 1, clamped the same way); shows themselves are still
+     (`Parallel.ForEachAsync`, minimum 1, rejected at startup and clamped the same way); shows themselves are still
      reconciled one at a time within their library. Episodes that share a file (a multi-episode file
      such as `S01E01-E02.mkv` maps to one NFO target) are grouped and written sequentially within
      that group so two concurrent writers never race on the same target's temp file. A library's
@@ -323,6 +323,13 @@ Studio standard for solution files, not a migration artifact.
   binds directly to `List<PathMapping>` at the configuration root rather than through a named
   options section, which is why it appears as `PathMappings:N:Plex`/`:Local` rather than nested
   under another key. See `README.md` for the full configuration key/env-var/default table.
+- `PlexOptions`, `SyncOptions`, `StateOptions` and `DashboardOptions` are registered with
+  `ValidateDataAnnotations().ValidateOnStart()`; required settings and ranges are declared as
+  attributes on the options classes. A misconfiguration stops the application at startup before
+  `Worker` or Kestrel start. Validation is purely syntactic and does no network I/O, so an
+  unreachable Plex server still never blocks startup. See
+  [0016](decisions/0016-options-validated-at-startup.md) and
+  [0017](decisions/0017-plex-token-stays-optional.md).
 
 ---
 
