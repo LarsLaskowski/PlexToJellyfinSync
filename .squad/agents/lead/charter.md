@@ -22,8 +22,9 @@ in squad-maintenance PRs, never in a product PR.)
   `docs/ARCHITECTURE.md` too and link the record from it.
 - **Approve the PR:** confirm the latest review round has no blocking finding that is not covered by a
   recorded decision of yours, and covers every change to `src/`, `tests/` and `docs/` since it ran except
-  `specs/` bookkeeping and your own edits (decision records, their index, `docs/ARCHITECTURE.md`) —
-  otherwise a delta review is missing; check the final diff
+  `specs/` bookkeeping and your own approval edits (record status, the index, a link from
+  `docs/ARCHITECTURE.md`) — a correction that resolves a blocking finding needs a delta round, even in
+  your own record; otherwise a delta review is missing; check the final diff
   against the plan and acceptance criteria, confirm build/tests are green, confirm coverage meets 80 % on new/changed code and overall (or
   each gap has a recorded decision), confirm the decision records for this change exist and match what was built, then answer `APPROVED` or
   `NOT APPROVED` with reasons.

@@ -55,3 +55,10 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   agent and skill front matter and the skill mirrors. Product PRs never change the squad; lessons go into
   a `squad` issue for a separate maintenance PR, and working records stay off `main` (decision record
   0014). Reason: PR #190 carried a squad history edit, and per-issue logs were accumulating on `main`.
+- 2026-10-02 — New tier `docs` for changes that only touch Markdown documentation, templates or code
+  comments: no plan.md, no Security/tests/Code Officer/Lead approval, one review round, a decision record
+  only for a real decision. A Lead correction that resolves a blocking finding needs a delta round, even
+  in its own decision record. Lead hint: a record about a removed string says a search "finds only this
+  record". Reason: the issue #92 run (PR #192, lessons in #193) spent six agent runs on a three-line doc
+  fix and approved a blocking fix without re-review. The suggested CRLF rule from #193 was not adopted:
+  `.gitattributes` normalizes every text file on commit, so the Write tool's LF output is harmless.

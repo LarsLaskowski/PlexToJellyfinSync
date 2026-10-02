@@ -2,7 +2,7 @@
 
 Source: Issue #<number> | [spec.md](spec.md)
 Status: Draft | Revised (n) | Approved by Security
-Tier: trivial | standard | security — <one-sentence justification>
+Tier: trivial | standard | security  (tier `docs` uses no plan.md) — <one-sentence justification>
 
 ## Problem / root cause
 

@@ -29,11 +29,12 @@ product PR as a blocking finding.
 
 ## Tiers
 
-In step 2 the Lead classifies the change and justifies the tier in `plan.md`. When in doubt, the higher
+In step 2 the Lead classifies the change and justifies the tier in `plan.md` (for `docs`, in its result). When in doubt, the higher
 tier applies; Security or the Reviewer may raise the tier at any point (never lower it).
 
 | Tier | When | Pipeline |
 | ---- | ---- | -------- |
+| `docs` | Only Markdown documentation (`README.md`, `docs/`, `SECURITY.md`), issue/PR templates or code comments change — no file that is compiled, built, tested or executed (`src/`/`tests/` code, `.csproj`/props, `Dockerfile`, workflows, scripts, `appsettings*.json`) | Lead plans briefly (no `plan.md`: tier, change list and acceptance criteria go into its result and the first `log.md` row); steps 3–7 and 9 skipped; the Dev makes the edits; the orchestrator verifies read-only (`reihitsu-format --check ./`, and the build only if a code comment changed); one Reviewer round (a delta round only after a blocking fix); the orchestrator opens the PR once the review is clean. A decision record only for a real decision, never for a wording fix. |
 | `trivial` | Documentation, comments, log or UI wording, configuration defaults — no change to behavior or control flow | Steps 3, 4 and 5 skipped (no Security, no tests-first); code check, Reviewer and Lead approval still run. Tests and coverage are still required if production code changes. |
 | `standard` | A behavior change that touches none of the security areas below | Step 3 skipped; Security reviews only the diff (step 8) |
 | `security` | Touches tokens/secrets, dashboard auth (`TokenAuthMiddleware`, login, sessions, cookies), path mapping or any file write, `.nfo`/XML parsing, HTTP calls to Plex, logging of external data, Docker/CI configuration, or adds/updates a dependency | Full pipeline |
@@ -50,7 +51,7 @@ tier applies; Security or the Reviewer may raise the tier at any point (never lo
 | 6 | Implementation + coverage | Dev, Tester | All tests green; ≥ 80 % line coverage on new/changed code and overall (`.squad/tools/coverage-check.py`); doc updates from the plan done |
 | 7 | Code check | Code Officer | `reihitsu-format`; `.squad/tools/analyzer-check.py` passes (no diagnostic of any severity in changed files); same tests green; no structural change |
 | 8 | Review | Reviewer + Security | No blocking findings → 9; blocking → owner fixes (Dev: code, Tester: tests), back to 6, then a mandatory delta round (Security only for `standard`/`security`) |
-| 9 | PR approval | Lead | Latest review round without a blocking finding not covered by a recorded Lead decision, and covering every change to `src/`/`tests/`/`docs/` except `specs/` bookkeeping and the Lead's own edits (decision records, their index, `docs/ARCHITECTURE.md`); plan fulfilled, coverage met, decision records `Accepted` and indexed → `APPROVED` → 10 |
+| 9 | PR approval | Lead | Latest review round without a blocking finding not covered by a recorded Lead decision, and covering every change to `src/`/`tests/`/`docs/` except `specs/` bookkeeping and the Lead's own approval edits (record status, index, `docs/ARCHITECTURE.md` link); plan fulfilled, coverage met, decision records `Accepted` and indexed → `APPROVED` → 10 |
 | 10 | Pull request | Dev (via orchestrator) | Working record posted as comment, `specs/<folder>/` removed, PR opened (merged later with *Squash and merge*) |
 | 11 | After the PR | Dev, Code Officer, Reviewer | CI green, SonarQube Cloud quality gate passed, review comments worked |
 | 12 | Wrap-up | Orchestrator | Squad lessons filed as one `squad` issue (or "no lessons" logged), user informed |

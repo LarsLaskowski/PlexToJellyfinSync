@@ -119,7 +119,7 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 - `create-pr` — verify (format, build, tests), review the change locally, then open a PR
   following [`.github/pull_request_template.md`](.github/pull_request_template.md).
 - `squad-issue` — fix a GitHub issue with the squad: the Lead plans and picks a tier
-  (`trivial` / `standard` / `security`), Security reviews security-relevant plans, the Tester writes
+  (`docs` / `trivial` / `standard` / `security`), Security reviews security-relevant plans, the Tester writes
   failing tests first, the Dev implements to ≥ 80 % coverage, the Code Officer clears
   format, Reihitsu and Sonar diagnostics, Reviewer
   and Security review the diff, the Lead approves, then a PR referencing the issue is opened.

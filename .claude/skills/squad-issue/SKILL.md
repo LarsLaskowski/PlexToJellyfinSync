@@ -51,7 +51,11 @@ action yourself — including follow-up issues the Lead decides on.
    (the orchestrator) write `log.md`, one row per append, each row ending in CRLF — subagents report and
    you record, so rows never merge or end up with mixed line endings.
 2. **Plan.** Launch `squad-lead` in mode `plan` with the issue text and the work folder. It returns one of:
-   - `RESULT: DONE` — `plan.md` with the **tier** (`trivial` / `standard` / `security`), acceptance
+   - `RESULT: DONE` — for tier **`docs`**, a short result (tier, the files and lines to change, acceptance
+     criteria) that you record as the first plan row in `log.md`, then continue with step 6 (Dev), the
+     read-only check from the `docs` row in `.squad/routing.md`, one review round in step 8, and step 10
+     directly — no Security, skeleton, tests, coverage, Code Officer or Lead approval. Otherwise:
+     `plan.md` with the **tier** (`trivial` / `standard` / `security`), acceptance
      criteria, the signatures of new or changed API, required documentation updates (`README.md`,
      `docs/`), and `Proposed` decision records. Continue with the steps the tier requires.
    - `RESULT: NO CHANGE` — show the proposed issue comment to the user, post it only after confirmation,
@@ -91,12 +95,13 @@ action yourself — including follow-up issues the Lead decides on.
 9. **PR approval.** Launch `squad-lead` in mode `approve-pr` with the base ref, the build/test/coverage
    output and the review outcome — including the result of the **latest** review round, which must have
    no blocking finding that is not covered by a recorded Lead decision, and must cover every change to
-   `src/`, `tests/` and `docs/` since it ran (only `specs/` bookkeeping and the Lead's own edits (decision records, their index, `docs/ARCHITECTURE.md`) may
-   follow it). `NOT APPROVED` → back to step 6 or 8 (counting against the review loop
+   `src/`, `tests/` and `docs/` since it ran (only `specs/` bookkeeping and the Lead's own approval edits —
+   record status, the index, a link from `docs/ARCHITECTURE.md` — may follow it; a fix for a blocking
+   finding always needs a delta round, also in a decision record). `NOT APPROVED` → back to step 6 or 8 (counting against the review loop
    limit) or let the Lead decide/escalate. On `APPROVED`, the decision records are `Accepted` and indexed
    in `docs/decisions/README.md`.
 10. **Pull request** (Dev role, performed by you). First move the working record off the branch: post
-    `plan.md` and `log.md` as one comment on the issue (each inside a collapsed `<details>` block, headed
+    `plan.md` (none for tier `docs`) and `log.md` as one comment on the issue (each inside a collapsed `<details>` block, headed
     "Squad working record"), then `git rm -r specs/issue-<number>/`, commit ("Remove squad working
     record"), and push. Later log rows (steps 11–12) are appended by editing that comment. Then open the
     PR from
