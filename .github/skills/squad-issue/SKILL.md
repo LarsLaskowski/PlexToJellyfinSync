@@ -1,6 +1,6 @@
 ---
 name: squad-issue
-description: Use when the user asks to fix a specific GitHub issue in PlexToJellyfinSync. Runs the squad pipeline — Lead plans and picks a tier, Security reviews security-relevant plans, Tester writes failing tests first, Dev implements to 80% coverage, Code Officer clears format/Reihitsu/Sonar, Reviewer (+ Security) review, Lead approves — and opens a PR referencing the issue.
+description: Use when the user asks to fix a specific GitHub issue in PlexToJellyfinSync. Runs the squad pipeline — Lead plans and picks a tier, the Devil's Advocate challenges the plan, Security reviews security-relevant plans, Tester writes failing tests first, Dev implements to 80% coverage, Code Officer clears format/Reihitsu/Sonar, Reviewer (+ Security) review, Lead approves — and opens a PR referencing the issue.
 ---
 
 # Squad Issue
@@ -67,6 +67,14 @@ action yourself — including follow-up issues the Lead decides on.
      (append the log as a collapsed "Squad working record" block), remove the work folder with a commit
      and push, and stop. No PR; the branch stays as it is, and you tell the user so.
    - `RESULT: ESCALATE` — ask the user, then relaunch the Lead with the answer.
+
+   **Plan challenge** (`standard` and `security` only, once). Launch `squad-devils-advocate` with the issue
+   text and the work folder. On `VERDICT: OBJECTIONS …`, launch `squad-lead` in mode `revise` with the
+   objections; it answers each one in the plan's *Challenge* section (accepted and the plan revised, or
+   rejected with a reason) and may narrow the scope, raise the tier or switch to `RESULT: NO CHANGE`.
+   `RESULT: NO CHANGE` and `RESULT: ESCALATE` are handled as above; after a raised tier, continue with that
+   tier's steps. There is no second challenge round and no veto. Record the verdict (also a clean
+   `NO OBJECTIONS`) and the Lead's answer in `log.md`.
 3. **Plan security review** (`security` tier only). Launch `squad-security` in mode `plan`. On
    `CHANGES_REQUIRED`, launch `squad-lead` in mode `revise` and repeat. After the **2nd** rejection launch
    `squad-lead` in mode `decide` (scope down, split into issues, abort, or escalate).

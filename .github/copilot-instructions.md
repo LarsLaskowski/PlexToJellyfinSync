@@ -130,7 +130,8 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 - `create-pr` — verify (format, build, tests), review the change locally, then open a PR
   following [`pull_request_template.md`](pull_request_template.md).
 - `squad-issue` — fix a GitHub issue with the squad: the Lead plans and picks a tier
-  (`docs` / `trivial` / `standard` / `security`), Security reviews security-relevant plans, the Tester writes
+  (`docs` / `trivial` / `standard` / `security`), the Devil's Advocate challenges `standard`/`security` plans
+  once, Security reviews security-relevant plans, the Tester writes
   failing tests first, the Dev implements to ≥ 80 % coverage, the Code Officer clears
   format, Reihitsu and Sonar diagnostics, Reviewer
   and Security review the diff, the Lead approves, then a PR referencing the issue is opened.
@@ -148,7 +149,7 @@ that one file, so they are identical either way. An agent without subagent suppo
 file inline.
 
 The squad skills run a multi-role pipeline defined in [`.squad/`](../.squad/team.md) — Lead (plan, decisions,
-PR approval), Security (plan and diff), Tester (tests first, coverage), Dev, Code Officer (format, Reihitsu, Sonar) and Reviewer — as
+PR approval), Devil's Advocate (one plan challenge), Security (plan and diff), Tester (tests first, coverage), Dev, Code Officer (format, Reihitsu, Sonar) and Reviewer — as
 subagents under `.claude/agents/squad-*.md`, with the loop limits and escalation rules in
 [`.squad/routing.md`](../.squad/routing.md). Their working records (`plan.md`, `log.md`, for features also
 `spec.md` and `tasks.md`) live under `specs/` on the work branch only; before the PR they are posted as a

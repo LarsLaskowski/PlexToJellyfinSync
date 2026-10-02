@@ -36,15 +36,15 @@ tier applies; Security or the Reviewer may raise the tier at any point (never lo
 | ---- | ---- | -------- |
 | `docs` | Issues only (never a feature). Only product Markdown documentation (`README.md`, `docs/` except `docs/decisions/`, `SECURITY.md`) or issue/PR templates change — no other file at all: not even a comment in `src/`/`tests/` (that is `trivial`), no build, CI, Docker or config file, and never squad or instruction files (`.squad/`, `.claude/`, `.github/skills/`, `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`). A change that needs a decision record is not `docs` either. | Lead plans briefly (no `plan.md`: tier, change list and acceptance criteria go into its result, recorded as the first `log.md` row); steps 3–7 and 9 skipped; the Dev makes the edits; the orchestrator verifies read-only (`reihitsu-format --check ./`); one Reviewer round, which checks the diff against the first `log.md` row — a blocking finding goes to the Dev, then the read-only check and a delta round; the orchestrator opens the PR once the latest round is clean. |
 | `trivial` | Documentation that does not qualify as `docs`, code comments, log or UI wording, configuration defaults, or a documentation change that needs a decision record — no change to behavior or control flow | Steps 3, 4 and 5 skipped (no Security, no tests-first); code check, Reviewer and Lead approval still run. Tests and coverage are still required if production code changes. |
-| `standard` | A behavior change that touches none of the security areas below | Step 3 skipped; Security reviews only the diff (step 8) |
-| `security` | Touches tokens/secrets, dashboard auth (`TokenAuthMiddleware`, login, sessions, cookies), path mapping or any file write, `.nfo`/XML parsing, HTTP calls to Plex, logging of external data, Docker/CI configuration, or adds/updates a dependency | Full pipeline |
+| `standard` | A behavior change that touches none of the security areas below | Plan challenge in step 2; step 3 skipped; Security reviews only the diff (step 8) |
+| `security` | Touches tokens/secrets, dashboard auth (`TokenAuthMiddleware`, login, sessions, cookies), path mapping or any file write, `.nfo`/XML parsing, HTTP calls to Plex, logging of external data, Docker/CI configuration, or adds/updates a dependency | Full pipeline, including the plan challenge in step 2 |
 
 ## Pipeline
 
 | # | Step | Owner | Exit condition |
 | - | ---- | ----- | -------------- |
 | 1 | Intake | Orchestrator | Branch off `main`, work folder and `log.md` created, committed and pushed |
-| 2 | Plan | Lead | `plan.md` with tier, acceptance criteria, signatures of new/changed API, doc updates; decision records `Proposed`. Or outcome **no change** (see below) |
+| 2 | Plan | Lead, Devil's Advocate | `plan.md` with tier, acceptance criteria, signatures of new/changed API, doc updates; decision records `Proposed`. Or outcome **no change** (see below). `standard`/`security`: one plan challenge by the Devil's Advocate, every objection answered by the Lead in the plan's *Challenge* section |
 | 3 | Plan security review | Security | `APPROVED` → 4; `CHANGES_REQUIRED` → Lead revises, back to 3 (`security` tier only) |
 | 4 | Skeleton | Dev | Only when the plan adds or changes API: compile-only signatures (bodies throw `NotImplementedException`), solution builds |
 | 5 | Tests first | Tester | Tests for every acceptance criterion; they compile and **fail** on the current code |
@@ -71,7 +71,7 @@ trial edits) in the repository working tree — use a scratch `git worktree` ins
 
 ## Outcome "no change"
 
-If the Lead concludes in step 2 that no code change is needed — duplicate, cannot be reproduced, works as
+If the Lead concludes in step 2 (also after answering the Devil's Advocate) that no code change is needed — duplicate, cannot be reproduced, works as
 designed (e.g. covered by an accepted decision record), or out of scope — it returns
 `RESULT: NO CHANGE` with a proposed issue comment. The orchestrator shows the comment to the Product
 Manager and posts it only after confirmation (a public statement on the issue). The orchestrator removes
@@ -80,6 +80,8 @@ told so.
 
 ## Loop limits
 
+- **Plan challenge (step 2):** exactly one Devil's Advocate round, no veto. The Lead answers every
+  objection (accept and revise, or reject with a reason); a rejected objection is not raised again.
 - **Plan ↔ Security (steps 2–3):** at most 2 rejections. After the 2nd `CHANGES_REQUIRED` the Lead
   decides: narrow the scope, split into separate issues, or escalate to the Product Manager.
 - **Review ↔ Dev (steps 6–8):** review pass 1 is a full review; at most **2 further fix-and-review

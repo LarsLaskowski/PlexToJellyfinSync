@@ -72,3 +72,11 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   instruction files and skills: attribution lines are acceptable now (Product Manager decision), so the
   repo rule no longer conflicts with the attribution the session adds. Reason: each of these caused
   friction or a fix round in PR #195.
+- 2026-10-02 — New read-only role Devil's Advocate (`squad-devils-advocate`, Opus): for the tiers
+  `standard` and `security` it challenges the plan once in step 2, before Security — assumptions checked
+  against the code, need (no change?), simpler alternatives, scope, tier and acceptance criteria. No veto
+  and no second round: the Lead answers every objection in the plan's *Challenge* section and decides.
+  Reason: in the issue #31 run the plan adopted the issue's claims unchecked; the Reviewer only sees the
+  finished diff, and Security sees the plan only for the `security` tier and only from the security
+  angle, so a wrong plan was caught late. Not used for `docs`/`trivial`, to keep those
+  tiers light; it never reviews code, so it does not duplicate the Reviewer or Security.
