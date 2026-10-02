@@ -19,6 +19,11 @@ import glob
 import os
 import sys
 
+CLAUDE_DIR = ".claude"
+AGENTS_DIR = os.path.join(CLAUDE_DIR, "agents")
+CLAUDE_SKILLS = os.path.join(CLAUDE_DIR, "skills")
+GITHUB_SKILLS = os.path.join(".github", "skills")
+
 try:
     import yaml
 except ImportError:
@@ -56,11 +61,11 @@ def main():
     # Resolve paths from the repository root, whatever the current directory is.
     os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
     errors = []
-    agents = sorted(glob.glob(os.path.join(".claude", "agents", "*.md")))
+    agents = sorted(glob.glob(os.path.join(AGENTS_DIR, "*.md")))
     for path in agents:
         check(path, os.path.splitext(os.path.basename(path))[0], errors)
     skills = {}
-    for root in (os.path.join(".claude", "skills"), os.path.join(".github", "skills")):
+    for root in (CLAUDE_SKILLS, GITHUB_SKILLS):
         found = {}
         for path in sorted(glob.glob(os.path.join(root, "*", "SKILL.md"))):
             name = os.path.basename(os.path.dirname(path))
@@ -68,7 +73,7 @@ def main():
             with open(path, "rb") as handle:
                 found[name] = handle.read()
         skills[root] = found
-    claude, github = skills[os.path.join(".claude", "skills")], skills[os.path.join(".github", "skills")]
+    claude, github = skills[CLAUDE_SKILLS], skills[GITHUB_SKILLS]
     for name in sorted(set(claude) | set(github)):
         if name not in claude or name not in github:
             errors.append(f"skill '{name}' exists in only one of .claude/skills and .github/skills")
