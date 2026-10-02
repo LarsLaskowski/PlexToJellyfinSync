@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace PlexToJellyfinSync.Core.Options;
 
 /// <summary>
@@ -19,6 +21,7 @@ public sealed class StateOptions
     /// <summary>
     /// Directory in which the <c>state.json</c> file is stored
     /// </summary>
+    [Required(ErrorMessage = "State:Directory must not be empty (environment variable PLEXSYNC__State__Directory).")]
     public string Directory { get; set; } = "/config";
 
     #endregion // Properties

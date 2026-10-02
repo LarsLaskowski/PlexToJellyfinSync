@@ -64,8 +64,10 @@ dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
 The host reads configuration from `src/PlexToJellyfinSync/appsettings.json` /
 `appsettings.Development.json`, or from `PLEXSYNC__`-prefixed environment variables (see
 [`README.md`](../README.md) for the full configuration table). At minimum you need a reachable Plex
-`BaseUrl`/`Token` and at least one path mapping to see the sync pipeline do useful work; without
-those the host still starts and serves the dashboard, but every sync run has nothing to process.
+`BaseUrl`/`Token` and at least one path mapping to see the sync pipeline do useful work. `Plex:BaseUrl`
+is required: the host refuses to start without a valid absolute `http`/`https` URL, so set it (for
+example `PLEXSYNC__Plex__BaseUrl`) before `dotnet run`. Without a token or path mapping the host still
+starts and serves the dashboard, but every sync run has nothing to process.
 
 ```shell
 dotnet run --project src/PlexToJellyfinSync/PlexToJellyfinSync.csproj
