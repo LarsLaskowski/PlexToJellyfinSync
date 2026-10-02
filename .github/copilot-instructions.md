@@ -68,9 +68,8 @@ Use the solution file at the repository root (`.slnx` format):
 
 Run `reihitsu-format ./` after source changes and before running a build. CI does **not** check
 formatting, so it must be clean before a push; in the squad skills only the Code Officer runs it. The command is available as
-a .NET tool and can be installed with `dotnet tool install -g Reihitsu.Cli --prerelease` if it is
-missing; `--prerelease` keeps the CLI in sync with the prerelease **Reihitsu.Analyzer** pinned in
-`Directory.Packages.props`.
+a .NET tool and can be installed with `dotnet tool install -g Reihitsu.Cli` if it is
+missing; 
 Static analysis runs during build through the **Reihitsu.Analyzer** and the **SonarAnalyzer.CSharp** rules
 (both added to every project), so SonarQube issues surface in the local build, not first in the CI
 analysis. There is **no StyleCop.Analyzers**.
