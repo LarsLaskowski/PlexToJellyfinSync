@@ -22,11 +22,11 @@ you are manually verifying an end-to-end change against real data.
 Format checks rely on `reihitsu-format`, a .NET tool. Install it once with:
 
 ```shell
-dotnet tool install -g Reihitsu.Cli --prerelease
+dotnet tool install -g Reihitsu.Cli
 ```
 
-`--prerelease` is required: the repository pins a prerelease **Reihitsu.Analyzer**, and the CLI has
-to match it, otherwise the formatter reverts code the analyzer considers correct.
+Keep the CLI on the same release line as the **Reihitsu.Analyzer** version pinned in
+`Directory.Packages.props`; otherwise the formatter can revert code the analyzer considers correct.
 
 > [!IMPORTANT]
 > The above steps are a one-time setup for your machine and do not need to be repeated after the
@@ -110,8 +110,9 @@ Follow the PR template in [`.github/pull_request_template.md`](../.github/pull_r
 Detailed C# code-style rules (naming, `#region` layout, formatting, XML docs, null handling) are
 documented in [`CLAUDE.md`](../CLAUDE.md) and [`.github/copilot-instructions.md`](../.github/copilot-instructions.md)
 and are binding for all contributions. Run `reihitsu-format ./` before opening a pull request; a
-clean build must show **zero Reihitsu (`RH####`) warnings and errors** and no SonarQube (`S####`)
-diagnostic in a changed file (the `SonarAnalyzer.CSharp` rules run in every local build). CI does
+clean build must show **zero Reihitsu (`RH####`) warnings and errors**, and no changed file may carry an
+analyzer diagnostic of any severity (`S####`, `MSTEST####`, …, including info-level ones that only
+SonarQube Cloud reports) — run `python3 .squad/tools/analyzer-check.py`. CI does
 **not** re-check formatting — a pull request is expected to arrive clean (see
 [decision 0009](decisions/0009-quality-gates-before-the-pull-request.md)). New or changed production
 code needs at least 80 % line coverage (see [`UNIT_TESTS.md`](UNIT_TESTS.md#code-coverage)).

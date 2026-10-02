@@ -169,7 +169,25 @@ Assert.IsNotNull(carStatus, "The registration should resolve the state store!");
 Prefer the specific MSTest `Assert`/`CollectionAssert` member over `Assert.IsTrue` /
 `Assert.IsFalse` wrapping a boolean expression — e.g. `Assert.HasCount(1, collection, message)`
 instead of `Assert.IsTrue(collection.Count == 1, message)`, or `Assert.AreSame(a, b, message)`
-instead of `Assert.IsTrue(ReferenceEquals(a, b), message)` — SonarQube flags the latter.
+instead of `Assert.IsTrue(ReferenceEquals(a, b), message)` — SonarQube flags the latter. The same goes
+for `StringAssert`: use `Assert.Contains` / `Assert.StartsWith` (MSTEST0046).
+
+Pass `TestContext.CancellationToken` to every call in a test that accepts a cancellation token —
+`Task.Run`, `Task.Delay`, any `*Async` API (MSTEST0049 / S8949). Inject the context through the
+constructor, like the constructor of `NfoWriterTests` (the file's older async calls predate this rule
+and are not a model):
+
+```csharp
+private readonly TestContext _testContext;
+
+public NfoWriterTests(TestContext testContext)
+{
+    _testContext = testContext;
+}
+```
+
+The MSTest analyzer rules are info-level: they never show up as build warnings, but SonarQube Cloud
+reports them. `python3 .squad/tools/analyzer-check.py` lists them for changed files before a push.
 
 ## Write minimally passing tests
 
@@ -273,6 +291,8 @@ accepted.
 ## Checklist for new tests
 
 - [ ] New production code has accompanying unit tests — this is mandatory, not optional.
+- [ ] `python3 .squad/tools/analyzer-check.py` reports no diagnostic in a changed test file (MSTest
+      analyzer rules are info-level and only visible there or in SonarQube Cloud).
 - [ ] At least 80 % line coverage on new/changed production code and overall
       (`.squad/tools/coverage-check.py`).
 - [ ] Test class named `{TypeUnderTest}Tests`, placed directly in

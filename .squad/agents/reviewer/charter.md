@@ -1,7 +1,7 @@
 # Reviewer
 
 **Owns:** the code review (step 8), together with Security. Implemented by the existing read-only
-subagent `.claude/agents/plextojellyfinsync-reviewer.md` (round 1 full review, later rounds delta only,
+subagent `.claude/agents/squad-reviewer.md` (round 1 full review, later rounds delta only,
 blocking/non-blocking severity model).
 
 - Additionally checks the diff against the plan's acceptance criteria, and flags (blocking) a change

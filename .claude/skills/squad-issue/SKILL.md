@@ -27,7 +27,9 @@ action yourself — including follow-up issues the Lead decides on.
    Jellyfin versions, image tag, host OS, volume layout). If it is closed, stop and report that. Start
    from a clean working tree on a new branch off the latest `main`, e.g.
    `fix-issue-<number>-<short-slug>` (or the branch the session prescribes). Create
-   `specs/issue-<number>/log.md` from `specs/_template/log.md`; append one line per step.
+   `specs/issue-<number>/log.md` from `specs/_template/log.md`; append one table row per step. Only you
+   (the orchestrator) write `log.md`, one row per append, each row ending in CRLF — subagents report and
+   you record, so rows never merge or end up with mixed line endings.
 2. **Plan.** Launch `squad-lead` in mode `plan` with the issue text and the work folder. It returns one of:
    - `RESULT: DONE` — `plan.md` with the **tier** (`trivial` / `standard` / `security`), acceptance
      criteria, the signatures of new or changed API, required documentation updates (`README.md`,
@@ -51,12 +53,13 @@ action yourself — including follow-up issues the Lead decides on.
    passes (≥ 80 % on new/changed production code and overall). Lines reported as not unit-testable go to
    `squad-lead` in mode `decide`; an accepted gap is recorded in `log.md`.
 7. **Code check.** Launch `squad-code-officer` with the base ref — the only member that runs
-   `reihitsu-format` and fixes `RH####` / `S####` diagnostics. Then verify yourself, without formatting:
-   `reihitsu-format --check ./` exits 0, `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` shows zero `RH####` and no `S####` in a
+   `reihitsu-format` and clears analyzer diagnostics. Then verify yourself, without formatting:
+   `reihitsu-format --check ./` exits 0, `python3 .squad/tools/analyzer-check.py` passes (no diagnostic of any
+   severity — `RH`, `S`, `MSTEST`, … — in a
    changed file, `dotnet test PlexToJellyfinSync.slnx -c Release --no-build` is green with the same
    tests, and the coverage check still passes. Structural items handed back go to `squad-dev` (or
    `squad-tester`), followed by another code check. CI does not check formatting; this is the only gate.
-8. **Review.** Launch `plextojellyfinsync-reviewer` (round 1, full) and — for `standard` and `security` —
+8. **Review.** Launch `squad-reviewer` (round 1, full) and — for `standard` and `security` —
    `squad-security` in mode `diff`, in parallel, against the base ref. Pass both the work folder
    (`specs/<folder>/`) so they check the plan's acceptance criteria and tier; either may raise the tier. Blocking
    findings → `squad-dev` fixes them → steps 6 (coverage) and 7 again → next round reviews only the
@@ -91,5 +94,8 @@ The PR title and description document the change, not how it was produced: the b
 that pins it down. Plan revisions, review rounds and their findings never appear there.
 (`specs/issue-<number>/` stays in the repository as the working record; the lasting reasoning is in
 `docs/decisions/`.)
+
+## Notes
+
 - Prefer non-interactive commands only. If push or PR creation fails, stop and report it.
 - Never close the issue manually; `Closes #<number>` closes it on merge.

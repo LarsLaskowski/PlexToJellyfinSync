@@ -33,9 +33,11 @@ together.
   version numbers in individual `.csproj` files.
 - Every C# project uses the **Reihitsu.Analyzer** and the **SonarAnalyzer.CSharp** rules (no
   StyleCop.Analyzers), so SonarQube issues surface in the local build, not first in the CI analysis.
-- A build must finish with **zero Reihitsu (`RH####`) warnings and errors** and no SonarQube (`S####`)
-  diagnostic in a changed file. Treat every such diagnostic as a failure and fix it before considering
-  the work done (in the squad skills, the Code Officer owns this).
+- A build must finish with **zero Reihitsu (`RH####`) warnings and errors**, and a changed file may not
+  carry **any analyzer diagnostic of any severity** — `S####`, `MSTEST####`, `CA####`, including
+  info-level ones that never show up as build warnings but that SonarQube Cloud reports. Check with
+  `python3 .squad/tools/analyzer-check.py` and fix every finding before considering the work done (in the
+  squad skills, the Code Officer owns this).
 - New or changed production code needs **at least 80 % line coverage**, and overall coverage must stay
   at least 80 % (`.squad/tools/coverage-check.py`, see [`UNIT_TESTS.md`](docs/UNIT_TESTS.md#code-coverage)).
 - Wrap every type's members in `#region` blocks **as you write the code** — never leave a type
@@ -48,7 +50,7 @@ together.
 
 ```bash
 dotnet restore PlexToJellyfinSync.slnx
-reihitsu-format ./                                          # dotnet tool install -g Reihitsu.Cli --prerelease
+reihitsu-format ./                                          # dotnet tool install -g Reihitsu.Cli
 dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build
 ```
@@ -100,7 +102,7 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 - `review-pr` — review an open pull request against this project's C#, analyzer, security and
   unit-test conventions, and post the findings with an explicit verdict.
 
-Review runs as a subagent defined in `.claude/agents/plextojellyfinsync-reviewer.md` (read-only,
+Review runs as a subagent defined in `.claude/agents/squad-reviewer.md` (read-only,
 pinned to Opus, fresh context). `create-pr` and the squad skills call it *before* pushing, so a change
 is reviewed while it is still local; `review-pr` calls the same agent for a pull request that is
 already open. The review checklist, the integration-surface sweep, the blocking/non-blocking

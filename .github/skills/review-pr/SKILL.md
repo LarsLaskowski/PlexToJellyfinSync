@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Use when the user asks to review a PlexToJellyfinSync pull request on GitHub. Checks out the PR, runs the build and tests, reviews it with the plextojellyfinsync-reviewer subagent against this project's C#, analyzer, security and unit-test conventions, and posts the findings with an explicit verdict.
+description: Use when the user asks to review a PlexToJellyfinSync pull request on GitHub. Checks out the PR, runs the build and tests, reviews it with the squad-reviewer subagent against this project's C#, analyzer, security and unit-test conventions, and posts the findings with an explicit verdict.
 ---
 
 # Review PR
@@ -23,13 +23,13 @@ anything posted to GitHub — regardless of the language the user wrote in.
    any issue it references so you can judge whether the change actually
    solves the stated problem. If the PR is already merged or closed, say so
    and ask whether the user still wants a review.
-2. Delegate the review itself to the `plextojellyfinsync-reviewer` subagent
-   (subagent_type `plextojellyfinsync-reviewer`, model `opus`). Give it the
+2. Delegate the review itself to the `squad-reviewer` subagent
+   (subagent_type `squad-reviewer`, model `opus`). Give it the
    base ref, the head SHA, and the round number — round 1 for a first review,
    and for a re-review the previous round's findings plus the commits that
    were meant to fix them. The review checklist, the integration-surface
    sweep, the severity model and the round semantics all live in that agent's
-   definition (`.claude/agents/plextojellyfinsync-reviewer.md`), so they stay
+   definition (`.claude/agents/squad-reviewer.md`), so they stay
    identical whether the review runs before or after the push; an agent
    without subagent support follows that same file inline.
 3. Post the result:
@@ -101,7 +101,7 @@ When acting as the author of a PR under review:
   message, where it stays with the code; the reviewer verifies the commit,
   not the reply.
 - Re-run `reihitsu-format --force ./`, the Release build (zero `RH####`
-  diagnostics, no `S####` in a changed file), `dotnet test` and the coverage
+  diagnostics), `.squad/tools/analyzer-check.py` (no diagnostic in a changed file), `dotnet test` and the coverage
   check (`.squad/tools/coverage-check.py`) before each push — a fix that turns CI red costs more
   than the finding did.
 - Resolve the thread once it is answered. One summary comment per round beats

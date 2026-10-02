@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: Use when the user asks to open/create a pull request for PlexToJellyfinSync changes on this branch. Runs local verification (format, build, test), reviews the change with the plextojellyfinsync-reviewer subagent, then pushes the branch and opens a PR following this repo's pull request template.
+description: Use when the user asks to open/create a pull request for PlexToJellyfinSync changes on this branch. Runs local verification (format, build, test), reviews the change with the squad-reviewer subagent, then pushes the branch and opens a PR following this repo's pull request template.
 ---
 
 # Create PR
@@ -35,8 +35,9 @@ in.
      for more than 25 files, which a non-interactive session cannot answer)
    - `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` — the
      build must finish with **zero Reihitsu (`RH####`) warnings and errors**
-     and no SonarQube (`S####`) diagnostic in a changed file; treat each as a
-     failure
+   - `python3 .squad/tools/analyzer-check.py` — no analyzer diagnostic of any
+     severity (`S####`, `MSTEST####`, …, including info-level ones SonarQube
+     Cloud reports) in a changed file; treat each as a failure
    - `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults`
      and `python3 .squad/tools/coverage-check.py` — at least
      80 % line coverage on new/changed production code and overall
@@ -86,13 +87,13 @@ The pull request documents **the change**, not how the change was produced.
 
 The review happens here, in this session, against the local branch — not as
 a round trip through pull request comments. Each pass is delegated to the
-`plextojellyfinsync-reviewer` subagent, which runs on Opus with a fresh
+`squad-reviewer` subagent, which runs on Opus with a fresh
 context and the repository's full review checklist. That checklist lives in
-`.claude/agents/plextojellyfinsync-reviewer.md`; an agent without subagent
+`.claude/agents/squad-reviewer.md`; an agent without subagent
 support follows the same file inline, so the review is the same either way.
 
-1. **Pass 1** — launch `plextojellyfinsync-reviewer` (subagent_type
-   `plextojellyfinsync-reviewer`, model `opus`). Tell it the base ref, the
+1. **Pass 1** — launch `squad-reviewer` (subagent_type
+   `squad-reviewer`, model `opus`). Tell it the base ref, the
    head to review, and that this is round 1.
 2. **Act on the verdict**:
    - `APPROVE` → done, go push.
@@ -103,7 +104,7 @@ support follows the same file inline, so the review is the same either way.
      it **now**, in this session, and link that issue under the PR's Next
      Steps — a note that only exists in this conversation is lost the moment
      the session ends, so it is not a way to carry a finding forward.
-3. **Pass n+1** — launch a fresh `plextojellyfinsync-reviewer` and give it
+3. **Pass n+1** — launch a fresh `squad-reviewer` and give it
    the round number, the previous round's findings, and the commits that
    fixed them. It reviews the delta only, per its own instructions.
 4. **Stop** at the first pass that reports no blocking findings. Cap the loop

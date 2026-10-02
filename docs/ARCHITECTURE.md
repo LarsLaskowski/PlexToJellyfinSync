@@ -368,7 +368,7 @@ detail. All of these are meant to stay consistent with each other and with this 
 every one of them, not just the one the current tool happens to read.
 
 The review those skills run is defined once, in
-[`.claude/agents/plextojellyfinsync-reviewer.md`](../.claude/agents/plextojellyfinsync-reviewer.md):
+[`.claude/agents/squad-reviewer.md`](../.claude/agents/squad-reviewer.md):
 a read-only reviewer with its own integration-surface sweep, convention checklist and
 blocking/non-blocking severity model. `create-pr` and the squad skills run it against the local branch
 *before* pushing, so a change arrives on GitHub already reviewed instead of accumulating review

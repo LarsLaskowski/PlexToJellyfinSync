@@ -35,3 +35,11 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   coverage on new/changed code (`.squad/tools/coverage-check.py`). Reason: quality gates move before the
   pull request; see decision record 0009 for the repository-level part (local Sonar rules, no CI format
   check).
+- 2026-10-02 — Lessons from the first squad run (issue #78): the Code Officer's gate is now
+  `.squad/tools/analyzer-check.py` (all Roslyn diagnostics incl. info-level MSTest rules, decision record
+  0011); Dev and Tester run it before handing over, and the Tester follows the MSTest conventions in
+  `docs/UNIT_TESTS.md`. The Lead names the owner of every fix it decides on by file (tests → Tester), and
+  only the orchestrator writes `log.md`. Reason: four MSTEST0049 issues reached SonarQube Cloud
+  unnoticed, a Lead decision assigned a test fix to the Dev, and log rows merged.
+- 2026-10-02 — The reviewer subagent is renamed from `plextojellyfinsync-reviewer` to `squad-reviewer`.
+  Reason: it is a squad member like the others; `create-pr` and `review-pr` keep using the same agent.

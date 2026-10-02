@@ -10,8 +10,8 @@
   paths always skipped, dashboard auth model) may not be weakened without the Product Manager.
 - **Revise** the plan on a Security `CHANGES_REQUIRED`, addressing every point.
 - **Decide** when a loop limit is hit or members disagree: accept with justification, split into a
-  separate issue, narrow the scope, or abort. Record the decision in the work folder's `log.md` (and in
-  `.squad/decisions.md` if it outlives this change).
+  separate issue, narrow the scope, or abort. State the decision in your result — the orchestrator records it in `log.md` — and add it to
+  `.squad/decisions.md` if it outlives this change.
 - **Record the why:** every decision about the code that a reader months later could not reconstruct
   from the diff alone gets a decision record in `docs/decisions/` (rules and threshold in
   `docs/decisions/README.md`): context, options considered, decision, consequences, and links to the
