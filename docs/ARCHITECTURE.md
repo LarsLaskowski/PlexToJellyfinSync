@@ -384,7 +384,7 @@ always finds something new.
 
 The squad skills (`squad-issue`, `squad-spec`) wrap that review in a larger, bounded pipeline described
 in [`.squad/routing.md`](../.squad/routing.md): an Opus Lead plans, classifies the change into a tier
-(`trivial`, `standard`, `security`) that decides how much of the pipeline runs, and owns every decision
+(`docs`, `trivial`, `standard`, `security`) that decides how much of the pipeline runs, and owns every decision
 including PR approval, a Security member reviews the plan before any code exists (at most two rejections) and the
 diff afterwards, tests are written first and new/changed code reaches at least 80 % line coverage, a
 Code Officer clears formatting, Reihitsu and Sonar diagnostics *before* the review so the reviewed code

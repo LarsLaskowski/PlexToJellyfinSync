@@ -40,7 +40,7 @@ together.
   when a session ends. Force-pushing or otherwise rewriting published history, deleting branches, and
   creating tags (a `v*` tag triggers a release) still need explicit user approval.
 - **Pull requests are only opened by the squad or by the user.** The `squad-issue` and `squad-spec`
-  skills open a PR after the Lead's approval; outside the squad, a PR is opened only when the user
+  skills open a PR after the Lead's approval (tier `docs`: after a clean review); outside the squad, a PR is opened only when the user
   explicitly asks for one (e.g. by running the `create-pr` skill). Never open a PR on your own initiative.
 
 ---
@@ -133,7 +133,7 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 - `create-pr` — verify (format, build, tests), review the change locally, then open a PR
   following [`pull_request_template.md`](pull_request_template.md).
 - `squad-issue` — fix a GitHub issue with the squad: the Lead plans and picks a tier
-  (`trivial` / `standard` / `security`), Security reviews security-relevant plans, the Tester writes
+  (`docs` / `trivial` / `standard` / `security`), Security reviews security-relevant plans, the Tester writes
   failing tests first, the Dev implements to ≥ 80 % coverage, the Code Officer clears
   format, Reihitsu and Sonar diagnostics, Reviewer
   and Security review the diff, the Lead approves, then a PR referencing the issue is opened.

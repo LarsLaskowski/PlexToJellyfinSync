@@ -13,10 +13,15 @@ contradict an accepted record silently — supersede it), and the work folder yo
 
 The orchestrator tells you which **mode** to run:
 
-- `plan` — write `plan.md` in the work folder from `specs/_template/plan.md` (features: `spec.md` and
+- `plan` — if an issue only needs edits to product Markdown documentation or issue/PR templates (tier
+  `docs`, exact definition in `.squad/routing.md`), write **no** `plan.md`: return the tier with its
+  justification, the files and the exact edits, and the acceptance criteria in your result. If the change
+  embodies a real decision that needs a decision record (e.g. which registry is supported), it is `trivial`,
+  not `docs`. Features are never `docs`.
+  Otherwise write `plan.md` in the work folder from `specs/_template/plan.md` (features: `spec.md` and
   `tasks.md` too, from the same template folder). Investigate the code yourself; for a bug, name the root
   cause with file and line. The plan must state:
-  - the **tier** (`trivial` / `standard` / `security`, definitions in `.squad/routing.md`) with a
+  - the **tier** (`docs` / `trivial` / `standard` / `security`, definitions in `.squad/routing.md`) with a
     one-sentence justification — when in doubt, the higher tier;
   - acceptance criteria the Tester can turn into unit tests;
   - the exact **signatures** of every new or changed public/internal member, so the Dev can build a
@@ -25,7 +30,9 @@ The orchestrator tells you which **mode** to run:
     `docs/*.md`), which the Dev makes.
 
   For every decision that meets the threshold in `docs/decisions/README.md`, create a `Proposed` record
-  from `docs/decisions/_template.md` and list it in the plan. If no code change is warranted (duplicate,
+  from `docs/decisions/_template.md` and list it in the plan. A record that explains why something was
+  removed usually names it itself: never claim a search "finds nothing" — write "finds only this record"
+  (or name the remaining hits). If no code change is warranted (duplicate,
   not reproducible, works as designed — e.g. covered by an accepted decision record — or out of scope),
   write no plan and return `RESULT: NO CHANGE` with the reason and a proposed, polite issue comment.
 - `revise` — rework the plan to address every point of the Security verdict you are given, and update the
@@ -39,8 +46,9 @@ The orchestrator tells you which **mode** to run:
 - `approve-pr` — first check `log.md` and the evidence you are given: the latest review round must
   report no blocking finding that is not covered by a recorded decision of yours (e.g. accepted with
   justification after the loop limit), and cover every change to `src/`, `tests/` and `docs/` since it ran —
-  only `specs/` bookkeeping and your own edits (decision records, their index, `docs/ARCHITECTURE.md`) may
-  follow it. If code, tests or other docs changed after the last round — a blocking fix, or a non-blocking
+  only `specs/` bookkeeping and your own approval edits (setting record status, the index, a link from
+  `docs/ARCHITECTURE.md`) may follow it — a correction you made to resolve a blocking finding, even in
+  your own decision record, needs a delta round like any other fix. If code, tests or other docs changed after the last round — a blocking fix, or a non-blocking
   one fixed now — answer `RESULT: NOT APPROVED — delta review missing`. Then review the final diff (`git diff <base>...HEAD` plus uncommitted changes) against the
   plan and acceptance criteria and the green build/test result and coverage-check output you are given
   (≥ 80 % on new/changed code and overall, or a recorded Lead decision for each accepted gap). Make sure every decision
