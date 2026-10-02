@@ -40,7 +40,7 @@ together.
   when a session ends. Force-pushing or otherwise rewriting published history, deleting branches, and
   creating tags (a `v*` tag triggers a release) still need explicit user approval.
 - **Pull requests are only opened by the squad or by the user.** The `squad-issue` and `squad-spec`
-  skills open a PR after the Lead's approval; outside the squad, a PR is opened only when the user
+  skills open a PR after the Lead's approval (tier `docs`: after a clean review); outside the squad, a PR is opened only when the user
   explicitly asks for one (e.g. by running the `create-pr` skill). Never open a PR on your own initiative.
 
 ---

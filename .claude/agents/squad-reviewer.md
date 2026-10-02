@@ -45,7 +45,10 @@ for features), and report as findings:
   no test pins down (blocking);
 - a tier in `plan.md` that is too low for what the diff touches, per the tier
   table in `.squad/routing.md` (blocking — the change must go through the
-  higher tier's steps);
+  higher tier's steps). For tier `docs` there is no `plan.md`: the tier and the
+  acceptance criteria are in the first row of `log.md`, and you are the only
+  gate confirming the diff really is docs-only — any file outside the `docs`
+  definition is a blocking tier raise;
 - any change to the squad or the agent instructions — `.squad/`, `.claude/`,
   `.github/skills/`, `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`
   (blocking — see *Scope of a product PR* in `.squad/routing.md`);

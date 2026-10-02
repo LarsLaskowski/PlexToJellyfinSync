@@ -13,10 +13,11 @@ contradict an accepted record silently — supersede it), and the work folder yo
 
 The orchestrator tells you which **mode** to run:
 
-- `plan` — if the change only touches Markdown documentation, issue/PR templates or code comments (tier
-  `docs`, see `.squad/routing.md`), write **no** `plan.md`: return the tier with its justification, the
-  files and the exact edits, and the acceptance criteria in your result, and create a decision record only
-  if the change embodies a real decision (e.g. which registry is supported), never for a wording fix.
+- `plan` — if an issue only needs edits to product Markdown documentation or issue/PR templates (tier
+  `docs`, exact definition in `.squad/routing.md`), write **no** `plan.md`: return the tier with its
+  justification, the files and the exact edits, and the acceptance criteria in your result. If the change
+  embodies a real decision that needs a decision record (e.g. which registry is supported), it is `trivial`,
+  not `docs`. Features are never `docs`.
   Otherwise write `plan.md` in the work folder from `specs/_template/plan.md` (features: `spec.md` and
   `tasks.md` too, from the same template folder). Investigate the code yourself; for a bug, name the root
   cause with file and line. The plan must state:

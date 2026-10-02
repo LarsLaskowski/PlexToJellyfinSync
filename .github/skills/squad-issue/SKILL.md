@@ -35,7 +35,7 @@ action yourself — including follow-up issues the Lead decides on.
   description reach `main`; intermediate commit messages may name the step, but never contain secrets or
   mention an AI assistant. Never commit to `main`.
 - **Pull request:** invoking this skill is the user's approval for opening the PR in step 10, once the
-  Lead has approved it.
+  Lead has approved it (tier `docs`: once the latest review round is clean).
 - **Product Manager:** the user is only contacted when the Lead returns `RESULT: ESCALATE` (relay the
   question verbatim with its options and wait) or for confirming a public issue comment on
   `RESULT: NO CHANGE`.
@@ -51,7 +51,7 @@ action yourself — including follow-up issues the Lead decides on.
    (the orchestrator) write `log.md`, one row per append, each row ending in CRLF — subagents report and
    you record, so rows never merge or end up with mixed line endings.
 2. **Plan.** Launch `squad-lead` in mode `plan` with the issue text and the work folder. It returns one of:
-   - `RESULT: DONE` — for tier **`docs`**, a short result (tier, the files and lines to change, acceptance
+   - `RESULT: DONE` — for tier **`docs`** (see its definition in `.squad/routing.md`), a short result (tier, the files and lines to change, acceptance
      criteria) that you record as the first plan row in `log.md`, then continue with step 6 (Dev), the
      read-only check from the `docs` row in `.squad/routing.md`, one review round in step 8, and step 10
      directly — no Security, skeleton, tests, coverage, Code Officer or Lead approval. Otherwise:
@@ -85,7 +85,9 @@ action yourself — including follow-up issues the Lead decides on.
    `squad-tester`), followed by another code check. CI does not check formatting; this is the only gate.
 8. **Review.** Launch `squad-reviewer` (round 1, full) and — for `standard` and `security` —
    `squad-security` in mode `diff`, in parallel, against the base ref. Pass both the work folder
-   (`specs/<folder>/`) so they check the plan's acceptance criteria and tier; either may raise the tier. Blocking
+   (`specs/<folder>/`) so they check the plan's acceptance criteria and tier (tier `docs`: the first
+   `log.md` row, since there is no `plan.md`); either may raise the tier. Tier `docs`: a blocking finding
+   goes to `squad-dev`, then the read-only check and a delta round, then step 10. Blocking
    findings → their owner fixes them (`squad-dev` for production code, `squad-tester` for tests) → steps 6
    (coverage) and 7 again → **a new review round on the delta is mandatory** before step 9; never go from
    a blocking finding straight to PR approval. The same holds for a non-blocking finding the Lead decides
@@ -123,7 +125,8 @@ action yourself — including follow-up issues the Lead decides on.
     - review comments (human, automated, `review-pr`) → `squad-dev`, worked in this PR, blocking or not.
 
     Each fix goes through steps 7–8 again (delta review), with at most 2 fix rounds per failure before the
-    Lead decides. The work folder is gone by now: give the Reviewer, Security and the Lead the plan (features:
+    Lead decides. The work folder is gone by now: give the Reviewer, Security and the Lead the plan (tier
+    `docs`: the first log row; features:
     also `spec.md` and `tasks.md`) from the "Squad working record" comment, or via
     `git show <commit-before-removal>:specs/<folder>/<file>`, and record each log row by editing that
     comment. Never skip, disable or weaken a test to get green.
