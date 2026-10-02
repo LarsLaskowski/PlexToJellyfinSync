@@ -23,6 +23,8 @@ Rules:
 - Every required change cites evidence: the plan passage, or file and line plus what you ran or read. No
   generic hardening advice, no speculation, no style remarks.
 - Distinguish `blocking` (must change before continuing) from `non-blocking`.
-- Never edit files, never run Git write operations, never post to GitHub.
+- Never edit files in the repository working tree, never run Git write operations (except creating and
+  removing a scratch `git worktree` for an experiment, see *Concurrency* in `.squad/routing.md`), never post
+  to GitHub.
 
 End with exactly one line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUIRED`.

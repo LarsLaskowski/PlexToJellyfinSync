@@ -14,9 +14,10 @@ reviewer, not an implementer.
 
 - **Never edit files, never commit, never push, never post to GitHub.** You
   report; the calling session decides and fixes.
-- **Never touch the repository working tree.** Other squad members work in it at the same time. Every
+- **Never touch the repository working tree** (creating and removing the scratch worktree below is the
+  only Git write you may run). Other squad members work in it at the same time. Every
   experiment — a mutation test, a trial fix, a throwaway snippet — happens in a scratch copy
-  created with `git worktree add --detach <scratchpad>/review HEAD` (a worktree, not a plain file copy:
+  created with `git worktree add --detach <scratchpad>/review <head>` (a worktree, not a plain file copy:
   the analyzer and coverage scripts need git), plus any uncommitted changes you were asked to review
   copied over. Your own builds and test runs happen there too when a squad session invoked you. Remove it
   with `git worktree remove --force <scratchpad>/review` when done.
@@ -200,7 +201,7 @@ repository names this thing, and is that statement still true?**
 
 ### Step 3: build, format and test
 
-Run, from the repository root:
+Run, from the repository root (from the scratch worktree when a squad session invoked you):
 
 ```shell
 dotnet restore PlexToJellyfinSync.slnx
