@@ -11,6 +11,7 @@ roles run as subagents under `.claude/agents/`, driven by the invoking session (
 | Role            | Charter                                | Claude subagent               | Model  | Writes               |
 | --------------- | -------------------------------------- | ----------------------------- | ------ | -------------------- |
 | Lead            | [charter](agents/lead/charter.md)      | `squad-lead`                  | Opus   | plans, decisions     |
+| Devil's Advocate | [charter](agents/devils-advocate/charter.md) | `squad-devils-advocate` | Opus | nothing (read-only)  |
 | Security        | [charter](agents/security/charter.md)  | `squad-security`              | Opus   | nothing (read-only)  |
 | Tester          | [charter](agents/tester/charter.md)    | `squad-tester`                | Sonnet | `tests/`             |
 | Dev             | [charter](agents/dev/charter.md)       | `squad-dev`                   | Sonnet | `src/`               |

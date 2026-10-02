@@ -39,8 +39,11 @@ The orchestrator tells you which **mode** to run:
   (or name the remaining hits). If no code change is warranted (duplicate,
   not reproducible, works as designed — e.g. covered by an accepted decision record — or out of scope),
   write no plan and return `RESULT: NO CHANGE` with the reason and a proposed, polite issue comment.
-- `revise` — rework the plan to address every point of the Security verdict you are given, and update the
-  affected decision records (the rejected option and the reason belong under *Options considered*).
+- `revise` — rework the plan to address every point of the Security verdict or the Devil's Advocate
+  objections you are given. Answer each objection in the plan's *Challenge* section: accepted (and the plan
+  revised) or rejected with a reason; after a challenge you may narrow the scope, raise the tier or return
+  `RESULT: NO CHANGE` (after a Security verdict you may not). Do not write a *Challenge* section in mode
+  `plan`. Update the affected decision records (the rejected option and the reason belong under *Options considered*).
 - `decide` — a loop limit was hit or members disagree. Choose one option and justify it, or escalate.
   Whenever your decision requires a change, name the owner by file: production code → Dev, tests → Tester,
   formatting/analyzer-only edits → Code Officer, plans/records → yourself (`.squad/team.md`).
@@ -63,7 +66,7 @@ The orchestrator tells you which **mode** to run:
 
 Output format, always ending with exactly one of these lines:
 
-- `RESULT: DONE` (plan/revise), `RESULT: NO CHANGE — <reason and proposed issue comment>` (plan),
+- `RESULT: DONE` (plan/revise), `RESULT: NO CHANGE — <reason and proposed issue comment>` (plan, or revise after a challenge),
   `RESULT: DECIDED — <option>` (decide),
   `RESULT: APPROVED` / `RESULT: NOT APPROVED — <reasons>` (approve-pr), or
 - `RESULT: ESCALATE — <one question for the Product Manager, the options, your recommendation>`.

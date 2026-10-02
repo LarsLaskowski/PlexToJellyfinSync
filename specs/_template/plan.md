@@ -43,4 +43,10 @@ Which guarantees from `docs/ARCHITECTURE.md` are touched and how they are preser
 
 - `docs/decisions/NNNN-title.md` (Proposed) — or "none: no decision beyond the obvious fix"
 
+## Challenge
+
+Left out when the plan is written. The Lead adds it in mode `revise` only after Devil's Advocate
+objections: each objection and the answer (accepted — what changed; or rejected — why). A clean challenge
+(`NO OBJECTIONS`) is recorded only in `log.md`.
+
 ## Out of scope / follow-ups

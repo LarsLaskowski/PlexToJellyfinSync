@@ -1,6 +1,6 @@
 ---
 name: squad-spec
-description: Use when the user wants to develop a new feature in PlexToJellyfinSync spec-driven with the squad. Lead writes spec, plan and tasks and picks a tier, Security reviews security-relevant plans, Tester writes failing tests first, Dev implements to 80% coverage, Code Officer clears format/Reihitsu/Sonar, Reviewer (+ Security) review, Lead approves, then a PR is opened.
+description: Use when the user wants to develop a new feature in PlexToJellyfinSync spec-driven with the squad. Lead writes spec, plan and tasks and picks a tier, the Devil's Advocate challenges them, Security reviews security-relevant plans, Tester writes failing tests first, Dev implements to 80% coverage, Code Officer clears format/Reihitsu/Sonar, Reviewer (+ Security) review, Lead approves, then a PR is opened.
 ---
 
 # Squad Spec
@@ -16,7 +16,8 @@ commit/push rules and the orchestrator role are identical to the `squad-issue` s
   scope), `plan.md` and `tasks.md`. A feature is never `docs` and rarely `trivial`. It is more likely than a bug
   fix to need a product decision — the Lead escalates whenever the request does not settle user-visible
   behavior. `RESULT: NO CHANGE` means the feature already exists or contradicts an accepted decision; report
-  that to the user instead of commenting on an issue.
+  that to the user instead of commenting on an issue. The plan challenge covers `spec.md`, `plan.md` and
+  `tasks.md` together.
 - **Decision records:** features usually involve real design choices, so expect at least one record in
   `docs/decisions/`; the Lead also updates `docs/ARCHITECTURE.md` when the feature changes a flow or
   guarantee.

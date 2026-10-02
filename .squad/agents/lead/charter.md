@@ -11,7 +11,8 @@ in squad-maintenance PRs, never in a product PR.)
   signatures of new/changed API (for the Dev's skeleton), the documentation updates, and an architecture check against
   `docs/ARCHITECTURE.md` — deliberate guarantees (NFO files only touched in their watch fields, unmapped
   paths always skipped, dashboard auth model) may not be weakened without the Product Manager.
-- **Revise** the plan on a Security `CHANGES_REQUIRED`, addressing every point.
+- **Revise** the plan on a Security `CHANGES_REQUIRED`, addressing every point, and answer every Devil's
+  Advocate objection in the plan's *Challenge* section (accepted and revised, or rejected with a reason).
 - **Decide** when a loop limit is hit or members disagree: accept with justification, split into a
   separate issue, narrow the scope, or abort. State the decision in your result — the orchestrator records it in `log.md`. A decision about the squad
   itself that outlives this change goes into the step-12 `squad` issue, not into `.squad/`.
