@@ -22,7 +22,7 @@ fi
 
 # Formatter used by the Code Officer; --prerelease keeps the CLI in sync with the pinned analyzer.
 if ! command -v reihitsu-format >/dev/null 2>&1; then
-  dotnet tool install -g Reihitsu.Cli --prerelease
+  dotnet tool install -g Reihitsu.Cli
 fi
 
 dotnet restore PlexToJellyfinSync.slnx
