@@ -1,9 +1,11 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace PlexToJellyfinSync.Core.Options;
 
 /// <summary>
 /// Configuration for connecting to the Plex media server
 /// </summary>
-public sealed class PlexOptions
+public sealed class PlexOptions : IValidatableObject
 {
     #region Constants
 
@@ -37,4 +39,14 @@ public sealed class PlexOptions
     public string[] Libraries { get; set; } = [];
 
     #endregion // Properties
+
+    #region IValidatableObject
+
+    /// <inheritdoc/>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        throw new NotImplementedException();
+    }
+
+    #endregion // IValidatableObject
 }
