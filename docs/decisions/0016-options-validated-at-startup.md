@@ -14,7 +14,8 @@ not validated but clamped where they are used (`Worker`: poll interval at least 
 `SyncOrchestrator`: parallelism at least 1; `InMemoryLogStore`: buffer at least 1), so a configured value could be
 silently replaced by another one. There was no upper bound: a `Sync:PollIntervalSeconds` above about 4.29 million
 makes `Task.Delay` throw outside the Worker's guards and stops the host. An empty `State:Directory` put
-`state.json` relative to the working directory instead of the `/config` volume. The repository review (F-101 / F-504)
+`state.json` relative to the working directory (`/app` in the image, writable but not a volume) instead of the
+`/config` volume, so the sync state was lost on every container restart. The repository review (F-101 / F-504)
 asked for options that are validated at startup.
 
 `docs/ARCHITECTURE.md` promises that a flaky Plex *server* never blocks startup; it makes no promise about a missing
@@ -48,7 +49,8 @@ considered and rejected as inconsistent: a value between 1 and 4 seconds would s
 Option 2. `PlexOptions`, `SyncOptions`, `StateOptions` and `DashboardOptions` are registered in
 `ServiceCollectionExtensions.AddPlexToJellyfinSync` with
 `AddOptions<T>().Bind(section).ValidateDataAnnotations().ValidateOnStart()`, so an invalid configuration throws
-`OptionsValidationException` from `Host.StartAsync` before `Worker` or Kestrel start. The rules:
+`OptionsValidationException` and stops the application at startup before `Worker` or Kestrel start (which call
+raises it first depends on which service reads the options first and is not part of this decision). The rules:
 
 - `Plex:BaseUrl` required, absolute `http`/`https` URI; `Plex:OwnerAccountId` null or at least 1.
 - `Sync:PollIntervalSeconds` 5–86400; `Sync:FullReconcileIntervalHours` 1–8760; both parallelism settings at least 1.

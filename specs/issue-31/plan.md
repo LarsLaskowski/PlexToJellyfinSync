@@ -27,8 +27,9 @@ image does at startup with its shipped configuration defaults.
   (OperationCanceledException)`, so `ExecuteAsync` faults and the host stops. `TimeSpan.FromHours` at line 102
   overflows likewise for `FullReconcileIntervalHours` above ~256 million.
 - `src/PlexToJellyfinSync.Core/Options/StateOptions.cs:22` `Directory` accepts an empty value, which makes
-  `StateStore` (`StateStore.cs:39`) write `state.json` relative to the working directory (`/app` in the image,
-  not writable by the non-root user) instead of the `/config` volume.
+  `StateStore` (`StateStore.cs:39`) write `state.json` relative to the working directory (`/app` in the image). The
+  Dockerfile chowns `/app` to `APP_UID`, so the write succeeds, but `/app` is not a volume: the state is ephemeral and
+  lost on every container restart (forcing a full re-sync) instead of persisting in the `/config` volume.
 
 ## Acceptance criteria
 
@@ -120,11 +121,14 @@ AC14, not a silent test change; record it in `log.md`.
    `<PackageReference>` to `src/PlexToJellyfinSync.Service/PlexToJellyfinSync.Service.csproj`. `Bind` comes from
    `Microsoft.Extensions.Options.ConfigurationExtensions` and `ValidateOnStart`/`IStartupValidator` from
    `Microsoft.Extensions.Options`, both already transitive via `Microsoft.Extensions.Hosting`.
-4. **Host.** No change to `Program.cs`: `WebApplication.RunAsync` → `Host.StartAsync` runs `IStartupValidator`
-   before any hosted service (`Worker`) or Kestrel starts. An invalid `DashboardOptions` already throws earlier at
-   `Program.cs:43` (`IOptions<DashboardOptions>.Value`), which is the same fail-fast outcome. The
-   `OptionsValidationException` ends the process with a non-zero exit code and its message on stderr
-   (`docker logs`).
+4. **Host.** No change to `Program.cs`. An invalid configuration throws `OptionsValidationException` and stops the
+   application at startup before `Worker` or Kestrel start, with a non-zero exit code and the message on stderr
+   (`docker logs`). Which call surfaces it first is an implementation detail and is not promised in docs or records:
+   today an invalid `PlexOptions` already throws inside `builder.Build()` (`Program.cs:41`), because the
+   `ILoggerProvider` factory (`Program.cs:38-39`) resolves `SecretLogRedactor`, whose constructor reads
+   `plexOptions.Value` (`SecretLogRedactor.cs:41`); an invalid `DashboardOptions` throws at `Program.cs:43`; the
+   remaining cases are caught by `IStartupValidator` in `Host.StartAsync`. All paths are the same fail-fast outcome.
+   AC14 calls `IStartupValidator.Validate()` directly and does not depend on this ordering.
 5. **Docs** (Dev, see below). ARCHITECTURE wording that says parallelism values below 1 are "clamped rather than
    rejected" becomes "rejected at startup; the clamp remains as defense-in-depth".
 
@@ -199,8 +203,9 @@ step 6, that is fine too.
   - `Sync:FullReconcileIntervalHours`: "Full reconcile interval (1–8760)".
   - The two parallelism rows already say "minimum 1" — keep.
   - `State:Directory`: add "(must not be empty)". `Dashboard:LogBufferSize`: add "(minimum 1)".
-  - One sentence after the table: invalid or missing required settings stop the application at startup with an
-    `OptionsValidationException` naming the setting (visible in `docker logs`), instead of failing on every sync.
+  - One sentence after the table: invalid or missing required settings stop the application at startup, before the
+    sync worker or the dashboard start, with an error naming the setting (visible in `docker logs`), instead of
+    failing on every sync. Do not describe which framework call raises it.
 - `docs/CONTRIBUTING.md` lines 64–69 ("Running the app locally"): replace "without those the host still starts and
   serves the dashboard" — the host now refuses to start without a valid `Plex:BaseUrl`; tell the reader to set it
   (e.g. `PLEXSYNC__Plex__BaseUrl`) before `dotnet run`. Without a token/path mapping it still starts.
@@ -211,7 +216,8 @@ step 6, that is fine too.
     value below that is rejected at startup; the clamp remains as defense-in-depth".
   - "Configuration & dependency injection": add a bullet — `PlexOptions`, `SyncOptions`, `StateOptions` and
     `DashboardOptions` are registered with `ValidateDataAnnotations().ValidateOnStart()`; required settings and
-    ranges are declared on the options classes; misconfiguration stops the host before `Worker` or Kestrel starts;
+    ranges are declared on the options classes; misconfiguration stops the application at startup before `Worker`
+    or Kestrel start (no promise about the exact framework call that raises it);
     validation does no network I/O, so an unreachable Plex server still never blocks startup; link
     [0016](decisions/0016-options-validated-at-startup.md) and [0017](decisions/0017-plex-token-stays-optional.md).
 
@@ -240,7 +246,9 @@ step 6, that is fine too.
   running a dashboard that reports a failure on every poll. Every other shipped default (`60`, `24`, `4`, `2`,
   `1000`, `/config`, empty tokens) passes validation (AC11). The README quick start already sets `BaseUrl`. No
   Dockerfile change.
-- `State:Directory` empty no longer silently puts `state.json` under the non-writable `/app`.
+- `State:Directory` empty no longer silently puts `state.json` under `/app`. `/app` is writable (the Dockerfile chowns
+  it to `APP_UID`) but not a volume, so the state there was ephemeral and lost on restart; it now has to live in the
+  configured directory (`/config` by default).
 - Validation is reflection-based (`Validator`); no trimming/AOT is enabled for the publish, so no `IL2026` concern —
   the Code Officer confirms the analyzer check stays clean.
 
