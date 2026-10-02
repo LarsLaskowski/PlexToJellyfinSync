@@ -41,3 +41,5 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   `docs/UNIT_TESTS.md`. The Lead names the owner of every fix it decides on by file (tests → Tester), and
   only the orchestrator writes `log.md`. Reason: four MSTEST0049 issues reached SonarQube Cloud
   unnoticed, a Lead decision assigned a test fix to the Dev, and log rows merged.
+- 2026-10-02 — The reviewer subagent is renamed from `plextojellyfinsync-reviewer` to `squad-reviewer`.
+  Reason: it is a squad member like the others; `create-pr` and `review-pr` keep using the same agent.

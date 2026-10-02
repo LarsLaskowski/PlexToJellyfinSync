@@ -102,7 +102,7 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 - `review-pr` — review an open pull request against this project's C#, analyzer, security and
   unit-test conventions, and post the findings with an explicit verdict.
 
-Review runs as a subagent defined in `.claude/agents/plextojellyfinsync-reviewer.md` (read-only,
+Review runs as a subagent defined in `.claude/agents/squad-reviewer.md` (read-only,
 pinned to Opus, fresh context). `create-pr` and the squad skills call it *before* pushing, so a change
 is reviewed while it is still local; `review-pr` calls the same agent for a pull request that is
 already open. The review checklist, the integration-surface sweep, the blocking/non-blocking

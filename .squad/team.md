@@ -14,7 +14,7 @@ roles run as subagents under `.claude/agents/`, driven by the invoking session (
 | Tester          | [charter](agents/tester/charter.md)    | `squad-tester`                | Sonnet | `tests/`             |
 | Dev             | [charter](agents/dev/charter.md)       | `squad-dev`                   | Sonnet | `src/`               |
 | Code Officer    | [charter](agents/code-officer/charter.md) | `squad-code-officer`       | Sonnet | `src/`, `tests/` (format, analyzer and style fixes only) |
-| Reviewer        | [charter](agents/reviewer/charter.md)  | `plextojellyfinsync-reviewer` | Opus   | nothing (read-only)  |
+| Reviewer        | [charter](agents/reviewer/charter.md)  | `squad-reviewer`              | Opus   | nothing (read-only)  |
 | Product Manager | —                                      | the human user                | —      | answers escalations  |
 
 The **Lead** decides everything inside the squad, including approving plans and approving the pull

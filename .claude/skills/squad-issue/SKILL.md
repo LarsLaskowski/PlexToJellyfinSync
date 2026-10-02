@@ -59,7 +59,7 @@ action yourself — including follow-up issues the Lead decides on.
    changed file, `dotnet test PlexToJellyfinSync.slnx -c Release --no-build` is green with the same
    tests, and the coverage check still passes. Structural items handed back go to `squad-dev` (or
    `squad-tester`), followed by another code check. CI does not check formatting; this is the only gate.
-8. **Review.** Launch `plextojellyfinsync-reviewer` (round 1, full) and — for `standard` and `security` —
+8. **Review.** Launch `squad-reviewer` (round 1, full) and — for `standard` and `security` —
    `squad-security` in mode `diff`, in parallel, against the base ref. Pass both the work folder
    (`specs/<folder>/`) so they check the plan's acceptance criteria and tier; either may raise the tier. Blocking
    findings → `squad-dev` fixes them → steps 6 (coverage) and 7 again → next round reviews only the
