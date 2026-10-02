@@ -287,8 +287,9 @@ Studio standard for solution files, not a migration artifact.
   it in the rendered page, and the `POST /login`/`POST /logout` endpoints validate that token like
   every other endpoint — neither is exempted via `DisableAntiforgery` any more.
 - **`Dashboard.razor`** subscribes to `ISyncStatusProvider.Changed` in `OnInitialized` and
-  unsubscribes in `Dispose`, re-rendering via `InvokeAsync(StateHasChanged)` whenever the
-  orchestrator updates the status — the dashboard is push-updated, not polling. **`Logs.razor`**
+  unsubscribes in `Dispose`, re-reading the snapshot and re-rendering inside `InvokeAsync` whenever
+  the orchestrator updates the status (`Changed` is raised on the sync worker's thread, so component
+  state is only mutated on the renderer's dispatcher) — the dashboard is push-updated, not polling. **`Logs.razor`**
   follows the same pattern against `ILogStore`/`InMemoryLogStore`, which is a fixed-capacity
   (`Dashboard:LogBufferSize`) ring buffer (`Queue<LogEntry>` behind a `Lock`) rather than
   unbounded storage — log history is intentionally ephemeral and capped, not a substitute for an
