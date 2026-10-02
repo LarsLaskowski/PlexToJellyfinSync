@@ -14,3 +14,4 @@ One line per pipeline step: date, step, member, result. Lead decisions and escal
 | 2026-10-02 | 7 Code check (delta) | Orchestrator | comment-only change; format check 0, analyzer 0 in changed files, 250 tests green, coverage passes |
 | 2026-10-02 | 8 Review r2 (delta) | Reviewer | APPROVE; finding resolved, no new findings |
 | 2026-10-02 | 9 PR approval | Lead | APPROVED; decision 0013 Accepted, 0012 Superseded by 0013, index updated |
+| 2026-10-02 | 12 Wrap-up | Orchestrator | lesson recorded in code-officer history (agent type not registered); PR opened and subscribed |
