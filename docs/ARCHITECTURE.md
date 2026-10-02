@@ -46,11 +46,13 @@ Studio standard for solution files, not a migration artifact.
 ## Sync pipeline
 
 1. **`Worker`** (`src/PlexToJellyfinSync/Worker.cs`) is the only `BackgroundService`. On startup
-   it runs one reconcile immediately (`SafeReconcileAsync`, errors logged and swallowed so a
-   failed first reconcile does not crash the host), then loops: wait `Sync:PollIntervalSeconds`
-   (minimum 5s), call `ISyncOrchestrator.ProcessHistoryAsync`, and — once
+   it runs one reconcile immediately (`SafeReconcileAsync`, which logs and swallows
+   non-cancellation errors as defense-in-depth on top of the orchestrator's own error handling, so
+   a failed reconcile cannot crash the host — see
+   [0012](decisions/0012-worker-reconcile-guard-kept-as-defense-in-depth.md)), then loops: wait
+   `Sync:PollIntervalSeconds` (minimum 5s), call `ISyncOrchestrator.ProcessHistoryAsync`, and — once
    `Sync:FullReconcileIntervalHours` (minimum 1h) has elapsed since the last reconcile — call
-   `ISyncOrchestrator.ReconcileAsync` again. The loop is a plain `while` with `Task.Delay`, not a
+   `ISyncOrchestrator.ReconcileAsync` again through the same guard. The loop is a plain `while` with `Task.Delay`, not a
    `PeriodicTimer`; overlapping runs cannot occur because each iteration awaits the previous sync
    call to finish before scheduling the next delay.
 2. **`SyncOrchestrator`** (`src/PlexToJellyfinSync.Service/SyncOrchestrator.cs`) implements both
