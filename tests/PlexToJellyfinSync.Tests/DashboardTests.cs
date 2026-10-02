@@ -121,7 +121,10 @@ public sealed class DashboardTests
         var root = await RenderAsync(renderer).ConfigureAwait(false);
 
         provider.ResetCalls();
-        provider.Snapshot = new SyncStatusViewData { ItemsProcessed = 4242 };
+        provider.Snapshot = new SyncStatusViewData
+                            {
+                                ItemsProcessed = 4242
+                            };
 
         await Task.Run(provider.RaiseChanged).ConfigureAwait(false);
         await WaitForSnapshotCallsAsync(provider, 1).ConfigureAwait(false);
@@ -140,14 +143,26 @@ public sealed class DashboardTests
     [TestMethod]
     public async Task DashboardChangedRendersNewSnapshot()
     {
-        var provider = new FakeSyncStatusProvider { Snapshot = new SyncStatusViewData { ItemsProcessed = 1, LastError = null } };
+        var provider = new FakeSyncStatusProvider
+                       {
+                           Snapshot = new SyncStatusViewData
+                                      {
+                                          ItemsProcessed = 1,
+                                          LastError = null
+                                      }
+                       };
 
         await using var services = CreateServices(provider);
         await using var renderer = new HtmlRenderer(services, NullLoggerFactory.Instance);
 
         var root = await RenderAsync(renderer).ConfigureAwait(false);
 
-        provider.Snapshot = new SyncStatusViewData { ItemsProcessed = 7777, Errors = 1, LastError = "Plex went away" };
+        provider.Snapshot = new SyncStatusViewData
+                            {
+                                ItemsProcessed = 7777,
+                                Errors = 1,
+                                LastError = "Plex went away"
+                            };
 
         await Task.Run(provider.RaiseChanged).ConfigureAwait(false);
 
@@ -164,7 +179,15 @@ public sealed class DashboardTests
     [TestMethod]
     public async Task DashboardInitialRenderShowsCurrentSnapshot()
     {
-        var provider = new FakeSyncStatusProvider { Snapshot = new SyncStatusViewData { ItemsProcessed = 31337, PlexConnected = true, LastError = "initial failure" } };
+        var provider = new FakeSyncStatusProvider
+                       {
+                           Snapshot = new SyncStatusViewData
+                                      {
+                                          ItemsProcessed = 31337,
+                                          PlexConnected = true,
+                                          LastError = "initial failure"
+                                      }
+                       };
 
         await using var services = CreateServices(provider);
         await using var renderer = new HtmlRenderer(services, NullLoggerFactory.Instance);
