@@ -35,7 +35,7 @@ tier applies; Security or the Reviewer may raise the tier at any point (never lo
 | 4 | Skeleton | Dev | Only when the plan adds or changes API: compile-only signatures (bodies throw `NotImplementedException`), solution builds |
 | 5 | Tests first | Tester | Tests for every acceptance criterion; they compile and **fail** on the current code |
 | 6 | Implementation + coverage | Dev, Tester | All tests green; ≥ 80 % line coverage on new/changed code and overall (`.squad/tools/coverage-check.py`); doc updates from the plan done |
-| 7 | Code check | Code Officer | `reihitsu-format`, zero `RH####`, no `S####` in changed files; same tests green; no structural change |
+| 7 | Code check | Code Officer | `reihitsu-format`; `.squad/tools/analyzer-check.py` passes (no diagnostic of any severity in changed files); same tests green; no structural change |
 | 8 | Review | Reviewer + Security | No blocking findings → 9; blocking → Dev fixes, back to 6 (Security only for `standard`/`security`) |
 | 9 | PR approval | Lead | Plan fulfilled, coverage met, decision records `Accepted` and indexed → `APPROVED` → 10 |
 | 10 | Pull request | Dev (via orchestrator) | PR opened (merged later with *Squash and merge*) |

@@ -200,13 +200,14 @@ Run, from the repository root:
 dotnet restore PlexToJellyfinSync.slnx
 reihitsu-format --check ./
 dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
+python3 .squad/tools/analyzer-check.py
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
 python3 .squad/tools/coverage-check.py
 ```
 
 Report failures as blocking findings, and quote the failing line. A formatter
-diff, any `RH####` diagnostic, an `S####` diagnostic in a file the diff
-changes, and a failed coverage check (below 80 % on new/changed lines or
+diff, any `RH####` diagnostic, any analyzer diagnostic the analyzer check
+reports in a changed file (including info-level `MSTEST####`), and a failed coverage check (below 80 % on new/changed lines or
 overall) are all blocking: CI no longer checks formatting
 (`docs/decisions/0009-quality-gates-before-the-pull-request.md`), so nothing
 after this review catches them.

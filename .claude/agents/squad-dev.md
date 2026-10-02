@@ -26,7 +26,9 @@ The orchestrator tells you which **mode** to run:
 3. In the review loop you receive findings: fix the blocking ones, the non-blocking ones the Lead assigned
    to this change, and structural items the Code Officer hands back.
 
-Do not run `reihitsu-format` and ignore `RH####` / `S####` diagnostics unless the Code Officer hands one
-back — the Code Officer owns them. Never edit tests (a test you believe is wrong goes back as a report for
+Do not run `reihitsu-format` and do not chase analyzer diagnostics unless the Code Officer hands one back —
+the Code Officer owns them. Before handing over, run `python3 .squad/tools/analyzer-check.py` once and fix
+the findings in your production files that need a code change (e.g. a missing `CancellationToken`), so
+they do not come back later as a structural hand-back. Never edit tests (a test you believe is wrong goes back as a report for
 the Lead), never deviate from the plan silently, never run Git write operations. Report: changed files,
 build/test/coverage result, plan deviations.

@@ -33,9 +33,11 @@ together.
   version numbers in individual `.csproj` files.
 - Every C# project uses the **Reihitsu.Analyzer** and the **SonarAnalyzer.CSharp** rules (no
   StyleCop.Analyzers), so SonarQube issues surface in the local build, not first in the CI analysis.
-- A build must finish with **zero Reihitsu (`RH####`) warnings and errors** and no SonarQube (`S####`)
-  diagnostic in a changed file. Treat every such diagnostic as a failure and fix it before considering
-  the work done (in the squad skills, the Code Officer owns this).
+- A build must finish with **zero Reihitsu (`RH####`) warnings and errors**, and a changed file may not
+  carry **any analyzer diagnostic of any severity** — `S####`, `MSTEST####`, `CA####`, including
+  info-level ones that never show up as build warnings but that SonarQube Cloud reports. Check with
+  `python3 .squad/tools/analyzer-check.py` and fix every finding before considering the work done (in the
+  squad skills, the Code Officer owns this).
 - New or changed production code needs **at least 80 % line coverage**, and overall coverage must stay
   at least 80 % (`.squad/tools/coverage-check.py`, see [`UNIT_TESTS.md`](docs/UNIT_TESTS.md#code-coverage)).
 - Wrap every type's members in `#region` blocks **as you write the code** — never leave a type
@@ -63,7 +65,7 @@ together.
 
 ```bash
 dotnet restore PlexToJellyfinSync.slnx
-reihitsu-format ./                                          # dotnet tool install -g Reihitsu.Cli --prerelease
+reihitsu-format ./                                          # dotnet tool install -g Reihitsu.Cli
 dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build
 ```

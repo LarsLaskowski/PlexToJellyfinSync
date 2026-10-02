@@ -101,7 +101,7 @@ When acting as the author of a PR under review:
   message, where it stays with the code; the reviewer verifies the commit,
   not the reply.
 - Re-run `reihitsu-format --force ./`, the Release build (zero `RH####`
-  diagnostics, no `S####` in a changed file), `dotnet test` and the coverage
+  diagnostics), `.squad/tools/analyzer-check.py` (no diagnostic in a changed file), `dotnet test` and the coverage
   check (`.squad/tools/coverage-check.py`) before each push — a fix that turns CI red costs more
   than the finding did.
 - Resolve the thread once it is answered. One summary comment per round beats

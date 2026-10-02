@@ -35,8 +35,9 @@ in.
      for more than 25 files, which a non-interactive session cannot answer)
    - `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` — the
      build must finish with **zero Reihitsu (`RH####`) warnings and errors**
-     and no SonarQube (`S####`) diagnostic in a changed file; treat each as a
-     failure
+   - `python3 .squad/tools/analyzer-check.py` — no analyzer diagnostic of any
+     severity (`S####`, `MSTEST####`, …, including info-level ones SonarQube
+     Cloud reports) in a changed file; treat each as a failure
    - `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults`
      and `python3 .squad/tools/coverage-check.py` — at least
      80 % line coverage on new/changed production code and overall

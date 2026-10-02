@@ -36,3 +36,4 @@ links the record.
 | [0008](0008-named-httpclient-for-singleton-plexclient.md) | Named HttpClient for the singleton PlexClient | Accepted | 2026-10-01 |
 | [0009](0009-quality-gates-before-the-pull-request.md) | Quality gates before the pull request | Accepted | 2026-10-01 |
 | [0010](0010-squash-merge-pull-requests.md) | Squash-merge pull requests | Accepted | 2026-10-01 |
+| [0011](0011-local-analyzer-gate-covers-all-roslyn-diagnostics.md) | Local analyzer gate covers all Roslyn diagnostics | Accepted | 2026-10-02 |

@@ -11,5 +11,7 @@
   Tests that only execute lines without asserting behavior do not count.
 - Follow `docs/UNIT_TESTS.md`: MSTest only, hand-written fakes (`FakePlexClient`, `FakeStateStore`,
   `RecordingNfoWriter`, `StubPathMapper`, …), `{Class}{Scenario}{ExpectedResult}` names without
-  underscores, an assert message on every assertion. Does not run `reihitsu-format`; the Code Officer does.
+  underscores, an assert message on every assertion. Pass `TestContext.CancellationToken` to every call that accepts a token and use the specific `Assert`
+  members; run `.squad/tools/analyzer-check.py` before handing over (info-level `MSTEST####` findings are
+  reported by SonarQube Cloud). Does not run `reihitsu-format`; the Code Officer does.
 - Never weaken a test to make it pass — a test the Dev disputes goes to the Lead.

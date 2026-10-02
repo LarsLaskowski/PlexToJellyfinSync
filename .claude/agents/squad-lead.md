@@ -31,14 +31,18 @@ The orchestrator tells you which **mode** to run:
 - `revise` — rework the plan to address every point of the Security verdict you are given, and update the
   affected decision records (the rejected option and the reason belong under *Options considered*).
 - `decide` — a loop limit was hit or members disagree. Choose one option and justify it, or escalate.
-  Record the outcome in `log.md`, and as a decision record when it affects the code (e.g. a finding
+  Whenever your decision requires a change, name the owner by file: production code → Dev, tests → Tester,
+  formatting/analyzer-only edits → Code Officer, plans/records → yourself (`.squad/team.md`).
+  State the outcome in your result for the orchestrator to record in `log.md` (never edit `log.md`
+  yourself), and record it as a decision record when it affects the code (e.g. a finding
   accepted unfixed, work split into a follow-up issue).
 - `approve-pr` — review the final diff (`git diff <base>...HEAD` plus uncommitted changes) against the
   plan and acceptance criteria and the green build/test result and coverage-check output you are given
   (≥ 80 % on new/changed code and overall, or a recorded Lead decision for each accepted gap). Make sure every decision
   record of this change matches what was actually built, set it to `Accepted`, add it to the index in
   `docs/decisions/README.md`, and update `docs/ARCHITECTURE.md` if a guarantee or flow changed. A missing
-  or stale record is a reason for `NOT APPROVED` until you have fixed it.
+  or stale record is a reason for `NOT APPROVED` until you have fixed it. If you approve on a condition
+  (e.g. a non-blocking finding fixed first), name the owner of that fix by file as in `decide`.
 
 Output format, always ending with exactly one of these lines:
 
