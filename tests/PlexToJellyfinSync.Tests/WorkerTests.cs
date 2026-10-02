@@ -25,7 +25,7 @@ public sealed class WorkerTests
     /// <summary>
     /// Upper bound for waiting on a worker signal that needs one poll interval to arrive
     /// </summary>
-    private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan _waitTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Test context
@@ -142,7 +142,7 @@ public sealed class WorkerTests
         using var worker = CreateWorker(orchestrator, logger, PollTestIntervalSeconds);
 
         await worker.StartAsync(_testContext.CancellationToken);
-        await logger.ErrorLogged.WaitAsync(WaitTimeout, _testContext.CancellationToken);
+        await logger.ErrorLogged.WaitAsync(_waitTimeout, _testContext.CancellationToken);
         await worker.StopAsync(_testContext.CancellationToken);
 
         var errors = logger.GetEntries().Where(e => e.Level == LogLevel.Error).ToList();
@@ -179,7 +179,7 @@ public sealed class WorkerTests
         using var worker = CreateWorker(orchestrator, logger, PollTestIntervalSeconds, status);
 
         await worker.StartAsync(_testContext.CancellationToken);
-        await secondPoll.Task.WaitAsync(WaitTimeout, _testContext.CancellationToken);
+        await secondPoll.Task.WaitAsync(_waitTimeout, _testContext.CancellationToken);
 
         var executeTask = worker.ExecuteTask;
 
@@ -208,7 +208,7 @@ public sealed class WorkerTests
         using var worker = CreateWorker(orchestrator, logger, PollTestIntervalSeconds);
 
         await worker.StartAsync(_testContext.CancellationToken);
-        await orchestrator.ProcessHistoryCalled.WaitAsync(WaitTimeout, _testContext.CancellationToken);
+        await orchestrator.ProcessHistoryCalled.WaitAsync(_waitTimeout, _testContext.CancellationToken);
         await worker.StopAsync(_testContext.CancellationToken);
 
         Assert.AreEqual(TaskStatus.Canceled, worker.ExecuteTask?.Status, "The cancellation should be rethrown, not swallowed!");
@@ -266,7 +266,7 @@ public sealed class WorkerTests
         using var worker = CreateWorker(orchestrator, logger, PollTestIntervalSeconds);
 
         await worker.StartAsync(_testContext.CancellationToken);
-        await logger.ErrorLogged.WaitAsync(WaitTimeout, _testContext.CancellationToken);
+        await logger.ErrorLogged.WaitAsync(_waitTimeout, _testContext.CancellationToken);
 
         var executeTask = worker.ExecuteTask;
 
