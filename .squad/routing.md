@@ -4,7 +4,8 @@ The pipeline is the same for issues and features; only the input differs (a GitH
 `squad-issue`, a feature idea plus `spec.md` for `squad-spec`). The orchestrator — the session that runs
 the skill — launches the members, passes documents between them (subagents cannot talk to each other
 directly), performs every Git and GitHub action (including follow-up issues the Lead decides on) and
-records every step in the work folder's `log.md`. Step numbers below are the ones the skills use.
+records every step in the work folder's `log.md` (after step 10, in the "Squad working record" comment
+that replaces it). Step numbers below are the ones the skills use.
 
 ## Work folder
 

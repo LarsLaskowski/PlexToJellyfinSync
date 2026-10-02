@@ -53,6 +53,8 @@ def check(path, expected_name, errors):
 
 
 def main():
+    # Resolve paths from the repository root, whatever the current directory is.
+    os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
     errors = []
     agents = sorted(glob.glob(os.path.join(".claude", "agents", "*.md")))
     for path in agents:
@@ -73,6 +75,8 @@ def main():
         elif claude[name] != github[name]:
             errors.append(f"skill '{name}' differs between .claude/skills and .github/skills")
 
+    if not agents or not claude:
+        errors.append("no agents or skills found - is this the PlexToJellyfinSync repository?")
     for error in errors:
         print(error)
     print(f"\nChecked {len(agents)} agents and {len(claude)} skills: {'PASS' if not errors else 'FAIL'}")

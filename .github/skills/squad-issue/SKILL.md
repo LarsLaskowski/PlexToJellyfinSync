@@ -20,7 +20,8 @@ action yourself — including follow-up issues the Lead decides on.
   (including `history.md` and `decisions.md`), `.claude/`, `.github/skills/`, `CLAUDE.md`, `AGENTS.md`
   or `.github/copilot-instructions.md`. Lessons about the squad become a GitHub issue labelled `squad` in
   step 12 and are worked in a separate squad-maintenance PR. If the change itself genuinely needs one of
-  those files (e.g. a new build command every contributor must know), the Lead escalates instead.
+  those files (e.g. a new build command every contributor must know), the Lead escalates instead; the
+  Product Manager decides, and the squad-file part always goes into a separate squad-maintenance PR.
 - **Working records stay off `main`.** `specs/<folder>/` exists only on the work branch, so it survives a
   crashed session. Before the PR (step 10) its content is posted as a comment and the folder is removed;
   the lasting reasoning lives in `docs/decisions/`.
@@ -117,7 +118,9 @@ action yourself — including follow-up issues the Lead decides on.
     - review comments (human, automated, `review-pr`) → `squad-dev`, worked in this PR, blocking or not.
 
     Each fix goes through steps 7–8 again (delta review), with at most 2 fix rounds per failure before the
-    Lead decides. Never skip, disable or weaken a test to get green.
+    Lead decides. The work folder is gone by now: give the Reviewer, Security and the Lead the plan from
+    the "Squad working record" comment (or `git show <commit-before-removal>:specs/issue-<number>/plan.md`)
+    and record each log row by editing that comment. Never skip, disable or weaken a test to get green.
 12. **Wrap-up (mandatory).** Collect what this run taught about the squad itself (a rule that was
     unclear or contradictory, a tool that misbehaved, an agent that could not be launched, a step that
     had to be improvised) and open **one** GitHub issue labelled `squad` (create the label if missing)

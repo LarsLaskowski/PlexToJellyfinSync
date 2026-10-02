@@ -49,8 +49,11 @@ for features), and report as findings:
 - any change to the squad or the agent instructions — `.squad/`, `.claude/`,
   `.github/skills/`, `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`
   (blocking — see *Scope of a product PR* in `.squad/routing.md`);
-- a `specs/` working-record folder still present when the PR is about to be
-  opened (blocking).
+- in a review round after the PR was opened (squad step 11), a `specs/`
+  working-record folder in the diff — step 10 must have removed it (blocking).
+  Before step 10 the folder is expected; read its `plan.md` as described above.
+  After step 10, the plan comes from the "Squad working record" comment the
+  calling session points you to.
 
 Outside the squad (e.g. via `create-pr` for a squad-maintenance change), run
 `python3 .squad/tools/config-check.py` whenever the diff touches `.claude/` or
