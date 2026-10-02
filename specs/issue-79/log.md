@@ -1,4 +1,4 @@
-# Log: <issue #number | feature name>
+# Log: Issue #79
 
 One line per pipeline step: date, step, member, result. Lead decisions and escalations are quoted in full.
 
@@ -9,3 +9,4 @@ One line per pipeline step: date, step, member, result. Lead decisions and escal
 | 2026-10-02 | Implement | squad-dev | DONE
 | 2026-10-02 | Tests | squad-tester | DONE, 3 tests green, Worker.cs changed lines 100%, overall 88.8%
 | 2026-10-02 | Code check | squad-code-officer | DONE, format/analyzer clean, 245 tests green
+| 2026-10-02 | Review | squad-reviewer | 1 blocking (AC3 rethrow untested), fixed by tester, mutation-verified; 1 non-blocking (log heading) fixed

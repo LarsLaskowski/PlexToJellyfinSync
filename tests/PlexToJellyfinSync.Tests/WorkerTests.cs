@@ -105,6 +105,7 @@ public sealed class WorkerTests
         await orchestrator.ReconcileCalled.WaitAsync(TimeSpan.FromSeconds(10), _testContext.CancellationToken);
         await worker.StopAsync(_testContext.CancellationToken);
 
+        Assert.AreEqual(TaskStatus.Canceled, worker.ExecuteTask?.Status, "The cancellation should be rethrown, not swallowed!");
         Assert.DoesNotContain(e => e.Level == LogLevel.Error, logger.GetEntries(), "Cancellation should not be logged as an error!");
     }
 
