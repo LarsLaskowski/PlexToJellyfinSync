@@ -59,6 +59,7 @@ public sealed class Worker : BackgroundService
         {
             throw;
         }
+
         // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
         catch (Exception ex)
         {
@@ -76,7 +77,10 @@ public sealed class Worker : BackgroundService
         var pollInterval = TimeSpan.FromSeconds(Math.Max(5, _options.PollIntervalSeconds));
         var reconcileInterval = TimeSpan.FromHours(Math.Max(1, _options.FullReconcileIntervalHours));
 
-        _logger.LogInformation("Worker started; poll every {Poll}, reconcile every {Reconcile}", pollInterval, reconcileInterval);
+        if (_logger.IsEnabled(LogLevel.Information))
+        {
+            _logger.LogInformation("Worker started; poll every {Poll}, reconcile every {Reconcile}", pollInterval, reconcileInterval);
+        }
 
         await SafeReconcileAsync(stoppingToken).ConfigureAwait(false);
 

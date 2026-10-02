@@ -40,7 +40,10 @@ public sealed class WorkerTests
     public async Task WorkerStartupReconcileFailureLogsFullReconcileFailedError()
     {
         var failure = new InvalidOperationException("boom");
-        var orchestrator = new FakeSyncOrchestrator { ReconcileException = failure };
+        var orchestrator = new FakeSyncOrchestrator
+                           {
+                               ReconcileException = failure
+                           };
         var logger = new RecordingWorkerLogger();
         using var worker = CreateWorker(orchestrator, logger);
 
@@ -63,7 +66,10 @@ public sealed class WorkerTests
     [TestMethod]
     public async Task WorkerStartupReconcileFailureKeepsWorkerRunning()
     {
-        var orchestrator = new FakeSyncOrchestrator { ReconcileException = new InvalidOperationException("boom") };
+        var orchestrator = new FakeSyncOrchestrator
+                           {
+                               ReconcileException = new InvalidOperationException("boom")
+                           };
         var logger = new RecordingWorkerLogger();
         using var worker = CreateWorker(orchestrator, logger);
 
@@ -88,7 +94,10 @@ public sealed class WorkerTests
     [TestMethod]
     public async Task WorkerStopDuringStartupReconcileLogsNoError()
     {
-        var orchestrator = new FakeSyncOrchestrator { ReconcileWaitsForCancellation = true };
+        var orchestrator = new FakeSyncOrchestrator
+                           {
+                               ReconcileWaitsForCancellation = true
+                           };
         var logger = new RecordingWorkerLogger();
         using var worker = CreateWorker(orchestrator, logger);
 
@@ -109,7 +118,10 @@ public sealed class WorkerTests
     {
         return new Worker(orchestrator,
                           new FakeSyncStatusProvider(),
-                          Options.Create(new SyncOptions { PollIntervalSeconds = 3600 }),
+                          Options.Create(new SyncOptions
+                                         {
+                                             PollIntervalSeconds = 3600
+                                         }),
                           logger);
     }
 
