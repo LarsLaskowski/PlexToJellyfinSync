@@ -9,9 +9,9 @@ Build a feature with the squad defined in `.squad/`. Tiers, pipeline, loop limit
 commit/push rules and the orchestrator role are identical to the `squad-issue` skill — follow its steps
 1–12 with these changes:
 
-- **Step 1 — work folder and branch:** the next free `specs/<NNN-short-name>/` (three-digit number) with
-  `log.md` from `specs/_template/log.md`; branch `feature-<NNN>-<short-slug>` off the latest `main` (or
-  the branch the session prescribes).
+- **Step 1 — work folder and branch:** `specs/feature-<short-slug>/` with `log.md` from
+  `specs/_template/log.md`; branch `feature-<short-slug>` off the latest `main` (or the branch the session
+  prescribes).
 - **Step 2 — plan:** `squad-lead` in mode `plan` writes `spec.md` (behavior, acceptance criteria, out of
   scope), `plan.md` and `tasks.md`. A feature rarely qualifies as `trivial`. It is more likely than a bug
   fix to need a product decision — the Lead escalates whenever the request does not settle user-visible
@@ -23,5 +23,8 @@ commit/push rules and the orchestrator role are identical to the `squad-issue` s
 - **Step 3** reviews `spec.md` and `plan.md` together.
 - **Steps 4–6** run per task or group of tasks from `tasks.md`; tick tasks off as they are done. Run
   Tester and Dev one after another, never in parallel (see *Concurrency* in `.squad/routing.md`).
-- **Step 10 — pull request:** reference the spec folder; use `Closes #<n>` only if a feature request issue
-  exists.
+- **Step 10 — pull request:** the working record (`spec.md`, `plan.md`, `tasks.md`, `log.md`) is posted
+  to the feature request issue if one exists (`Closes #<n>` in the PR), otherwise as the first comment on
+  the PR right after opening it; the folder is removed before the PR as in `squad-issue`. Behavior that
+  must stay documented belongs in `README.md`, `docs/ARCHITECTURE.md` or a decision record, not in
+  `spec.md`.

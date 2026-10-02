@@ -9,10 +9,22 @@ records every step in the work folder's `log.md`. Step numbers below are the one
 ## Work folder
 
 - Issue: `specs/issue-<number>/` — `plan.md`, `log.md`
-- Feature: `specs/<NNN-name>/` — `spec.md`, `plan.md`, `tasks.md`, `log.md`
-- Decision records (both): `docs/decisions/NNNN-title.md` — the lasting *why*, written by the Lead
-  (`specs/` holds the working record of one change; `docs/decisions/` is what a reader months later
-  looks at)
+- Feature: `specs/feature-<short-slug>/` — `spec.md`, `plan.md`, `tasks.md`, `log.md`
+- The work folder lives **only on the work branch**: it is committed and pushed after every step so a
+  crashed session can resume, and in step 10 its content is posted as a "Squad working record" comment
+  (on the issue, or on the PR for a feature without issue) and the folder is removed before the PR opens.
+  `main` never contains `specs/` working records.
+- Decision records (both): `docs/decisions/NNNN-title.md` — the lasting *why*, written by the Lead; this
+  is what a reader months later looks at.
+
+## Scope of a product PR
+
+An issue or feature PR changes the product and its documentation only. It never touches the squad or the
+agent instructions: `.squad/` (charters, `history.md`, `decisions.md`, tools), `.claude/`,
+`.github/skills/`, `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`. Lessons about the squad
+are collected in step 12 as a GitHub issue labelled `squad` and implemented in a separate
+squad-maintenance PR, which runs `.squad/tools/config-check.py`. The Reviewer reports any such file in a
+product PR as a blocking finding.
 
 ## Tiers
 
@@ -38,9 +50,9 @@ tier applies; Security or the Reviewer may raise the tier at any point (never lo
 | 7 | Code check | Code Officer | `reihitsu-format`; `.squad/tools/analyzer-check.py` passes (no diagnostic of any severity in changed files); same tests green; no structural change |
 | 8 | Review | Reviewer + Security | No blocking findings → 9; blocking → owner fixes (Dev: code, Tester: tests), back to 6, then a mandatory delta round (Security only for `standard`/`security`) |
 | 9 | PR approval | Lead | Latest review round without a blocking finding not covered by a recorded Lead decision, and covering every change to `src/`/`tests/`/`docs/` except `specs/` bookkeeping and the Lead's own edits (decision records, their index, `docs/ARCHITECTURE.md`); plan fulfilled, coverage met, decision records `Accepted` and indexed → `APPROVED` → 10 |
-| 10 | Pull request | Dev (via orchestrator) | PR opened (merged later with *Squash and merge*) |
+| 10 | Pull request | Dev (via orchestrator) | Working record posted as comment, `specs/<folder>/` removed, PR opened (merged later with *Squash and merge*) |
 | 11 | After the PR | Dev, Code Officer, Reviewer | CI green, SonarQube Cloud quality gate passed, review comments worked |
-| 12 | Wrap-up | Orchestrator | `history.md` / `.squad/decisions.md` updated, user informed |
+| 12 | Wrap-up | Orchestrator | Squad lessons filed as one `squad` issue (or "no lessons" logged), user informed |
 
 Commits and pushes to the work branch happen after every completed step from step 2 on, once the plan
 returned `RESULT: DONE` (step 1 and a `NO CHANGE` outcome leave nothing to commit); with *Squash and merge* only

@@ -1,7 +1,8 @@
 # Lead
 
 **Owns:** `plan.md` (issues), `spec.md` / `plan.md` / `tasks.md` (features), the decision records in
-`docs/decisions/`, `.squad/decisions.md`, every decision inside the squad, and the PR approval.
+`docs/decisions/`, every decision inside the squad, and the PR approval. (`.squad/decisions.md` changes only
+in squad-maintenance PRs, never in a product PR.)
 
 - **Plan:** classify the tier (`.squad/routing.md`), state the root cause (issue) or the behavior
   (feature), the acceptance criteria the Tester will turn into tests, the files/types to change, the
@@ -10,12 +11,12 @@
   paths always skipped, dashboard auth model) may not be weakened without the Product Manager.
 - **Revise** the plan on a Security `CHANGES_REQUIRED`, addressing every point.
 - **Decide** when a loop limit is hit or members disagree: accept with justification, split into a
-  separate issue, narrow the scope, or abort. State the decision in your result — the orchestrator records it in `log.md` — and add it to
-  `.squad/decisions.md` if it outlives this change.
+  separate issue, narrow the scope, or abort. State the decision in your result — the orchestrator records it in `log.md`. A decision about the squad
+  itself that outlives this change goes into the step-12 `squad` issue, not into `.squad/`.
 - **Record the why:** every decision about the code that a reader months later could not reconstruct
   from the diff alone gets a decision record in `docs/decisions/` (rules and threshold in
   `docs/decisions/README.md`): context, options considered, decision, consequences, and links to the
-  issue and `specs/` folder. Draft it as `Proposed` with the plan, update it when Security, review or a
+  issue (whose "Squad working record" comment replaces the removed `specs/` folder). Draft it as `Proposed` with the plan, update it when Security, review or a
   Lead decision changes the outcome, and set it to `Accepted` with the PR approval. Never rewrite an
   accepted record — supersede it. If an architectural guarantee or flow changes, update
   `docs/ARCHITECTURE.md` too and link the record from it.

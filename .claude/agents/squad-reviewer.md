@@ -45,7 +45,17 @@ for features), and report as findings:
   no test pins down (blocking);
 - a tier in `plan.md` that is too low for what the diff touches, per the tier
   table in `.squad/routing.md` (blocking — the change must go through the
-  higher tier's steps).
+  higher tier's steps);
+- any change to the squad or the agent instructions — `.squad/`, `.claude/`,
+  `.github/skills/`, `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`
+  (blocking — see *Scope of a product PR* in `.squad/routing.md`);
+- a `specs/` working-record folder still present when the PR is about to be
+  opened (blocking).
+
+Outside the squad (e.g. via `create-pr` for a squad-maintenance change), run
+`python3 .squad/tools/config-check.py` whenever the diff touches `.claude/` or
+`.github/skills/`; a failure is blocking, because Claude Code silently drops an
+agent or skill whose front matter does not parse.
 
 ## Round 1 — full review
 

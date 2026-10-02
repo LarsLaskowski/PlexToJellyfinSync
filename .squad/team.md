@@ -2,7 +2,8 @@
 
 Squad for PlexToJellyfinSync, used for both GitHub issues (`squad-issue` skill) and new features
 (`squad-spec` skill). The layout follows [bradygaster/squad](https://github.com/bradygaster/squad)
-(`team.md`, `routing.md`, `decisions.md`, `agents/{name}/charter.md` + `history.md`); in Claude Code the
+(`team.md`, `routing.md`, `decisions.md`, `agents/{name}/charter.md` + `history.md`, all changed only in
+squad-maintenance PRs); in Claude Code the
 roles run as subagents under `.claude/agents/`, driven by the invoking session (the orchestrator).
 
 ## Members

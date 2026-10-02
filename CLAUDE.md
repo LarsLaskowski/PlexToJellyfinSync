@@ -124,7 +124,7 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
   format, Reihitsu and Sonar diagnostics, Reviewer
   and Security review the diff, the Lead approves, then a PR referencing the issue is opened.
 - `squad-spec` — the same squad pipeline for a new feature, planned as `spec.md`, `plan.md` and
-  `tasks.md` under `specs/`.
+  `tasks.md` in a working folder under `specs/`.
 - `review-pr` — review an open pull request against this project's C#, analyzer, security and
   unit-test conventions, and post the findings with an explicit verdict.
 
@@ -140,7 +140,11 @@ The squad skills run a multi-role pipeline defined in [`.squad/`](.squad/team.md
 PR approval), Security (plan and diff), Tester (tests first, coverage), Dev, Code Officer (format, Reihitsu, Sonar) and Reviewer — as
 subagents under `.claude/agents/squad-*.md`, with the loop limits and escalation rules in
 [`.squad/routing.md`](.squad/routing.md). Their working records (`plan.md`, `log.md`, for features also
-`spec.md` and `tasks.md`) live under `specs/`. The user acts as Product Manager and is only asked when
+`spec.md` and `tasks.md`) live under `specs/` on the work branch only; before the PR they are posted as a
+comment on the issue and removed, so `main` keeps no working records. An issue or feature PR never changes
+the squad or these instructions (`.squad/`, `.claude/`, `.github/skills/`, `CLAUDE.md`, `AGENTS.md`,
+`.github/copilot-instructions.md`): squad lessons become a GitHub issue labelled `squad` and are worked in
+a separate squad-maintenance PR, checked with `python3 .squad/tools/config-check.py`. The user acts as Product Manager and is only asked when
 the Lead escalates. Pull requests are merged with *Squash and merge*, so only the PR title and description
 reach `main`.
 

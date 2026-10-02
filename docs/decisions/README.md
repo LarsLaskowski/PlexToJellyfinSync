@@ -39,3 +39,4 @@ links the record.
 | [0011](0011-local-analyzer-gate-covers-all-roslyn-diagnostics.md) | Local analyzer gate covers all Roslyn diagnostics | Accepted | 2026-10-02 |
 | [0012](0012-worker-reconcile-guard-kept-as-defense-in-depth.md) | Worker keeps its reconcile guard as defense-in-depth | Superseded by [0013](0013-worker-guards-both-orchestrator-calls.md) | 2026-10-02 |
 | [0013](0013-worker-guards-both-orchestrator-calls.md) | Worker guards both orchestrator calls alike | Accepted | 2026-10-02 |
+| [0014](0014-squad-working-records-off-main.md) | Squad working records stay off main, and product PRs never change the squad | Accepted | 2026-10-02 |
