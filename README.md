@@ -89,7 +89,7 @@ double underscore for nesting).
 
 | Key | Env var | Default | Description |
 |---|---|---|---|
-| `Plex:BaseUrl` | `PLEXSYNC__Plex__BaseUrl` | `http://plex:32400` | Plex base URL |
+| `Plex:BaseUrl` | `PLEXSYNC__Plex__BaseUrl` | – | Plex base URL (required, e.g. `http://plex:32400`) |
 | `Plex:Token` | `PLEXSYNC__Plex__Token` | – | Plex auth token (`X-Plex-Token`) |
 | `Plex:OwnerAccountId` | `PLEXSYNC__Plex__OwnerAccountId` | auto | Owner account id (auto-detected) |
 | `Plex:Libraries` | `PLEXSYNC__Plex__Libraries__0` | all | Restrict to library section keys |

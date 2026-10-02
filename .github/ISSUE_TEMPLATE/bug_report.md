@@ -19,7 +19,7 @@ Steps to reproduce the behavior:
 A clear and concise description of what you expected to happen.
 
 **Environment**
- - PlexToJellyfinSync image tag: [e.g. `ghcr.io/larslaskowski/plextojellyfinsync:1.4.0` or `latest`]
+ - PlexToJellyfinSync image tag: [e.g. `networlddev/plextojellyfinsync:1.2.2` or `latest`]
  - Deployment method: [e.g. `docker run`, Docker Compose, Kubernetes]
  - Plex Media Server version: [e.g. 1.40.x]
  - Jellyfin version: [e.g. 10.9.x]
