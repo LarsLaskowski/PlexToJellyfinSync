@@ -1,6 +1,6 @@
 # 0012: Worker keeps its reconcile guard as defense-in-depth
 
-- **Status:** Accepted
+- **Status:** Superseded by 0013
 - **Date:** 2026-10-02
 - **Source:** Issue #79 / `specs/issue-79/`
 - **Supersedes:** —

@@ -1,6 +1,6 @@
 # 0013: Worker guards both orchestrator calls alike
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-02
 - **Source:** Issue #188 / `specs/issue-188/`
 - **Supersedes:** 0012

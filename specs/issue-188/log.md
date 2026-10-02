@@ -13,3 +13,4 @@ One line per pipeline step: date, step, member, result. Lead decisions and escal
 | 2026-10-02 | 8 Lead decision | Lead | Fix non-blocking grammar finding now (Tester), then code check and delta review r2; PR description must state that OperationCanceledException is re-thrown only for the worker's own token |
 | 2026-10-02 | 7 Code check (delta) | Orchestrator | comment-only change; format check 0, analyzer 0 in changed files, 250 tests green, coverage passes |
 | 2026-10-02 | 8 Review r2 (delta) | Reviewer | APPROVE; finding resolved, no new findings |
+| 2026-10-02 | 9 PR approval | Lead | APPROVED; decision 0013 Accepted, 0012 Superseded by 0013, index updated |

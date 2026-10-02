@@ -1,7 +1,7 @@
 # Plan: Guard ProcessHistoryAsync in the Worker like ReconcileAsync
 
 Source: Issue #188
-Status: Draft
+Status: Approved
 Tier: standard — the change alters the `Worker`'s exception and cancellation control flow (a behavior change) but touches no security area (no tokens, auth, path mapping, file writes, XML parsing, Plex HTTP calls, new logging of external data, Docker/CI or dependencies).
 
 ## Problem / root cause
