@@ -47,6 +47,14 @@ returned `RESULT: DONE` (step 1 and a `NO CHANGE` outcome leave nothing to commi
 the PR title and description reach `main`, so intermediate commits may describe the step. They still
 never contain secrets and never mention an AI assistant.
 
+## Concurrency
+
+Only one member that builds or runs tests may work at a time: concurrent `dotnet build` / `dotnet test`
+runs share `bin/` and `obj/` and break each other (`.squad/tools/analyzer-check.py` serializes itself with
+a lock, plain builds do not). In step 8, `squad-reviewer` and `squad-security` may run together because
+both are read-only and the reviewer builds in a scratch copy. No member experiments (mutation tests,
+trial edits) in the repository working tree — use a scratch `git worktree` instead.
+
 ## Outcome "no change"
 
 If the Lead concludes in step 2 that no code change is needed — duplicate, cannot be reproduced, works as

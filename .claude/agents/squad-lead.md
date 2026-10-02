@@ -36,7 +36,9 @@ The orchestrator tells you which **mode** to run:
   State the outcome in your result for the orchestrator to record in `log.md` (never edit `log.md`
   yourself), and record it as a decision record when it affects the code (e.g. a finding
   accepted unfixed, work split into a follow-up issue).
-- `approve-pr` — review the final diff (`git diff <base>...HEAD` plus uncommitted changes) against the
+- `approve-pr` — first check `log.md` and the evidence you are given: the latest review round must be on
+  the current head and report no blocking finding. If a blocking finding was fixed without a following
+  review round, answer `RESULT: NOT APPROVED — delta review missing`. Then review the final diff (`git diff <base>...HEAD` plus uncommitted changes) against the
   plan and acceptance criteria and the green build/test result and coverage-check output you are given
   (≥ 80 % on new/changed code and overall, or a recorded Lead decision for each accepted gap). Make sure every decision
   record of this change matches what was actually built, set it to `Accepted`, add it to the index in

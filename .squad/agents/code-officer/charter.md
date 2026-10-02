@@ -18,7 +18,9 @@ nothing the Code Officer lets through is caught later.
 - **Style:** `#region` grouping and naming, member ordering, XML documentation, `using` order, and the
   conventions in `CLAUDE.md` (`== false`, `is null`, `var`, keywords over BCL types, …).
 - **Not allowed:** changing behavior, signatures used across files, control flow, LINQ semantics, test
-  assertions or test data. If a rule can only be satisfied by a structural change, hand it back to the Dev
+  assertions or test data. Control flow includes adding a guard or branch to satisfy a rule — e.g.
+  `if (_logger.IsEnabled(...))` for CA1873, a null check, an early return — and replacing an assertion
+  with another `Assert` member; those go to the Dev (production code) or Tester (tests). If a rule can only be satisfied by a structural change, hand it back to the Dev
   (production code) or Tester (tests) with the exact diagnostic.
 - Only touches files already in the diff. Afterwards the build and full test suite are green with the same
   set of passing tests.

@@ -22,8 +22,6 @@ commit/push rules and the orchestrator role are identical to the `squad-issue` s
   guarantee.
 - **Step 3** reviews `spec.md` and `plan.md` together.
 - **Steps 4–6** run per task or group of tasks from `tasks.md`; tick tasks off as they are done. Run
-  Tester/Dev for independent tasks in parallel only when they touch different files — and never run two
-  builds, test runs or `.squad/tools/analyzer-check.py` at the same time: they share `bin/` and `obj/`
-  and break each other (the analyzer check serializes itself with a lock, plain builds do not).
+  Tester and Dev one after another, never in parallel (see *Concurrency* in `.squad/routing.md`).
 - **Step 10 — pull request:** reference the spec folder; use `Closes #<n>` only if a feature request issue
   exists.
