@@ -58,6 +58,8 @@ new ValidationContext(options), results, validateAllProperties: true)`, i.e. the
 - [ ] AC11: A default-constructed `SyncOptions`, `DashboardOptions` and `StateOptions` are valid, and a
   `PlexOptions` whose only non-default value is `BaseUrl = "http://plex:32400"` is valid — i.e. every shipped
   default other than `Plex:BaseUrl` passes.
+- [ ] AC11a: `PlexOptions.Validate(new ValidationContext(options))` called directly with `BaseUrl` `null`, `""` or
+  whitespace-only yields no result (the blank case is left to `[Required]`, so it is never reported twice).
 - [ ] AC12: No validation message ever contains the configured value: with `BaseUrl =
   "http://user:hunter2@"` (invalid) and `Token = "tok-secret-123"`, no `ValidationResult.ErrorMessage` contains
   `hunter2` or `tok-secret-123`; the same holds for the `OptionsValidationException.Message` in AC14.
@@ -143,7 +145,7 @@ AC14, not a silent test change; record it in `log.md`.
 | Service | `ServiceCollectionExtensions.cs` | `AddOptions<T>().Bind().ValidateDataAnnotations().ValidateOnStart()` for the four types |
 | Service | `PlexToJellyfinSync.Service.csproj` | `PackageReference` `Microsoft.Extensions.Options.DataAnnotations` |
 | (root) | `Directory.Packages.props` | `PackageVersion` `Microsoft.Extensions.Options.DataAnnotations` `10.0.12` |
-| Tests | new `PlexOptionsTests.cs`, `SyncOptionsTests.cs`, `DashboardOptionsTests.cs`, `StateOptionsTests.cs` (or one `OptionsValidationTests.cs`); `ServiceCollectionExtensionsTests.cs` | AC1–AC15; `BuildProvider` default config |
+| Tests | new `PlexOptionsTests.cs`, `SyncOptionsTests.cs`, `DashboardOptionsTests.cs`, `StateOptionsTests.cs` (one file per type, per `docs/UNIT_TESTS.md`; the earlier "or one `OptionsValidationTests.cs`" alternative is withdrawn by the Lead's review-round-1 decision), shared helper `DataAnnotationsValidation.cs`; `ServiceCollectionExtensionsTests.cs` | AC1–AC15; `BuildProvider` default config |
 | Docs | `README.md`, `docs/CONTRIBUTING.md`, `docs/ARCHITECTURE.md` | see below |
 
 ## Signatures (for the Dev's skeleton)
