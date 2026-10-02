@@ -10,6 +10,18 @@ the members as subagents, pass their outputs on (they cannot talk to each other)
 loop limits from [`.squad/routing.md`](../../../.squad/routing.md), and perform every Git and GitHub
 action yourself — including follow-up issues the Lead decides on.
 
+- **You never do a member's work.** You do not edit `src/`, `tests/` or documentation the plan assigns to
+  the Dev, do not run `reihitsu-format`, and do not fix analyzer findings — not even a one-line `sed`.
+  Whatever a check of yours finds goes to its owner (production code → `squad-dev`, tests →
+  `squad-tester`, formatting/analyzer-only edits → `squad-code-officer`) and through the steps that follow
+  it. Besides read-only checks (`--check`, the analyzer and coverage scripts, tests) you only write the
+  squad's bookkeeping: `log.md`, `tasks.md` check marks (features), and the step-12 wrap-up files
+  (`.squad/agents/*/history.md`, `.squad/decisions.md`). Never `src/`, `tests/` or `docs/`.
+- **One build at a time.** Never run two members that build or test (`squad-dev`, `squad-tester`,
+  `squad-code-officer`, the reviewers' verification runs) in parallel: they share `bin/` and `obj/` and
+  break each other (`.squad/routing.md`). Launch them one after another; only `squad-reviewer` and
+  `squad-security` may run together in step 8, because both are read-only and the reviewer's own build
+  happens in a scratch copy.
 - **Commits and pushes** to the work branch are always allowed (`CLAUDE.md`, golden rules): commit and
   push after every completed step once the plan returned `RESULT: DONE` (nothing is committed before). PRs are merged with *Squash and merge*, so only the PR title and
   description reach `main`; intermediate commit messages may name the step, but never contain secrets or
@@ -62,31 +74,45 @@ action yourself — including follow-up issues the Lead decides on.
 8. **Review.** Launch `squad-reviewer` (round 1, full) and — for `standard` and `security` —
    `squad-security` in mode `diff`, in parallel, against the base ref. Pass both the work folder
    (`specs/<folder>/`) so they check the plan's acceptance criteria and tier; either may raise the tier. Blocking
-   findings → `squad-dev` fixes them → steps 6 (coverage) and 7 again → next round reviews only the
-   delta. At most **2 fix rounds** after round 1; then `squad-lead` in mode `decide`. Non-blocking
+   findings → their owner fixes them (`squad-dev` for production code, `squad-tester` for tests) → steps 6
+   (coverage) and 7 again → **a new review round on the delta is mandatory** before step 9; never go from
+   a blocking finding straight to PR approval. The same holds for a non-blocking finding the Lead decides
+   to fix now: any change to `src/`, `tests/` or `docs/` after a review round needs a delta round. At most **2 fix rounds** after round 1; then `squad-lead`
+   in mode `decide`. Non-blocking
    findings: the Lead decides per finding — fix now, or you open a linked GitHub issue now.
 9. **PR approval.** Launch `squad-lead` in mode `approve-pr` with the base ref, the build/test/coverage
-   output and the review outcome. `NOT APPROVED` → back to step 6 or 8 (counting against the review loop
+   output and the review outcome — including the result of the **latest** review round, which must have
+   no blocking finding that is not covered by a recorded Lead decision, and must cover every change to
+   `src/`, `tests/` and `docs/` since it ran (only `specs/` bookkeeping and the Lead's own edits (decision records, their index, `docs/ARCHITECTURE.md`) may
+   follow it). `NOT APPROVED` → back to step 6 or 8 (counting against the review loop
    limit) or let the Lead decide/escalate. On `APPROVED`, the decision records are `Accepted` and indexed
    in `docs/decisions/README.md`.
 10. **Pull request** (Dev role, performed by you). Push, then open the PR from
     [`.github/pull_request_template.md`](../../../.github/pull_request_template.md): title per
-    `docs/CONTRIBUTING.md` (`[area] Description`, it becomes the squash commit subject on `main`), body
-    describing the bug, the fix and the reproducing test, `Closes #<number>` under Issues, follow-up issues
-    under Next Steps, links to the decision records. Follow the `create-pr` skill's template rules, but
+    `docs/CONTRIBUTING.md` — `[area] Description`, where `area` is the affected project or feature as
+    CONTRIBUTING lists it (e.g. `Core`, `Data`, `Service`, `Host`, `Dashboard`, `Tests`, `Docker`, `CI`,
+    `Docs`), capitalized — not a lowercase class name (a `Worker` change is `Host`). It becomes the squash
+    commit subject on `main`. Body describing the bug, the fix and the
+    reproducing test, `Closes #<number>` under Issues, links to the decision records. Next Steps lists
+    **only linked GitHub issues** (create them now) or "None" — never an unlinked "revisit later". Follow the `create-pr` skill's template rules, but
     do **not** run its internal review loop — step 8 replaced it. If the fix is not fully verifiable
     without a real Plex/Jellyfin instance, say so.
-11. **After the PR.** Stay with the PR until CI is green and the SonarQube Cloud quality gate passes:
+11. **After the PR.** Subscribe to the PR's activity right after opening it (`subscribe_pr_activity` when
+    available; otherwise check the CI and SonarQube Cloud results yourself before finishing) — a session
+    that ends with an unwatched PR has not completed this step. Stay with the PR until CI is green and the
+    SonarQube Cloud quality gate passes:
     - SonarQube Cloud findings → `squad-code-officer` (structural ones → `squad-dev`);
     - failing build or tests → `squad-dev` (test defects → `squad-tester`);
     - review comments (human, automated, `review-pr`) → `squad-dev`, worked in this PR, blocking or not.
 
     Each fix goes through steps 7–8 again (delta review), with at most 2 fix rounds per failure before the
     Lead decides. Never skip, disable or weaken a test to get green.
-12. **Wrap-up.** Add lessons learned to the relevant `.squad/agents/*/history.md` and squad-process
+12. **Wrap-up (mandatory).** Add lessons learned to the relevant `.squad/agents/*/history.md` and squad-process
     decisions to `.squad/decisions.md` (code decisions live only in `docs/decisions/`), commit and push
     them to the PR branch, and report the branch, the PR URL, the tier and any escalation or Lead
-    decision to the user.
+    decision to the user. If there is genuinely nothing to learn, a `| <date> | 12 Wrap-up | Orchestrator |
+    no lessons |` row in `log.md` replaces the `history.md` / `.squad/decisions.md` updates (the report to
+    the user still happens) — the step itself is never skipped.
 
 ## What the pull request says — and what it doesn't
 

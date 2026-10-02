@@ -43,3 +43,10 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   unnoticed, a Lead decision assigned a test fix to the Dev, and log rows merged.
 - 2026-10-02 — The reviewer subagent is renamed from `plextojellyfinsync-reviewer` to `squad-reviewer`.
   Reason: it is a squad member like the others; `create-pr` and `review-pr` keep using the same agent.
+- 2026-10-02 — Lessons from the second squad run (issue #79): the orchestrator never does a member's
+  work (no edits to src/tests, no formatting, no analyzer fixes); members that build or test never run in
+  parallel and no member experiments in the working tree (`.squad/routing.md`, *Concurrency*); a delta
+  review after a blocking fix is mandatory and the Lead refuses approval without it; guards added for an
+  analyzer rule count as structural (Dev, not Code Officer); after the PR the session subscribes to it and
+  the wrap-up is never skipped; PR titles use the fixed area list and Next Steps only lists linked issues.
+  Reason: each of these happened in the issue #79 run (PR #187); the asymmetry it left unlinked is #188.

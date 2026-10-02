@@ -36,8 +36,8 @@ tier applies; Security or the Reviewer may raise the tier at any point (never lo
 | 5 | Tests first | Tester | Tests for every acceptance criterion; they compile and **fail** on the current code |
 | 6 | Implementation + coverage | Dev, Tester | All tests green; ≥ 80 % line coverage on new/changed code and overall (`.squad/tools/coverage-check.py`); doc updates from the plan done |
 | 7 | Code check | Code Officer | `reihitsu-format`; `.squad/tools/analyzer-check.py` passes (no diagnostic of any severity in changed files); same tests green; no structural change |
-| 8 | Review | Reviewer + Security | No blocking findings → 9; blocking → Dev fixes, back to 6 (Security only for `standard`/`security`) |
-| 9 | PR approval | Lead | Plan fulfilled, coverage met, decision records `Accepted` and indexed → `APPROVED` → 10 |
+| 8 | Review | Reviewer + Security | No blocking findings → 9; blocking → owner fixes (Dev: code, Tester: tests), back to 6, then a mandatory delta round (Security only for `standard`/`security`) |
+| 9 | PR approval | Lead | Latest review round without a blocking finding not covered by a recorded Lead decision, and covering every change to `src/`/`tests/`/`docs/` except `specs/` bookkeeping and the Lead's own edits (decision records, their index, `docs/ARCHITECTURE.md`); plan fulfilled, coverage met, decision records `Accepted` and indexed → `APPROVED` → 10 |
 | 10 | Pull request | Dev (via orchestrator) | PR opened (merged later with *Squash and merge*) |
 | 11 | After the PR | Dev, Code Officer, Reviewer | CI green, SonarQube Cloud quality gate passed, review comments worked |
 | 12 | Wrap-up | Orchestrator | `history.md` / `.squad/decisions.md` updated, user informed |
@@ -46,6 +46,14 @@ Commits and pushes to the work branch happen after every completed step from ste
 returned `RESULT: DONE` (step 1 and a `NO CHANGE` outcome leave nothing to commit); with *Squash and merge* only
 the PR title and description reach `main`, so intermediate commits may describe the step. They still
 never contain secrets and never mention an AI assistant.
+
+## Concurrency
+
+Only one member that builds or runs tests may work at a time: concurrent `dotnet build` / `dotnet test`
+runs share `bin/` and `obj/` and break each other (`.squad/tools/analyzer-check.py` serializes itself with
+a lock, plain builds do not). In step 8, `squad-reviewer` and `squad-security` may run together because
+both are read-only and the reviewer builds in a scratch copy. No member experiments (mutation tests,
+trial edits) in the repository working tree — use a scratch `git worktree` instead.
 
 ## Outcome "no change"
 

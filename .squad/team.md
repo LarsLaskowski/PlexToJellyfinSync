@@ -27,6 +27,7 @@ Lead cannot resolve.
 `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md` and `docs/UNIT_TESTS.md` are binding:
 `#region` blocks while writing, unit tests for all new code with at least 80 % line coverage on
 new/changed production code, English for everything that ends up in the repository or on GitHub. Inside
-the squad, only the Code Officer runs `reihitsu-format` and owns a clean `.squad/tools/analyzer-check.py` run. Subagents never run Git write operations; the
+the squad, only the Code Officer runs `reihitsu-format` and owns a clean `.squad/tools/analyzer-check.py` run. Subagents never run Git write operations, except
+creating and removing a scratch `git worktree` for experiments (`.squad/routing.md`, *Concurrency*); the
 orchestrator commits and pushes to the work branch at any time (see `CLAUDE.md`, golden rules) and opens
 the pull request only after the Lead's approval.

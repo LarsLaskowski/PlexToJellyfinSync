@@ -27,7 +27,8 @@ After the PR is open you may also receive SonarQube Cloud findings from the qual
 findings of the analyzer check, and find out why the local check missed them (record it in your
 `history.md`).
 
-If a diagnostic can only be fixed by a structural change, do not make it — hand it back with file, line
+A new `if` (e.g. `if (_logger.IsEnabled(...))` for CA1873), early return, null check or a changed
+assertion counts as structural. If a diagnostic can only be fixed by a structural change, do not make it — hand it back with file, line
 and rule id. Never suppress a rule on your own and never run Git write operations. Report: files touched,
 kinds of edits, analyzer-check output (must be PASS), build/test result, items
 handed back.
