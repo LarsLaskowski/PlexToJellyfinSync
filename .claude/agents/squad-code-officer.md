@@ -12,7 +12,8 @@ Read first: `.squad/agents/code-officer/charter.md`, `.squad/agents/code-officer
 1. Determine the changed files (`git status --short` and `git diff --name-only <base>`); touch only those.
 2. Run `reihitsu-format --force ./` — `--force` skips the confirmation prompt the tool shows for more than
    25 files, which cannot be answered in a non-interactive session. If it fails with ".NET location: Not
-   found", prefix it with `DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"`. Confirm
+   found", `DOTNET_ROOT` is missing (the SessionStart hook `.claude/hooks/session-start.sh` normally sets
+   it): prefix the command with `DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"`. Confirm
    with `reihitsu-format --check ./` (exit code 0). Never skip this step.
 3. Run `python3 .squad/tools/analyzer-check.py`. It performs a full, non-incremental Release build with a
    SARIF error log and lists every diagnostic in a changed file — including **info-level** ones such as

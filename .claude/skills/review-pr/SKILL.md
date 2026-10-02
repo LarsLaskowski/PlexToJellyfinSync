@@ -42,8 +42,6 @@ anything posted to GitHub — regardless of the language the user wrote in.
      (`APPROVE`, or the blocking/non-blocking counts), so the author can see
      whether anything is required of them without reading every thread.
    - Mark each finding `blocking` or `non-blocking` explicitly.
-   - Do not add any attribution, "Generated with …" footer or other note
-     referencing an AI assistant.
 4. If the review produces no findings, post nothing beyond a short approving
    verdict — and if the previous round already said the same, post nothing at
    all.

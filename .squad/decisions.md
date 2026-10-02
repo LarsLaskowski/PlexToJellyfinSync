@@ -64,3 +64,11 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   Markdown and `specs/` files are stored with LF in the index and `.gitattributes` normalizes new or
   changed ones on commit, so the Write tool's LF output is harmless there (a few CI and props files are
   still stored with CRLF and are not affected by this decision).
+- 2026-10-02 — Lessons from the issue #31 run (#196): the Lead checks every factual claim of an issue
+  against the code before planning, and the plan names test files strictly `{TypeUnderTest}Tests.cs`.
+  `specs/<folder>/log.md` is committed right after intake; on `NO CHANGE` the folder is removed with a
+  commit and the branch stays without a PR. The skill points to the GitHub MCP tools (`gh` only works as
+  `gh api repos/...`). The rule that commits and PRs never mention an AI assistant is dropped from all
+  instruction files and skills: attribution lines are acceptable now (Product Manager decision), so the
+  repo rule no longer conflicts with the attribution the session adds. Reason: each of these caused
+  friction or a fix round in PR #195.
