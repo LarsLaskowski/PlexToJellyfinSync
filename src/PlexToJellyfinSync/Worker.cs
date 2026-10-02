@@ -44,7 +44,7 @@ public sealed class Worker : BackgroundService
     #region Methods
 
     /// <summary>
-    /// Run a full reconcile and swallow non-cancellation errors as defense-in-depth,
+    /// Run a full reconcile and swallow errors other than the worker's own cancellation as defense-in-depth,
     /// so an orchestrator that throws cannot stop the host
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
@@ -55,7 +55,7 @@ public sealed class Worker : BackgroundService
         {
             await _orchestrator.ReconcileAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
@@ -64,6 +64,30 @@ public sealed class Worker : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Full reconcile failed");
+        }
+    }
+
+    /// <summary>
+    /// Process the incremental watch history and swallow errors other than the worker's own cancellation
+    /// as defense-in-depth, so an orchestrator that throws cannot stop the host
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private async Task SafeProcessHistoryAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _orchestrator.ProcessHistoryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+
+        // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Incremental history sync failed");
         }
     }
 
@@ -101,7 +125,7 @@ public sealed class Worker : BackgroundService
                 break;
             }
 
-            await _orchestrator.ProcessHistoryAsync(stoppingToken).ConfigureAwait(false);
+            await SafeProcessHistoryAsync(stoppingToken).ConfigureAwait(false);
 
             if (DateTimeOffset.UtcNow - lastReconcile >= reconcileInterval)
             {

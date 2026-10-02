@@ -3,7 +3,7 @@ using PlexToJellyfinSync.Core.Abstractions;
 namespace PlexToJellyfinSync.Tests;
 
 /// <summary>
-/// Sync orchestrator fake with a configurable reconcile failure that signals when a reconcile was requested
+/// Sync orchestrator fake with configurable failures that signals when a history sync or reconcile was requested
 /// </summary>
 internal sealed class FakeSyncOrchestrator : ISyncOrchestrator
 {
@@ -13,6 +13,11 @@ internal sealed class FakeSyncOrchestrator : ISyncOrchestrator
     /// Completed when <see cref="ReconcileAsync"/> is called for the first time
     /// </summary>
     private readonly TaskCompletionSource _reconcileCalled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// Completed when <see cref="ProcessHistoryAsync"/> is called for the first time
+    /// </summary>
+    private readonly TaskCompletionSource _processHistoryCalled = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     #endregion // Fields
 
@@ -33,14 +38,39 @@ internal sealed class FakeSyncOrchestrator : ISyncOrchestrator
     /// </summary>
     public Task ReconcileCalled => _reconcileCalled.Task;
 
+    /// <summary>
+    /// Exception thrown by <see cref="ProcessHistoryAsync"/>, or <c>null</c> to complete normally
+    /// </summary>
+    public Exception? ProcessHistoryException { get; set; }
+
+    /// <summary>
+    /// When set, <see cref="ProcessHistoryAsync"/> waits until its token is cancelled and then throws the cancellation
+    /// </summary>
+    public bool ProcessHistoryWaitsForCancellation { get; set; }
+
+    /// <summary>
+    /// Task that completes once <see cref="ProcessHistoryAsync"/> has been called
+    /// </summary>
+    public Task ProcessHistoryCalled => _processHistoryCalled.Task;
+
     #endregion // Properties
 
     #region ISyncOrchestrator
 
     /// <inheritdoc/>
-    public Task ProcessHistoryAsync(CancellationToken cancellationToken)
+    public async Task ProcessHistoryAsync(CancellationToken cancellationToken)
     {
-        return Task.CompletedTask;
+        _processHistoryCalled.TrySetResult();
+
+        if (ProcessHistoryWaitsForCancellation)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (ProcessHistoryException is not null)
+        {
+            throw ProcessHistoryException;
+        }
     }
 
     /// <inheritdoc/>
