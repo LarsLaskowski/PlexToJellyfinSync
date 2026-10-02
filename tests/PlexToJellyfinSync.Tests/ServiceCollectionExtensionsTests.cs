@@ -261,10 +261,12 @@ public sealed class ServiceCollectionExtensionsTests
     /// <returns>The built service provider</returns>
     private static ServiceProvider BuildProvider(Dictionary<string, string?>? values = null)
     {
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(values ?? new Dictionary<string, string?>(StringComparer.Ordinal)
-                                                                                      {
-                                                                                          ["Plex:BaseUrl"] = "http://plex.test:32400"
-                                                                                      }).Build();
+        var source = values ?? new Dictionary<string, string?>(StringComparer.Ordinal)
+                               {
+                                   ["Plex:BaseUrl"] = "http://plex.test:32400"
+                               };
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(source)
+                                                      .Build();
         var services = new ServiceCollection();
 
         services.AddPlexToJellyfinSync(configuration);

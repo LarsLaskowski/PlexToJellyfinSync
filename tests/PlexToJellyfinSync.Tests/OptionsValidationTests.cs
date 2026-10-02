@@ -28,7 +28,10 @@ public sealed class OptionsValidationTests
     [DataRow("   ", DisplayName = "whitespace")]
     public void PlexOptionsMissingBaseUrlIsInvalid(string? baseUrl)
     {
-        var results = Validate(new PlexOptions { BaseUrl = baseUrl! });
+        var results = Validate(new PlexOptions
+                               {
+                                   BaseUrl = baseUrl!
+                               });
 
         AssertNamesMember(results, nameof(PlexOptions.BaseUrl));
         Assert.Contains("Plex:BaseUrl", string.Join(' ', results.Select(obj => obj.ErrorMessage)), "The message should name Plex:BaseUrl!");
@@ -46,7 +49,10 @@ public sealed class OptionsValidationTests
     [DataRow("not a url")]
     public void PlexOptionsMalformedBaseUrlIsInvalid(string baseUrl)
     {
-        var results = Validate(new PlexOptions { BaseUrl = baseUrl });
+        var results = Validate(new PlexOptions
+                               {
+                                   BaseUrl = baseUrl
+                               });
 
         AssertNamesMember(results, nameof(PlexOptions.BaseUrl));
     }
@@ -61,7 +67,10 @@ public sealed class OptionsValidationTests
     [DataRow("http://192.168.1.10:32400/")]
     public void PlexOptionsWellFormedBaseUrlIsValid(string baseUrl)
     {
-        var results = Validate(new PlexOptions { BaseUrl = baseUrl });
+        var results = Validate(new PlexOptions
+                               {
+                                   BaseUrl = baseUrl
+                               });
 
         Assert.IsEmpty(results, "A well-formed base URL should be valid!");
     }
@@ -72,7 +81,11 @@ public sealed class OptionsValidationTests
     [TestMethod]
     public void PlexOptionsEmptyTokenIsValid()
     {
-        var results = Validate(new PlexOptions { BaseUrl = ValidBaseUrl, Token = string.Empty });
+        var results = Validate(new PlexOptions
+                               {
+                                   BaseUrl = ValidBaseUrl,
+                                   Token = string.Empty
+                               });
 
         Assert.IsEmpty(results, "An empty token should be valid!");
     }
@@ -86,7 +99,11 @@ public sealed class OptionsValidationTests
     [DataRow(1, DisplayName = "one")]
     public void PlexOptionsValidOwnerAccountIdIsValid(int? accountId)
     {
-        var results = Validate(new PlexOptions { BaseUrl = ValidBaseUrl, OwnerAccountId = accountId });
+        var results = Validate(new PlexOptions
+                               {
+                                   BaseUrl = ValidBaseUrl,
+                                   OwnerAccountId = accountId
+                               });
 
         Assert.IsEmpty(results, "The owner account id should be valid!");
     }
@@ -100,7 +117,11 @@ public sealed class OptionsValidationTests
     [DataRow(-1)]
     public void PlexOptionsNonPositiveOwnerAccountIdIsInvalid(int accountId)
     {
-        var results = Validate(new PlexOptions { BaseUrl = ValidBaseUrl, OwnerAccountId = accountId });
+        var results = Validate(new PlexOptions
+                               {
+                                   BaseUrl = ValidBaseUrl,
+                                   OwnerAccountId = accountId
+                               });
 
         AssertNamesMember(results, nameof(PlexOptions.OwnerAccountId));
     }
@@ -114,7 +135,10 @@ public sealed class OptionsValidationTests
     [DataRow(86400)]
     public void SyncOptionsPollIntervalInRangeIsValid(int seconds)
     {
-        var results = Validate(new SyncOptions { PollIntervalSeconds = seconds });
+        var results = Validate(new SyncOptions
+                               {
+                                   PollIntervalSeconds = seconds
+                               });
 
         Assert.IsEmpty(results, "A poll interval in range should be valid!");
     }
@@ -130,7 +154,10 @@ public sealed class OptionsValidationTests
     [DataRow(86401)]
     public void SyncOptionsPollIntervalOutOfRangeIsInvalid(int seconds)
     {
-        var results = Validate(new SyncOptions { PollIntervalSeconds = seconds });
+        var results = Validate(new SyncOptions
+                               {
+                                   PollIntervalSeconds = seconds
+                               });
 
         AssertNamesMember(results, nameof(SyncOptions.PollIntervalSeconds));
     }
@@ -144,7 +171,10 @@ public sealed class OptionsValidationTests
     [DataRow(8760)]
     public void SyncOptionsFullReconcileIntervalInRangeIsValid(int hours)
     {
-        var results = Validate(new SyncOptions { FullReconcileIntervalHours = hours });
+        var results = Validate(new SyncOptions
+                               {
+                                   FullReconcileIntervalHours = hours
+                               });
 
         Assert.IsEmpty(results, "A reconcile interval in range should be valid!");
     }
@@ -159,7 +189,10 @@ public sealed class OptionsValidationTests
     [DataRow(8761)]
     public void SyncOptionsFullReconcileIntervalOutOfRangeIsInvalid(int hours)
     {
-        var results = Validate(new SyncOptions { FullReconcileIntervalHours = hours });
+        var results = Validate(new SyncOptions
+                               {
+                                   FullReconcileIntervalHours = hours
+                               });
 
         AssertNamesMember(results, nameof(SyncOptions.FullReconcileIntervalHours));
     }
@@ -170,7 +203,11 @@ public sealed class OptionsValidationTests
     [TestMethod]
     public void SyncOptionsParallelismOfOneIsValid()
     {
-        var results = Validate(new SyncOptions { EpisodeReconcileParallelism = 1, LibraryReconcileParallelism = 1 });
+        var results = Validate(new SyncOptions
+                               {
+                                   EpisodeReconcileParallelism = 1,
+                                   LibraryReconcileParallelism = 1
+                               });
 
         Assert.IsEmpty(results, "A parallelism of one should be valid!");
     }
@@ -184,7 +221,10 @@ public sealed class OptionsValidationTests
     [DataRow(-1)]
     public void SyncOptionsNonPositiveEpisodeParallelismIsInvalid(int value)
     {
-        var results = Validate(new SyncOptions { EpisodeReconcileParallelism = value });
+        var results = Validate(new SyncOptions
+                               {
+                                   EpisodeReconcileParallelism = value
+                               });
 
         AssertNamesMember(results, nameof(SyncOptions.EpisodeReconcileParallelism));
     }
@@ -198,7 +238,10 @@ public sealed class OptionsValidationTests
     [DataRow(-1)]
     public void SyncOptionsNonPositiveLibraryParallelismIsInvalid(int value)
     {
-        var results = Validate(new SyncOptions { LibraryReconcileParallelism = value });
+        var results = Validate(new SyncOptions
+                               {
+                                   LibraryReconcileParallelism = value
+                               });
 
         AssertNamesMember(results, nameof(SyncOptions.LibraryReconcileParallelism));
     }
@@ -209,7 +252,11 @@ public sealed class OptionsValidationTests
     [TestMethod]
     public void DashboardOptionsMinimalBufferAndEmptyTokenIsValid()
     {
-        var results = Validate(new DashboardOptions { LogBufferSize = 1, Token = string.Empty });
+        var results = Validate(new DashboardOptions
+                               {
+                                   LogBufferSize = 1,
+                                   Token = string.Empty
+                               });
 
         Assert.IsEmpty(results, "A buffer of one and an empty token should be valid!");
     }
@@ -223,7 +270,10 @@ public sealed class OptionsValidationTests
     [DataRow(-1)]
     public void DashboardOptionsNonPositiveLogBufferSizeIsInvalid(int size)
     {
-        var results = Validate(new DashboardOptions { LogBufferSize = size });
+        var results = Validate(new DashboardOptions
+                               {
+                                   LogBufferSize = size
+                               });
 
         AssertNamesMember(results, nameof(DashboardOptions.LogBufferSize));
     }
@@ -237,7 +287,10 @@ public sealed class OptionsValidationTests
     [DataRow("   ", DisplayName = "whitespace")]
     public void StateOptionsBlankDirectoryIsInvalid(string directory)
     {
-        var results = Validate(new StateOptions { Directory = directory });
+        var results = Validate(new StateOptions
+                               {
+                                   Directory = directory
+                               });
 
         AssertNamesMember(results, nameof(StateOptions.Directory));
     }
@@ -248,7 +301,10 @@ public sealed class OptionsValidationTests
     [TestMethod]
     public void StateOptionsConfiguredDirectoryIsValid()
     {
-        var results = Validate(new StateOptions { Directory = "/config" });
+        var results = Validate(new StateOptions
+                               {
+                                   Directory = "/config"
+                               });
 
         Assert.IsEmpty(results, "A configured directory should be valid!");
     }
@@ -262,7 +318,11 @@ public sealed class OptionsValidationTests
         Assert.IsEmpty(Validate(new SyncOptions()), "The default sync options should be valid!");
         Assert.IsEmpty(Validate(new DashboardOptions()), "The default dashboard options should be valid!");
         Assert.IsEmpty(Validate(new StateOptions()), "The default state options should be valid!");
-        Assert.IsEmpty(Validate(new PlexOptions { BaseUrl = ValidBaseUrl }), "The default Plex options with a base URL should be valid!");
+        Assert.IsEmpty(Validate(new PlexOptions
+                                {
+                                    BaseUrl = ValidBaseUrl
+                                }),
+                       "The default Plex options with a base URL should be valid!");
     }
 
     /// <summary>
@@ -271,7 +331,11 @@ public sealed class OptionsValidationTests
     [TestMethod]
     public void PlexOptionsValidationMessagesDoNotContainConfiguredValues()
     {
-        var results = Validate(new PlexOptions { BaseUrl = "http://user:hunter2@", Token = "tok-secret-123" });
+        var results = Validate(new PlexOptions
+                               {
+                                   BaseUrl = "http://user:hunter2@",
+                                   Token = "tok-secret-123"
+                               });
 
         Assert.IsNotEmpty(results, "The base URL without a host should be invalid!");
 
