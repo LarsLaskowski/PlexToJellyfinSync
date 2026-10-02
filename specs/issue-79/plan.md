@@ -1,7 +1,7 @@
 # Plan: Fix the mislabeled reconcile error in Worker.SafeReconcileAsync
 
 Source: Issue #79
-Status: Draft
+Status: Approved
 Tier: trivial — the change is a log message, an XML summary and a comment in `Worker`; control flow and behavior stay exactly as they are (the try/catch is kept), and no security area is touched.
 
 ## Problem / root cause
@@ -24,13 +24,13 @@ and fix the message.
 
 ## Acceptance criteria
 
-- [ ] AC1: When `ISyncOrchestrator.ReconcileAsync` throws a non-cancellation exception (e.g.
+- [x] AC1: When `ISyncOrchestrator.ReconcileAsync` throws a non-cancellation exception (e.g.
   `InvalidOperationException`) on the startup reconcile, the `Worker` logs exactly one entry at
   `LogLevel.Error` carrying that exception, with the message `Full reconcile failed`; no logged message
   contains `Initial reconcile failed`.
-- [ ] AC2: In the same scenario the worker keeps running: `ExecuteTask` is not faulted after the error has
+- [x] AC2: In the same scenario the worker keeps running: `ExecuteTask` is not faulted after the error has
   been logged, and `StopAsync` completes without throwing (the exception is swallowed, not propagated).
-- [ ] AC3: When the host stops (stopping token cancelled) and `ReconcileAsync` throws
+- [x] AC3: When the host stops (stopping token cancelled) and `ReconcileAsync` throws
   `OperationCanceledException`, no error is logged (cancellation is still rethrown, not reported as a
   failure).
 
