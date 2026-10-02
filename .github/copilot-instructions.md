@@ -33,18 +33,15 @@ together.
 
 ## Git Workflow
 
-- **Never commit or push automatically**: Do **not** run `git commit`, `git push`, or any combination
-  thereof without **explicit user approval**
-- After making changes, present a summary of the modifications and **ask the user** before committing
-- Do **not** create branches, tags, or perform any other Git write operations without being explicitly
-  told to do so
-- Read-only Git commands (`git status`, `git diff`, `git log`, etc.) are always allowed
-- **Exception:** when the user explicitly asks to run the `fix-issue` or `create-pr` skill (see
-  [Related skills](#related-skills)), that request **is** the user's explicit approval for the commit,
-  push and pull-request steps those two skills document — no further confirmation is needed for those
-  steps. This does not cover a skill the assistant decides to invoke on its own, and it covers only the
-  Git actions that skill's own documented steps perform. Every other action, including any Git step
-  outside those two skills, still needs that explicit approval.
+- **Never commit or push to `main`** — no one, not even with approval. Every change goes through a
+  separate branch and a pull request.
+- **Commits and pushes to a feature branch are always allowed** without asking: commit finished work and
+  push it to the current feature branch (creating that branch off `main` if needed), so nothing is lost
+  when a session ends. Force-pushing or otherwise rewriting published history, deleting branches, and
+  creating tags (a `v*` tag triggers a release) still need explicit user approval.
+- **Pull requests are only opened by the squad or by the user.** The `squad-issue` and `squad-spec`
+  skills open a PR after the Lead's approval; outside the squad, a PR is opened only when the user
+  explicitly asks for one (e.g. by running the `create-pr` skill). Never open a PR on your own initiative.
 
 ---
 
@@ -69,15 +66,20 @@ Use the solution file at the repository root (`.slnx` format):
 - Run one test project: `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj -c Release --no-build`
 - Run one test method: `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj --filter "FullyQualifiedName~Namespace.ClassName.MethodName"`
 
-Run `reihitsu-format ./` after source changes and before running a build. The command is available as
-a .NET tool and can be installed with `dotnet tool install -g Reihitsu.Cli --prerelease` if it is
-missing; `--prerelease` keeps the CLI in sync with the prerelease **Reihitsu.Analyzer** pinned in
-`Directory.Packages.props`.
-Static analysis runs during build through the **Reihitsu.Analyzer** (added to every project). There is
-**no StyleCop.Analyzers**.
+Run `reihitsu-format ./` after source changes and before running a build. CI does **not** check
+formatting, so it must be clean before a push; in the squad skills only the Code Officer runs it. The command is available as
+a .NET tool and can be installed with `dotnet tool install -g Reihitsu.Cli` if it is
+missing; 
+Static analysis runs during build through the **Reihitsu.Analyzer** and the **SonarAnalyzer.CSharp** rules
+(both added to every project), so SonarQube issues surface in the local build, not first in the CI
+analysis. There is **no StyleCop.Analyzers**.
 
-A build must finish with **zero Reihitsu (`RH####`) warnings and errors**. Treat every `RH` diagnostic
-as a failure and fix it before considering the work done — do not leave analyzer warnings behind.
+A build must finish with **zero Reihitsu (`RH####`) warnings and errors** and no SonarQube (`S####`)
+diagnostic in a changed file. Treat every such diagnostic as a failure and fix it before considering the
+work done — do not leave analyzer warnings behind (in the squad skills, the Code Officer owns this).
+
+New or changed production code needs **at least 80 % line coverage**, and overall coverage must stay at
+least 80 % (`.squad/tools/coverage-check.py`, see [`UNIT_TESTS.md`](../docs/UNIT_TESTS.md#code-coverage)).
 
 ---
 
@@ -88,7 +90,7 @@ as a failure and fix it before considering the work done — do not leave analyz
 - **Implicit Usings**: Enabled (`<ImplicitUsings>enable</ImplicitUsings>`)
 - **Documentation XML**: Enabled (`<GenerateDocumentationFile>true</GenerateDocumentationFile>`)
 - **Central Package Management**: `Directory.Packages.props` with `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>`
-- **Code Analysis**: `Reihitsu.Analyzer` as a dev dependency in every project (via `Directory.Build.props`)
+- **Code Analysis**: `Reihitsu.Analyzer` and `SonarAnalyzer.CSharp` as dev dependencies in every project (via `Directory.Build.props`)
 - **Solution Format**: `.slnx` (XML-based)
 
 ### Multi-Project Architecture
@@ -128,18 +130,36 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 
 - `create-pr` — verify (format, build, tests), review the change locally, then open a PR
   following [`pull_request_template.md`](pull_request_template.md).
-- `fix-issue` — reproduce a reported issue as a failing unit test, implement a minimal fix, and
-  open a PR referencing the issue.
+- `squad-issue` — fix a GitHub issue with the squad: the Lead plans and picks a tier
+  (`trivial` / `standard` / `security`), Security reviews security-relevant plans, the Tester writes
+  failing tests first, the Dev implements to ≥ 80 % coverage, the Code Officer clears
+  format, Reihitsu and Sonar diagnostics, Reviewer
+  and Security review the diff, the Lead approves, then a PR referencing the issue is opened.
+- `squad-spec` — the same squad pipeline for a new feature, planned as `spec.md`, `plan.md` and
+  `tasks.md` under `specs/`.
 - `review-pr` — review an open pull request against this project's C#, analyzer, security and
   unit-test conventions, and post the findings with an explicit verdict.
 
 Review runs as a subagent defined in `.claude/agents/plextojellyfinsync-reviewer.md` (read-only,
-pinned to Opus, fresh context). `create-pr` and `fix-issue` call it *before* pushing, so a change
+pinned to Opus, fresh context). `create-pr` and the squad skills call it *before* pushing, so a change
 is reviewed while it is still local; `review-pr` calls the same agent for a pull request that is
 already open. The review checklist, the integration-surface sweep, the blocking/non-blocking
 severity model and the "round 1 is a full review, later rounds review only the delta" rule live in
 that one file, so they are identical either way. An agent without subagent support follows the same
 file inline.
+
+The squad skills run a multi-role pipeline defined in [`.squad/`](../.squad/team.md) — Lead (plan, decisions,
+PR approval), Security (plan and diff), Tester (tests first, coverage), Dev, Code Officer (format, Reihitsu, Sonar) and Reviewer — as
+subagents under `.claude/agents/squad-*.md`, with the loop limits and escalation rules in
+[`.squad/routing.md`](../.squad/routing.md). Their working records (`plan.md`, `log.md`, for features also
+`spec.md` and `tasks.md`) live under `specs/`. The user acts as Product Manager and is only asked when
+the Lead escalates. Pull requests are merged with *Squash and merge*, so only the PR title and description
+reach `main`.
+
+The reasoning behind code decisions — why something was built the way it was — is recorded by the Lead
+as one decision record per decision in [`docs/decisions/`](../docs/decisions/README.md) (append-only,
+superseded rather than rewritten), not in `ARCHITECTURE.md`. Read the relevant records before changing
+code they cover, and do not contradict an accepted record without superseding it.
 
 Two rules these skills enforce that are easy to get wrong:
 

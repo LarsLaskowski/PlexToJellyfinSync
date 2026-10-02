@@ -7,3 +7,6 @@
 *.ico binary
 *.woff binary
 *.woff2 binary
+
+# Shell scripts must keep LF, otherwise bash fails on the carriage returns
+*.sh text eol=lf

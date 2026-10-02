@@ -18,4 +18,12 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- SonarQube C# rules in every local build, so Sonar issues surface before the CI analysis (dev-only) -->
+  <ItemGroup>
+    <PackageReference Include="SonarAnalyzer.CSharp">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
 </Project>

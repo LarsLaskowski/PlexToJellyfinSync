@@ -84,11 +84,14 @@ checklist there before opening a pull request.
 ### Submitting a pull request
 
 If you'd like to contribute by fixing a bug, implementing a feature, or even correcting typos in
-the documentation, you'll need to submit a pull request.
+the documentation, you'll need to submit a pull request. Nothing is ever committed or pushed directly
+to `main` — every change goes through a separate branch and a pull request.
 
-Before submitting a pull request, be sure to [rebase](https://www.atlassian.com/git/tutorials/merging-vs-rebasing)
-your branch onto the current `main`. Do not use `git merge` or the *merge* button provided by
-GitHub.
+Pull requests are merged with **Squash and merge**: the PR title becomes the single commit subject on
+`main` and the description its body, so the commits on the branch are working history and need not be
+curated. Keep the branch up to date by merging the current `main` into it (no force-push needed); do not
+use the plain *Create a merge commit* or *Rebase and merge* buttons (see
+[decision 0010](decisions/0010-squash-merge-pull-requests.md)).
 
 For PR naming use the following convention: `[area] Description` (no period at the end).
 
@@ -107,8 +110,11 @@ Follow the PR template in [`.github/pull_request_template.md`](../.github/pull_r
 Detailed C# code-style rules (naming, `#region` layout, formatting, XML docs, null handling) are
 documented in [`CLAUDE.md`](../CLAUDE.md) and [`.github/copilot-instructions.md`](../.github/copilot-instructions.md)
 and are binding for all contributions. Run `reihitsu-format ./` before opening a pull request; a
-clean build must show **zero Reihitsu (`RH####`) warnings and errors** — CI enforces this by
-running the formatter and failing the build on any resulting diff.
+clean build must show **zero Reihitsu (`RH####`) warnings and errors** and no SonarQube (`S####`)
+diagnostic in a changed file (the `SonarAnalyzer.CSharp` rules run in every local build). CI does
+**not** re-check formatting — a pull request is expected to arrive clean (see
+[decision 0009](decisions/0009-quality-gates-before-the-pull-request.md)). New or changed production
+code needs at least 80 % line coverage (see [`UNIT_TESTS.md`](UNIT_TESTS.md#code-coverage)).
 
 ## Versioning and releases
 

@@ -59,12 +59,6 @@ jobs:
       - name: Restore
         run: dotnet restore PlexToJellyfinSync.slnx
 
-      - name: Format check
-        run: |
-          dotnet tool install -g Reihitsu.Cli
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          reihitsu-format --check ./
-
       - name: Begin SonarQube analysis
         if: ${{ env.SONAR_TOKEN != '' }}
         run: |
@@ -72,7 +66,8 @@ jobs:
             /k:"networlddev_PlexToJellyfinSync" \
             /o:"networlddev" \
             /d:sonar.token="$SONAR_TOKEN" \
-            /d:sonar.cs.opencover.reportsPaths="${{ runner.temp }}/TestResults/**/coverage.opencover.xml"
+            /d:sonar.cs.opencover.reportsPaths="${{ runner.temp }}/TestResults/**/coverage.opencover.xml" \
+            /d:sonar.coverage.exclusions=".squad/**,.claude/**"
 
       - name: Build
         run: dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
