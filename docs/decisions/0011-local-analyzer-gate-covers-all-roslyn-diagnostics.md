@@ -36,8 +36,12 @@ change themselves, and `docs/UNIT_TESTS.md` documents the MSTest rules that test
 
 ## Consequences
 
-- Locally visible findings match what SonarQube Cloud reports for C#; the remaining differences are the
-  non-Roslyn checks (duplication, security hotspots, Python/shell rules), which still only run in CI.
+- The check reproduces the Roslyn diagnostics the build emits — MSTest, CA, Reihitsu and the default
+  Sonar way rules of `SonarAnalyzer.CSharp`. SonarQube Cloud can still differ in two ways: its own C#
+  quality profile (`csharpsquid` rules) is not the package default, so it reports some `S####` rules the
+  local build does not (and ignores some the local build reports), and non-Roslyn checks (duplication,
+  security hotspots, Python/shell rules) only run in CI. Findings that only appear there go back through
+  the post-PR step of the squad pipeline.
 - The check costs one extra full build per run.
 - Pre-existing diagnostics in unchanged files are reported as a count only and do not gate a change; they
   are fixed when a change touches their file.

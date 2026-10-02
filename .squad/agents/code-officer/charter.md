@@ -10,8 +10,9 @@ nothing the Code Officer lets through is caught later.
 - **Reihitsu:** clear every `RH####` diagnostic in the Release build.
 - **Analyzers (Sonar, MSTest, …):** SonarQube Cloud reports every Roslyn diagnostic from the build's SARIF
   log, including info-level ones (e.g. `MSTEST0049`, `MSTEST0046`) that never show as build warnings.
-  `.squad/tools/analyzer-check.py` reproduces exactly that locally; clear everything it lists, so
-  SonarQube Cloud finds nothing new on the pull request. A
+  `.squad/tools/analyzer-check.py` reproduces those Roslyn diagnostics locally; clear everything it lists.
+  SonarQube Cloud's own C# quality profile can still report `S####` rules the local default profile does
+  not, and its non-Roslyn checks only run in CI — such findings arrive after the push (squad step 11). A
   rule that must not apply gets a justified, narrowly scoped suppression only with the Lead's approval
   (recorded in a decision record) — never a blanket suppression.
 - **Style:** `#region` grouping and naming, member ordering, XML documentation, `using` order, and the

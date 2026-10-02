@@ -14,8 +14,12 @@ arguments, so nothing user-supplied reaches the shell, git or the filesystem.
 Usage, from the repository root (after `dotnet restore PlexToJellyfinSync.slnx`):
     python3 .squad/tools/analyzer-check.py
 
-Exit code 0 when no changed file has a diagnostic, 1 otherwise (or when the build fails).
+Runs are serialized with a lock file (obj/analyzer-check.lock), because two concurrent full builds of the
+solution break each other. The check fails if the build fails or if any project produced no SARIF log.
+
+Exit code 0 when no changed file has a diagnostic, 1 otherwise.
 """
+import fcntl
 import glob
 import json
 import os
@@ -25,6 +29,7 @@ from urllib.parse import unquote, urlparse
 
 BASE_REF = "origin/main"
 SARIF_NAME = os.path.join("obj", "roslyn.sarif")
+LOCK_FILE = os.path.join("obj", "analyzer-check.lock")
 BUILD = ["dotnet", "build", "PlexToJellyfinSync.slnx", "-c", "Release", "--no-restore", "--no-incremental",
          "-p:ErrorLog=" + SARIF_NAME + "%2Cversion=2.1"]
 
@@ -64,7 +69,19 @@ def diagnostics(root):
                     result.get("message", {}).get("text", "")
 
 
+def project_dirs():
+    return sorted(os.path.dirname(project) for project in glob.glob(os.path.join("**", "*.csproj"), recursive=True)
+                  if os.sep + "bin" + os.sep not in project and os.sep + "obj" + os.sep not in project)
+
+
 def main():
+    os.makedirs("obj", exist_ok=True)
+    with open(LOCK_FILE, "w", encoding="utf-8") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return run_check()
+
+
+def run_check():
     root = os.path.realpath(os.getcwd())
     for stale in glob.glob(os.path.join("**", SARIF_NAME), recursive=True):
         os.remove(stale)
@@ -72,6 +89,11 @@ def main():
     if build.returncode != 0:
         print(build.stdout[-4000:])
         print("Build failed.")
+        return 1
+    missing = [d for d in project_dirs() if not os.path.isfile(os.path.join(d, SARIF_NAME))]
+    if missing:
+        print("No SARIF log produced for: " + ", ".join(missing))
+        print("FAIL")
         return 1
 
     changed = changed_files()

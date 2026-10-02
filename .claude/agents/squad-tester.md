@@ -27,11 +27,11 @@ Mode `coverage` (after the Dev's implementation):
 
 Write tests that the MSTest and Sonar analyzers accept from the start — these are test-design rules, not
 formatting, so the Code Officer cannot fix them without handing them back to you:
-- pass `TestContext.CancellationToken` (constructor-injected `TestContext`, see `NfoWriterTests`) to every
+- pass `TestContext.CancellationToken` (constructor-injected `TestContext`, as in the constructor of `NfoWriterTests` — not its older async calls) to every
   call that accepts a token — `Task.Run`, `Task.Delay`, `*Async` APIs (MSTEST0049 / S8949);
 - use the specific `Assert` member (`Assert.Contains`, `Assert.HasCount`, `Assert.AreSame`, …) instead of
   `Assert.IsTrue(...)` or `StringAssert` (MSTEST0037 / MSTEST0046, `docs/UNIT_TESTS.md`).
 
-Before handing over, run `python3 .squad/tools/analyzer-check.py` and fix every finding in the test files
-you wrote. Do not run `reihitsu-format` and do not chase formatting or `RH####` (Code Officer). Never edit
+Before handing over, run `python3 .squad/tools/analyzer-check.py` and fix every non-`RH` finding (`MSTEST`,
+`S`, `CA`, …) in the test files you wrote. Do not run `reihitsu-format` and do not chase formatting or `RH####` (Code Officer). Never edit
 `src/`, never run Git write operations. Report: tests added (names), their result, the coverage output.

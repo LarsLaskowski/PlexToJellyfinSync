@@ -174,7 +174,8 @@ for `StringAssert`: use `Assert.Contains` / `Assert.StartsWith` (MSTEST0046).
 
 Pass `TestContext.CancellationToken` to every call in a test that accepts a cancellation token —
 `Task.Run`, `Task.Delay`, any `*Async` API (MSTEST0049 / S8949). Inject the context through the
-constructor, as `NfoWriterTests` does:
+constructor, like the constructor of `NfoWriterTests` (the file's older async calls predate this rule
+and are not a model):
 
 ```csharp
 private readonly TestContext _testContext;
