@@ -1,7 +1,7 @@
 # Plan: Dashboard.razor mutates component state outside the InvokeAsync callback
 
 Source: Issue #78
-Status: Draft
+Status: Approved
 Tier: standard — the fix moves a state mutation onto the renderer's dispatcher, which changes the threading/control flow of a component (not just wording), so `trivial` does not fit; it touches no token, auth, file write, path mapping, XML parsing, Plex HTTP call or dependency, so `security` does not apply.
 
 ## Problem / root cause

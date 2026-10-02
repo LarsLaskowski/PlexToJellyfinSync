@@ -133,7 +133,7 @@ public sealed class DashboardTests
         var checks = provider.GetDispatcherChecks();
 
         Assert.IsGreaterThanOrEqualTo(1, checks.Count, "The dashboard should read a snapshot in response to the change!");
-        Assert.IsTrue(checks.All(onDispatcher => onDispatcher), "Every snapshot read in response to the change should happen on the renderer's dispatcher!");
+        Assert.DoesNotContain(false, checks, "Every snapshot read in response to the change should happen on the renderer's dispatcher!");
     }
 
     /// <summary>
@@ -168,8 +168,8 @@ public sealed class DashboardTests
 
         var html = await WaitForHtmlAsync(renderer, root, "Plex went away").ConfigureAwait(false);
 
-        Assert.IsTrue(html.Contains("7777", StringComparison.Ordinal), "The re-rendered dashboard should show the new item count!");
-        Assert.IsTrue(html.Contains("Plex went away", StringComparison.Ordinal), "The re-rendered dashboard should show the new last error!");
+        Assert.Contains("7777", html, "The re-rendered dashboard should show the new item count!");
+        Assert.Contains("Plex went away", html, "The re-rendered dashboard should show the new last error!");
     }
 
     /// <summary>
@@ -195,9 +195,9 @@ public sealed class DashboardTests
         var root = await RenderAsync(renderer).ConfigureAwait(false);
         var html = await ReadHtmlAsync(renderer, root).ConfigureAwait(false);
 
-        Assert.IsTrue(html.Contains("31337", StringComparison.Ordinal), "The initial render should show the current item count!");
-        Assert.IsTrue(html.Contains("initial failure", StringComparison.Ordinal), "The initial render should show the current last error!");
-        Assert.IsTrue(html.Contains("Connected", StringComparison.Ordinal), "The initial render should show the current connection state!");
+        Assert.Contains("31337", html, "The initial render should show the current item count!");
+        Assert.Contains("initial failure", html, "The initial render should show the current last error!");
+        Assert.Contains("Connected", html, "The initial render should show the current connection state!");
         Assert.AreEqual(1, provider.SubscriberCount, "The dashboard should subscribe to the status changes on initialization!");
     }
 
