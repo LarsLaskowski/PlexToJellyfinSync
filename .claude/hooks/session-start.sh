@@ -20,7 +20,7 @@ if [[ -n "${CLAUDE_ENV_FILE:-}" ]]; then
   } >> "$CLAUDE_ENV_FILE"
 fi
 
-# Formatter used by the Code Officer; --prerelease keeps the CLI in sync with the pinned analyzer.
+# Formatter used by the Code Officer
 if ! command -v reihitsu-format >/dev/null 2>&1; then
   dotnet tool install -g Reihitsu.Cli
 fi
