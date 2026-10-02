@@ -9,3 +9,4 @@ One line per pipeline step: date, step, member, result. Lead decisions and escal
 | 2026-10-02 | 3 Plan security review | Security | APPROVED; non-blocking N1 (exception is thrown in builder.Build() via SecretLogRedactor, exit 134, not Host.StartAsync; docs must not promise the mechanism) and N2 (/app is writable by APP_UID; empty State:Directory writes ephemeral state.json, not unwritable) -> plan wording to be corrected by Lead |
 | 2026-10-02 | 3 Plan revise | Lead | DONE; N1/N2 wording corrected in plan.md and 0016 |
 | 2026-10-02 | 4 Skeleton | Dev | DONE; package ref added, PlexOptions : IValidatableObject with throwing Validate stub; build 0 errors |
+| 2026-10-02 | 5 Tests first | Tester | DONE; OptionsValidationTests (new) + 6 tests in ServiceCollectionExtensionsTests; BuildProvider() now defaults Plex:BaseUrl=http://plex.test:32400 (planned change). Verified by orchestrator: 38 failed / 14 passed of 52. AC17 covered by existing clamp tests |

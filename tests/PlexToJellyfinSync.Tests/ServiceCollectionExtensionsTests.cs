@@ -141,13 +141,130 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     /// <summary>
+    /// With a valid base URL only, every options type resolves and the startup validation succeeds
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsMinimalConfigurationIsValid()
+    {
+        using var provider = BuildProvider();
+
+        Assert.IsNotNull(provider.GetRequiredService<IOptions<PlexOptions>>().Value, "The Plex options should resolve!");
+        Assert.IsNotNull(provider.GetRequiredService<IOptions<SyncOptions>>().Value, "The sync options should resolve!");
+        Assert.IsNotNull(provider.GetRequiredService<IOptions<StateOptions>>().Value, "The state options should resolve!");
+        Assert.IsNotNull(provider.GetRequiredService<IOptions<DashboardOptions>>().Value, "The dashboard options should resolve!");
+        Assert.IsNotNull(provider.GetRequiredService<IOptions<NfoOptions>>().Value, "The NFO options should resolve!");
+
+        provider.GetRequiredService<IStartupValidator>().Validate();
+    }
+
+    /// <summary>
+    /// An empty configuration fails the startup validation without any options having been resolved
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsEmptyConfigurationFailsStartupValidation()
+    {
+        using var provider = BuildProvider(new Dictionary<string, string?>(StringComparer.Ordinal));
+
+        var validator = provider.GetRequiredService<IStartupValidator>();
+
+        Assert.Throws<OptionsValidationException>(validator.Validate, "A missing base URL should fail the startup validation!");
+    }
+
+    /// <summary>
+    /// An out-of-range sync option fails the startup validation and the options resolution
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsInvalidSyncOptionsFailValidation()
+    {
+        using var provider = BuildProvider(WithBaseUrl("Sync:PollIntervalSeconds", "0"));
+
+        AssertInvalid<SyncOptions>(provider);
+    }
+
+    /// <summary>
+    /// An out-of-range dashboard option fails the startup validation and the options resolution
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsInvalidDashboardOptionsFailValidation()
+    {
+        using var provider = BuildProvider(WithBaseUrl("Dashboard:LogBufferSize", "0"));
+
+        AssertInvalid<DashboardOptions>(provider);
+    }
+
+    /// <summary>
+    /// A blank state directory fails the startup validation and the options resolution
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsBlankStateDirectoryFailsValidation()
+    {
+        using var provider = BuildProvider(WithBaseUrl("State:Directory", " "));
+
+        AssertInvalid<StateOptions>(provider);
+    }
+
+    /// <summary>
+    /// The startup validation message does not contain the configured token or URL credentials
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsValidationMessageDoesNotLeakSecrets()
+    {
+        using var provider = BuildProvider(new Dictionary<string, string?>(StringComparer.Ordinal)
+                                           {
+                                               ["Plex:BaseUrl"] = "http://user:hunter2@",
+                                               ["Plex:Token"] = "tok-secret-123"
+                                           });
+
+        var validator = provider.GetRequiredService<IStartupValidator>();
+        var exception = Assert.Throws<OptionsValidationException>(validator.Validate, "A base URL without a host should fail the startup validation!");
+
+        Assert.DoesNotContain("hunter2", exception.Message, "The message should not contain the URL credentials!");
+        Assert.DoesNotContain("tok-secret-123", exception.Message, "The message should not contain the token!");
+    }
+
+    /// <summary>
+    /// Create a configuration with a valid base URL and one additional value
+    /// </summary>
+    /// <param name="key">Additional configuration key</param>
+    /// <param name="value">Additional configuration value</param>
+    /// <returns>The configuration values</returns>
+    private static Dictionary<string, string?> WithBaseUrl(string key, string value)
+    {
+        return new Dictionary<string, string?>(StringComparer.Ordinal)
+               {
+                   ["Plex:BaseUrl"] = "http://plex.test:32400",
+                   [key] = value
+               };
+    }
+
+    /// <summary>
+    /// Assert that the startup validation and the options resolution of the given type fail
+    /// </summary>
+    /// <typeparam name="TOptions">Options type</typeparam>
+    /// <param name="provider">Service provider</param>
+    private static void AssertInvalid<TOptions>(ServiceProvider provider)
+        where TOptions : class
+    {
+        var validator = provider.GetRequiredService<IStartupValidator>();
+
+        Assert.Throws<OptionsValidationException>(validator.Validate, "The startup validation should fail!");
+
+        var exception = Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<TOptions>>().Value, "The options resolution should fail!");
+
+        Assert.AreEqual(typeof(TOptions), exception.OptionsType, "The exception should name the affected options type!");
+    }
+
+    /// <summary>
     /// Build a service provider from the given configuration values
     /// </summary>
-    /// <param name="values">Configuration values, or <c>null</c> for an empty configuration</param>
+    /// <param name="values">Configuration values, or <c>null</c> for a minimal valid configuration</param>
     /// <returns>The built service provider</returns>
     private static ServiceProvider BuildProvider(Dictionary<string, string?>? values = null)
     {
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(values ?? new Dictionary<string, string?>(StringComparer.Ordinal)).Build();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(values ?? new Dictionary<string, string?>(StringComparer.Ordinal)
+                                                                                      {
+                                                                                          ["Plex:BaseUrl"] = "http://plex.test:32400"
+                                                                                      }).Build();
         var services = new ServiceCollection();
 
         services.AddPlexToJellyfinSync(configuration);
