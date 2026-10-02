@@ -25,6 +25,28 @@ public sealed class DashboardTests
 
     #endregion // Constants
 
+    #region Fields
+
+    /// <summary>
+    /// Test context
+    /// </summary>
+    private readonly TestContext _testContext;
+
+    #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public DashboardTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
+
     #region Methods
 
     /// <summary>
@@ -69,15 +91,16 @@ public sealed class DashboardTests
     /// <param name="renderer">Renderer that hosts the dashboard</param>
     /// <param name="root">Root component</param>
     /// <param name="expected">Text that has to appear</param>
+    /// <param name="cancellationToken">Token to cancel the wait</param>
     /// <returns>The last read HTML</returns>
-    private static async Task<string> WaitForHtmlAsync(HtmlRenderer renderer, HtmlRootComponent root, string expected)
+    private static async Task<string> WaitForHtmlAsync(HtmlRenderer renderer, HtmlRootComponent root, string expected, CancellationToken cancellationToken)
     {
         var deadline = DateTime.UtcNow + _timeout;
         var html = await ReadHtmlAsync(renderer, root).ConfigureAwait(false);
 
         while (html.Contains(expected, StringComparison.Ordinal) == false && DateTime.UtcNow < deadline)
         {
-            await Task.Delay(20).ConfigureAwait(false);
+            await Task.Delay(20, cancellationToken).ConfigureAwait(false);
             html = await ReadHtmlAsync(renderer, root).ConfigureAwait(false);
         }
 
@@ -89,14 +112,15 @@ public sealed class DashboardTests
     /// </summary>
     /// <param name="provider">Fake to observe</param>
     /// <param name="calls">Minimum number of requests</param>
+    /// <param name="cancellationToken">Token to cancel the wait</param>
     /// <returns>Returns a task representing the asynchronous operation</returns>
-    private static async Task WaitForSnapshotCallsAsync(FakeSyncStatusProvider provider, int calls)
+    private static async Task WaitForSnapshotCallsAsync(FakeSyncStatusProvider provider, int calls, CancellationToken cancellationToken)
     {
         var deadline = DateTime.UtcNow + _timeout;
 
         while (provider.SnapshotCalls < calls && DateTime.UtcNow < deadline)
         {
-            await Task.Delay(20).ConfigureAwait(false);
+            await Task.Delay(20, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -126,9 +150,9 @@ public sealed class DashboardTests
                                 ItemsProcessed = 4242
                             };
 
-        await Task.Run(provider.RaiseChanged).ConfigureAwait(false);
-        await WaitForSnapshotCallsAsync(provider, 1).ConfigureAwait(false);
-        await WaitForHtmlAsync(renderer, root, "4242").ConfigureAwait(false);
+        await Task.Run(provider.RaiseChanged, _testContext.CancellationToken).ConfigureAwait(false);
+        await WaitForSnapshotCallsAsync(provider, 1, _testContext.CancellationToken).ConfigureAwait(false);
+        await WaitForHtmlAsync(renderer, root, "4242", _testContext.CancellationToken).ConfigureAwait(false);
 
         var checks = provider.GetDispatcherChecks();
 
@@ -164,9 +188,9 @@ public sealed class DashboardTests
                                 LastError = "Plex went away"
                             };
 
-        await Task.Run(provider.RaiseChanged).ConfigureAwait(false);
+        await Task.Run(provider.RaiseChanged, _testContext.CancellationToken).ConfigureAwait(false);
 
-        var html = await WaitForHtmlAsync(renderer, root, "Plex went away").ConfigureAwait(false);
+        var html = await WaitForHtmlAsync(renderer, root, "Plex went away", _testContext.CancellationToken).ConfigureAwait(false);
 
         Assert.Contains("7777", html, "The re-rendered dashboard should show the new item count!");
         Assert.Contains("Plex went away", html, "The re-rendered dashboard should show the new last error!");
@@ -219,8 +243,8 @@ public sealed class DashboardTests
 
         provider.ResetCalls();
 
-        await Task.Run(provider.RaiseChanged).ConfigureAwait(false);
-        await Task.Delay(200).ConfigureAwait(false);
+        await Task.Run(provider.RaiseChanged, _testContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(200, _testContext.CancellationToken).ConfigureAwait(false);
 
         Assert.AreEqual(0, provider.SubscriberCount, "The dashboard should unsubscribe from the status changes on dispose!");
         Assert.AreEqual(0, provider.SnapshotCalls, "A disposed dashboard should not read a snapshot any more!");
