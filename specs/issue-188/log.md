@@ -10,3 +10,5 @@ One line per pipeline step: date, step, member, result. Lead decisions and escal
 | 2026-10-02 | 6 Implement | Dev | DONE; 250 tests green, new/changed code 90.0%, overall 89.1% (verified by orchestrator); Tester coverage pass not needed |
 | 2026-10-02 | 7 Code check | Code Officer (via general-purpose; squad-code-officer agent type not registered in session) | DONE; RH4106 fixed (WaitTimeout -> _waitTimeout); format check 0, analyzer 0 in changed files, 250 tests green, coverage 90.0%/89.1% (verified by orchestrator) |
 | 2026-10-02 | 8 Review r1 | Reviewer, Security | Reviewer: 0 blocking, 1 non-blocking (grammar in FakeSyncOrchestrator class summary, line 6); Security: APPROVED, no findings |
+| 2026-10-02 | 8 Lead decision | Lead | Fix non-blocking grammar finding now (Tester), then code check and delta review r2; PR description must state that OperationCanceledException is re-thrown only for the worker's own token |
+| 2026-10-02 | 7 Code check (delta) | Orchestrator | comment-only change; format check 0, analyzer 0 in changed files, 250 tests green, coverage passes |

@@ -3,7 +3,7 @@ using PlexToJellyfinSync.Core.Abstractions;
 namespace PlexToJellyfinSync.Tests;
 
 /// <summary>
-/// Sync orchestrator fake with a configurable failures that signals when a history sync or reconcile was requested
+/// Sync orchestrator fake with configurable failures that signals when a history sync or reconcile was requested
 /// </summary>
 internal sealed class FakeSyncOrchestrator : ISyncOrchestrator
 {
