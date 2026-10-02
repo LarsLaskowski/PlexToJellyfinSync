@@ -1,6 +1,6 @@
 # 0016: Options are validated at startup with DataAnnotations
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-02
 - **Source:** Issue #31 (with #69)
 - **Supersedes:** —

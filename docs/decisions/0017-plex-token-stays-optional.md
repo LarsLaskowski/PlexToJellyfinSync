@@ -1,6 +1,6 @@
 # 0017: The Plex token stays optional
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-02
 - **Source:** Issue #31
 - **Supersedes:** —
