@@ -118,9 +118,10 @@ action yourself — including follow-up issues the Lead decides on.
     - review comments (human, automated, `review-pr`) → `squad-dev`, worked in this PR, blocking or not.
 
     Each fix goes through steps 7–8 again (delta review), with at most 2 fix rounds per failure before the
-    Lead decides. The work folder is gone by now: give the Reviewer, Security and the Lead the plan from
-    the "Squad working record" comment (or `git show <commit-before-removal>:specs/issue-<number>/plan.md`)
-    and record each log row by editing that comment. Never skip, disable or weaken a test to get green.
+    Lead decides. The work folder is gone by now: give the Reviewer, Security and the Lead the plan (features:
+    also `spec.md` and `tasks.md`) from the "Squad working record" comment, or via
+    `git show <commit-before-removal>:specs/<folder>/<file>`, and record each log row by editing that
+    comment. Never skip, disable or weaken a test to get green.
 12. **Wrap-up (mandatory).** Collect what this run taught about the squad itself (a rule that was
     unclear or contradictory, a tool that misbehaved, an agent that could not be launched, a step that
     had to be improvised) and open **one** GitHub issue labelled `squad` (create the label if missing)
