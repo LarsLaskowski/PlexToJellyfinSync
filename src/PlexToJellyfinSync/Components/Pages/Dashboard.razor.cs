@@ -42,12 +42,15 @@ public sealed partial class Dashboard : IDisposable
     }
 
     /// <summary>
-    /// Handle a status change notification by refreshing the snapshot
+    /// Handle a status change notification by refreshing the snapshot and re-rendering on the renderer's dispatcher
     /// </summary>
     private void OnChanged()
     {
-        _status = StatusProvider.GetSnapshot();
-        InvokeAsync(StateHasChanged);
+        InvokeAsync(() =>
+                    {
+                        _status = StatusProvider.GetSnapshot();
+                        StateHasChanged();
+                    });
     }
 
     /// <summary>
