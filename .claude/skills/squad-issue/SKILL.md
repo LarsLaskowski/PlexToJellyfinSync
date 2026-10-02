@@ -91,10 +91,5 @@ The PR title and description document the change, not how it was produced: the b
 that pins it down. Plan revisions, review rounds and their findings never appear there.
 (`specs/issue-<number>/` stays in the repository as the working record; the lasting reasoning is in
 `docs/decisions/`.)
-
-## Notes
-
-- Do not add Claude/Anthropic/Copilot attribution to commits or PRs: no `Co-Authored-By: Claude ...` /
-  `Claude-Session: ...` trailers, no "Generated with Claude Code" line or session link in the PR body.
 - Prefer non-interactive commands only. If push or PR creation fails, stop and report it.
 - Never close the issue manually; `Closes #<number>` closes it on merge.
