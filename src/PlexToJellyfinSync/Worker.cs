@@ -44,7 +44,8 @@ public sealed class Worker : BackgroundService
     #region Methods
 
     /// <summary>
-    /// Run a reconcile and swallow non-cancellation errors
+    /// Run a full reconcile and swallow non-cancellation errors as defense-in-depth,
+    /// so an orchestrator that throws cannot stop the host
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Task</returns>
@@ -58,9 +59,11 @@ public sealed class Worker : BackgroundService
         {
             throw;
         }
+
+        // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Initial reconcile failed");
+            _logger.LogError(ex, "Full reconcile failed");
         }
     }
 
@@ -74,7 +77,10 @@ public sealed class Worker : BackgroundService
         var pollInterval = TimeSpan.FromSeconds(Math.Max(5, _options.PollIntervalSeconds));
         var reconcileInterval = TimeSpan.FromHours(Math.Max(1, _options.FullReconcileIntervalHours));
 
-        _logger.LogInformation("Worker started; poll every {Poll}, reconcile every {Reconcile}", pollInterval, reconcileInterval);
+        if (_logger.IsEnabled(LogLevel.Information))
+        {
+            _logger.LogInformation("Worker started; poll every {Poll}, reconcile every {Reconcile}", pollInterval, reconcileInterval);
+        }
 
         await SafeReconcileAsync(stoppingToken).ConfigureAwait(false);
 
