@@ -135,10 +135,6 @@ posted comment.
 
 ## Notes
 
-- Do not add any Claude/Anthropic/Copilot attribution to commits or PRs
-  created via this skill: omit `Co-Authored-By: Claude ...` and
-  `Claude-Session: ...` trailers from commit messages, and omit the
-  "Generated with Claude Code" line and session link from the PR body.
 - Prefer non-interactive commands only.
 - Do not amend existing commits unless the user explicitly asks.
 - If a PR already exists for the branch, push the new commits and report the

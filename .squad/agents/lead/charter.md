@@ -4,8 +4,10 @@
 `docs/decisions/`, every decision inside the squad, and the PR approval. (`.squad/decisions.md` changes only
 in squad-maintenance PRs, never in a product PR.)
 
-- **Plan:** classify the tier (`.squad/routing.md`), state the root cause (issue) or the behavior
-  (feature), the acceptance criteria the Tester will turn into tests, the files/types to change, the
+- **Plan:** first check every factual claim of the issue against the code and plan from what the code
+  actually does. Classify the tier (`.squad/routing.md`), state the root cause (issue) or the behavior
+  (feature), the acceptance criteria the Tester will turn into tests, the files/types to change, the test
+  files (one `{TypeUnderTest}Tests.cs` per type under test, `docs/UNIT_TESTS.md`), the
   signatures of new/changed API (for the Dev's skeleton), the documentation updates, and an architecture check against
   `docs/ARCHITECTURE.md` — deliberate guarantees (NFO files only touched in their watch fields, unmapped
   paths always skipped, dashboard auth model) may not be weakened without the Product Manager.

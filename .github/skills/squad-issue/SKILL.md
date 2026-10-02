@@ -31,9 +31,13 @@ action yourself — including follow-up issues the Lead decides on.
   `squad-security` may run together in step 8, because both are read-only and the reviewer's own build
   happens in a scratch copy.
 - **Commits and pushes** to the work branch are always allowed (`CLAUDE.md`, golden rules): commit and
-  push after every completed step once the plan returned `RESULT: DONE` (nothing is committed before). PRs are merged with *Squash and merge*, so only the PR title and
-  description reach `main`; intermediate commit messages may name the step, but never contain secrets or
-  mention an AI assistant. Never commit to `main`.
+  push `specs/<folder>/log.md` right after intake (step 1), so a stop hook or a crashed session finds no
+  untracked files, and after every further completed step. PRs are merged with *Squash and merge*, so only
+  the PR title and description reach `main`; intermediate commit messages may name the step, but never
+  contain secrets. Never commit to `main`.
+- **GitHub access:** use the GitHub MCP tools (`mcp__github__*`) for issues, comments, labels and pull
+  requests. In these sessions the `gh` CLI only works as `gh api repos/<owner>/<repo>/...`; `gh issue`,
+  `gh pr` and `gh search` fail (GraphQL is blocked and search is not scoped to the repository).
 - **Pull request:** invoking this skill is the user's approval for opening the PR in step 10, once the
   Lead has approved it (tier `docs`: once the latest review round is clean).
 - **Product Manager:** the user is only contacted when the Lead returns `RESULT: ESCALATE` (relay the
@@ -47,7 +51,8 @@ action yourself — including follow-up issues the Lead decides on.
    Jellyfin versions, image tag, host OS, volume layout). If it is closed, stop and report that. Start
    from a clean working tree on a new branch off the latest `main`, e.g.
    `fix-issue-<number>-<short-slug>` (or the branch the session prescribes). Create
-   `specs/issue-<number>/log.md` from `specs/_template/log.md`; append one table row per step. Only you
+   `specs/issue-<number>/log.md` from `specs/_template/log.md`, commit and push it; append one table row
+   per step. Only you
    (the orchestrator) write `log.md`, one row per append, each row ending in CRLF — subagents report and
    you record, so rows never merge or end up with mixed line endings.
 2. **Plan.** Launch `squad-lead` in mode `plan` with the issue text and the work folder. It returns one of:
@@ -58,8 +63,9 @@ action yourself — including follow-up issues the Lead decides on.
      `plan.md` with the **tier** (`trivial` / `standard` / `security`), acceptance
      criteria, the signatures of new or changed API, required documentation updates (`README.md`,
      `docs/`), and `Proposed` decision records. Continue with the steps the tier requires.
-   - `RESULT: NO CHANGE` — show the proposed issue comment to the user, post it only after confirmation,
-     discard the work folder, and stop. No PR.
+   - `RESULT: NO CHANGE` — show the proposed issue comment to the user, post it only after confirmation
+     (append the log as a collapsed "Squad working record" block), remove the work folder with a commit
+     and push, and stop. No PR; the branch stays as it is, and you tell the user so.
    - `RESULT: ESCALATE` — ask the user, then relaunch the Lead with the answer.
 3. **Plan security review** (`security` tier only). Launch `squad-security` in mode `plan`. On
    `CHANGES_REQUIRED`, launch `squad-lead` in mode `revise` and repeat. After the **2nd** rejection launch

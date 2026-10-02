@@ -43,7 +43,7 @@ tier applies; Security or the Reviewer may raise the tier at any point (never lo
 
 | # | Step | Owner | Exit condition |
 | - | ---- | ----- | -------------- |
-| 1 | Intake | Orchestrator | Branch off `main`, work folder and `log.md` created |
+| 1 | Intake | Orchestrator | Branch off `main`, work folder and `log.md` created, committed and pushed |
 | 2 | Plan | Lead | `plan.md` with tier, acceptance criteria, signatures of new/changed API, doc updates; decision records `Proposed`. Or outcome **no change** (see below) |
 | 3 | Plan security review | Security | `APPROVED` → 4; `CHANGES_REQUIRED` → Lead revises, back to 3 (`security` tier only) |
 | 4 | Skeleton | Dev | Only when the plan adds or changes API: compile-only signatures (bodies throw `NotImplementedException`), solution builds |
@@ -56,10 +56,10 @@ tier applies; Security or the Reviewer may raise the tier at any point (never lo
 | 11 | After the PR | Dev, Code Officer, Reviewer | CI green, SonarQube Cloud quality gate passed, review comments worked |
 | 12 | Wrap-up | Orchestrator | Squad lessons filed as one `squad` issue (or "no lessons" logged), user informed |
 
-Commits and pushes to the work branch happen after every completed step from step 2 on, once the plan
-returned `RESULT: DONE` (step 1 and a `NO CHANGE` outcome leave nothing to commit); with *Squash and merge* only
-the PR title and description reach `main`, so intermediate commits may describe the step. They still
-never contain secrets and never mention an AI assistant.
+Commits and pushes to the work branch happen right after intake (`specs/<folder>/log.md`, so a stop hook
+or a crashed session finds no untracked files) and after every further completed step; with *Squash and
+merge* only the PR title and description reach `main`, so intermediate commits may describe the step.
+They never contain secrets.
 
 ## Concurrency
 
@@ -74,8 +74,9 @@ trial edits) in the repository working tree — use a scratch `git worktree` ins
 If the Lead concludes in step 2 that no code change is needed — duplicate, cannot be reproduced, works as
 designed (e.g. covered by an accepted decision record), or out of scope — it returns
 `RESULT: NO CHANGE` with a proposed issue comment. The orchestrator shows the comment to the Product
-Manager and posts it only after confirmation (a public statement on the issue). The work folder is not
-committed and no PR is opened.
+Manager and posts it only after confirmation (a public statement on the issue). The orchestrator removes
+the work folder with a commit and pushes; no PR is opened, the branch stays without one, and the user is
+told so.
 
 ## Loop limits
 

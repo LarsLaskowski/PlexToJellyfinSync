@@ -49,9 +49,6 @@ together.
 
 - Title and description are always written in **English**, regardless of the language used in the
   conversation.
-- Never mention Claude, Anthropic, Copilot, or any other AI assistant in the PR title or description.
-  Do not add "Generated with …", "Co-Authored-By: Claude …", session links, or similar attribution —
-  the description only describes the change itself.
 
 ---
 

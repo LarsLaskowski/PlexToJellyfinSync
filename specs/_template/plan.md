@@ -7,6 +7,7 @@ Tier: trivial | standard | security  (tier `docs` uses no plan.md) — <one-sent
 ## Problem / root cause
 
 For a bug: the cause, with file and line. For a feature: a summary of `spec.md`.
+Each factual claim of the issue, checked against the code: confirmed or refuted.
 
 ## Acceptance criteria
 
@@ -22,6 +23,11 @@ For a bug: the cause, with file and line. For a feature: a summary of `spec.md`.
 ## Signatures (for the Dev's skeleton)
 
 Every new or changed member, with its full signature — or "none".
+
+## Test files
+
+One file per type under test in `tests/PlexToJellyfinSync.Tests`, named strictly `{TypeUnderTest}Tests.cs`
+([UNIT_TESTS.md](../../docs/UNIT_TESTS.md)) — no combined file, no alternatives.
 
 ## Documentation updates
 

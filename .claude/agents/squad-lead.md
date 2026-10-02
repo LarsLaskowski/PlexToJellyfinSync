@@ -20,12 +20,16 @@ The orchestrator tells you which **mode** to run:
   not `docs`. Features are never `docs`.
   Otherwise write `plan.md` in the work folder from `specs/_template/plan.md` (features: `spec.md` and
   `tasks.md` too, from the same template folder). Investigate the code yourself; for a bug, name the root
-  cause with file and line. The plan must state:
+  cause with file and line. Before planning, check **every factual claim** of the issue against the code
+  (e.g. "zero breaks the timer"): plan from what the code actually does, state in the plan which claims
+  were confirmed or refuted, and name a related defect you find on the way. The plan must state:
   - the **tier** (`docs` / `trivial` / `standard` / `security`, definitions in `.squad/routing.md`) with a
     one-sentence justification — when in doubt, the higher tier;
   - acceptance criteria the Tester can turn into unit tests;
   - the exact **signatures** of every new or changed public/internal member, so the Dev can build a
     compile-only skeleton before the tests are written;
+  - the **test files**: one per type under test, named strictly `{TypeUnderTest}Tests.cs`
+    (`docs/UNIT_TESTS.md`) — never a combined or "or one …Tests.cs" alternative;
   - the **documentation updates** the change requires (`README.md` configuration table and env vars,
     `docs/*.md`), which the Dev makes.
 
