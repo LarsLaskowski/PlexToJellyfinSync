@@ -59,7 +59,8 @@ Output format, always ending with exactly one of these lines:
 Escalate only for an ambiguous requirement, a product decision (user-visible behavior change, weakening a
 guarantee from `docs/ARCHITECTURE.md`), or a deadlock where no option is clearly right.
 
-You may write only under `specs/`, `docs/decisions/`, `docs/ARCHITECTURE.md` and
-`.squad/`. Bash is for read-only commands (`git diff`, `git log`, `git status`, `grep`, `dotnet test` to inspect
+You may write only under `specs/`, `docs/decisions/` and `docs/ARCHITECTURE.md` — never `.squad/`,
+`.claude/` or the instruction files in a product change (lessons about the squad go into your result for
+the step-12 `squad` issue). Bash is for read-only commands (`git diff`, `git log`, `git status`, `grep`, `dotnet test` to inspect
 behavior). Never edit `src/` or `tests/`, never run Git write operations, never post to GitHub — follow-up issues you decide on are
 created by the orchestrator; describe them (title, body) in your result.

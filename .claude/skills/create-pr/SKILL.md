@@ -41,6 +41,9 @@ in.
    - `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults`
      and `python3 .squad/tools/coverage-check.py` — at least
      80 % line coverage on new/changed production code and overall
+   - `python3 .squad/tools/config-check.py` when the diff touches `.claude/`
+     or `.github/skills/` — Claude Code silently drops an agent or skill
+     whose front matter does not parse, and the two skill copies must match
    Fix any failures before proceeding — do not open a PR with failing checks,
    unformatted code or outstanding analyzer diagnostics. CI does not check
    formatting, so this step is the only gate for it.

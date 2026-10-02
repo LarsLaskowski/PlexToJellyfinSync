@@ -50,3 +50,8 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   analyzer rule count as structural (Dev, not Code Officer); after the PR the session subscribes to it and
   the wrap-up is never skipped; PR titles use the fixed area list and Next Steps only lists linked issues.
   Reason: each of these happened in the issue #79 run (PR #187); the asymmetry it left unlinked is #188.
+- 2026-10-02 — Lessons from the third squad run (issue #188): the Code Officer agent was not loaded
+  because an unquoted ": " in its front matter broke the YAML; `.squad/tools/config-check.py` now checks
+  agent and skill front matter and the skill mirrors. Product PRs never change the squad; lessons go into
+  a `squad` issue for a separate maintenance PR, and working records stay off `main` (decision record
+  0014). Reason: PR #190 carried a squad history edit, and per-issue logs were accumulating on `main`.

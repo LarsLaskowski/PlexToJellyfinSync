@@ -15,8 +15,16 @@ action yourself — including follow-up issues the Lead decides on.
   Whatever a check of yours finds goes to its owner (production code → `squad-dev`, tests →
   `squad-tester`, formatting/analyzer-only edits → `squad-code-officer`) and through the steps that follow
   it. Besides read-only checks (`--check`, the analyzer and coverage scripts, tests) you only write the
-  squad's bookkeeping: `log.md`, `tasks.md` check marks (features), and the step-12 wrap-up files
-  (`.squad/agents/*/history.md`, `.squad/decisions.md`). Never `src/`, `tests/` or `docs/`.
+  squad's bookkeeping: `log.md` and `tasks.md` check marks (features). Never `src/`, `tests/` or `docs/`.
+- **The squad does not change itself in a product PR.** An issue or feature PR never touches `.squad/`
+  (including `history.md` and `decisions.md`), `.claude/`, `.github/skills/`, `CLAUDE.md`, `AGENTS.md`
+  or `.github/copilot-instructions.md`. Lessons about the squad become a GitHub issue labelled `squad` in
+  step 12 and are worked in a separate squad-maintenance PR. If the change itself genuinely needs one of
+  those files (e.g. a new build command every contributor must know), the Lead escalates instead; the
+  Product Manager decides, and the squad-file part always goes into a separate squad-maintenance PR.
+- **Working records stay off `main`.** `specs/<folder>/` exists only on the work branch, so it survives a
+  crashed session. Before the PR (step 10) its content is posted as a comment and the folder is removed;
+  the lasting reasoning lives in `docs/decisions/`.
 - **One build at a time.** Never run two members that build or test (`squad-dev`, `squad-tester`,
   `squad-code-officer`, the reviewers' verification runs) in parallel: they share `bin/` and `obj/` and
   break each other (`.squad/routing.md`). Launch them one after another; only `squad-reviewer` and
@@ -87,7 +95,11 @@ action yourself — including follow-up issues the Lead decides on.
    follow it). `NOT APPROVED` → back to step 6 or 8 (counting against the review loop
    limit) or let the Lead decide/escalate. On `APPROVED`, the decision records are `Accepted` and indexed
    in `docs/decisions/README.md`.
-10. **Pull request** (Dev role, performed by you). Push, then open the PR from
+10. **Pull request** (Dev role, performed by you). First move the working record off the branch: post
+    `plan.md` and `log.md` as one comment on the issue (each inside a collapsed `<details>` block, headed
+    "Squad working record"), then `git rm -r specs/issue-<number>/`, commit ("Remove squad working
+    record"), and push. Later log rows (steps 11–12) are appended by editing that comment. Then open the
+    PR from
     [`.github/pull_request_template.md`](../../../.github/pull_request_template.md): title per
     `docs/CONTRIBUTING.md` — `[area] Description`, where `area` is the affected project or feature as
     CONTRIBUTING lists it (e.g. `Core`, `Data`, `Service`, `Host`, `Dashboard`, `Tests`, `Docker`, `CI`,
@@ -106,19 +118,25 @@ action yourself — including follow-up issues the Lead decides on.
     - review comments (human, automated, `review-pr`) → `squad-dev`, worked in this PR, blocking or not.
 
     Each fix goes through steps 7–8 again (delta review), with at most 2 fix rounds per failure before the
-    Lead decides. Never skip, disable or weaken a test to get green.
-12. **Wrap-up (mandatory).** Add lessons learned to the relevant `.squad/agents/*/history.md` and squad-process
-    decisions to `.squad/decisions.md` (code decisions live only in `docs/decisions/`), commit and push
-    them to the PR branch, and report the branch, the PR URL, the tier and any escalation or Lead
-    decision to the user. If there is genuinely nothing to learn, a `| <date> | 12 Wrap-up | Orchestrator |
-    no lessons |` row in `log.md` replaces the `history.md` / `.squad/decisions.md` updates (the report to
-    the user still happens) — the step itself is never skipped.
+    Lead decides. The work folder is gone by now: give the Reviewer, Security and the Lead the plan (features:
+    also `spec.md` and `tasks.md`) from the "Squad working record" comment, or via
+    `git show <commit-before-removal>:specs/<folder>/<file>`, and record each log row by editing that
+    comment. Never skip, disable or weaken a test to get green.
+12. **Wrap-up (mandatory).** Collect what this run taught about the squad itself (a rule that was
+    unclear or contradictory, a tool that misbehaved, an agent that could not be launched, a step that
+    had to be improvised) and open **one** GitHub issue labelled `squad` (create the label if missing)
+    that lists each lesson with the role it concerns and a concrete proposal; link it from the working
+    record comment. Do **not** edit `.squad/`, `.claude/` or the instruction files — that happens in a
+    separate squad-maintenance PR. Report the branch, the PR URL, the tier, the `squad` issue (or "no
+    lessons") and any escalation or Lead decision to the user. If there is genuinely nothing to learn,
+    append a `| <date> | 12 Wrap-up | Orchestrator | no lessons |` row to the working record comment
+    instead of opening an issue — the step itself is never skipped.
 
 ## What the pull request says — and what it doesn't
 
 The PR title and description document the change, not how it was produced: the bug, the fix and the test
 that pins it down. Plan revisions, review rounds and their findings never appear there.
-(`specs/issue-<number>/` stays in the repository as the working record; the lasting reasoning is in
+(The working record is the "Squad working record" comment on the issue; the lasting reasoning is in
 `docs/decisions/`.)
 
 ## Notes
