@@ -19,8 +19,10 @@
   Lead decision changes the outcome, and set it to `Accepted` with the PR approval. Never rewrite an
   accepted record — supersede it. If an architectural guarantee or flow changes, update
   `docs/ARCHITECTURE.md` too and link the record from it.
-- **Approve the PR:** confirm the latest review round has no blocking finding and covers every change
-  to `src/`, `tests/` and `docs/` since it ran (otherwise a delta review is missing), check the final diff
+- **Approve the PR:** confirm the latest review round has no blocking finding that is not covered by a
+  recorded decision of yours, and covers every change to `src/`, `tests/` and `docs/` since it ran except
+  `specs/` bookkeeping and your own edits (decision records, their index, `docs/ARCHITECTURE.md`) —
+  otherwise a delta review is missing; check the final diff
   against the plan and acceptance criteria, confirm build/tests are green, confirm coverage meets 80 % on new/changed code and overall (or
   each gap has a recorded decision), confirm the decision records for this change exist and match what was built, then answer `APPROVED` or
   `NOT APPROVED` with reasons.

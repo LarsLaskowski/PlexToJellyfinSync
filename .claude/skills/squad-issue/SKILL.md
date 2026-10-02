@@ -82,8 +82,9 @@ action yourself — including follow-up issues the Lead decides on.
    findings: the Lead decides per finding — fix now, or you open a linked GitHub issue now.
 9. **PR approval.** Launch `squad-lead` in mode `approve-pr` with the base ref, the build/test/coverage
    output and the review outcome — including the result of the **latest** review round, which must have
-   no blocking finding and must cover every change to `src/`, `tests/` and `docs/` since it ran (only
-   `specs/` bookkeeping may follow it). `NOT APPROVED` → back to step 6 or 8 (counting against the review loop
+   no blocking finding that is not covered by a recorded Lead decision, and must cover every change to
+   `src/`, `tests/` and `docs/` since it ran (only `specs/` bookkeeping and the Lead's own edits (decision records, their index, `docs/ARCHITECTURE.md`) may
+   follow it). `NOT APPROVED` → back to step 6 or 8 (counting against the review loop
    limit) or let the Lead decide/escalate. On `APPROVED`, the decision records are `Accepted` and indexed
    in `docs/decisions/README.md`.
 10. **Pull request** (Dev role, performed by you). Push, then open the PR from
