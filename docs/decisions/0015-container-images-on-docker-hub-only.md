@@ -1,6 +1,6 @@
 # 0015: Container images are published to Docker Hub only
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-02
 - **Source:** Issue #92 (Product Manager decision)
 - **Supersedes:** —
@@ -27,13 +27,13 @@ already named the Docker Hub image; the bug report template still showed the GHC
 Option 2, decided by the Product Manager. Release images are published only to Docker Hub as
 `networlddev/plextojellyfinsync` (`<version>` and `latest`), the name held in `IMAGE_NAME` in
 `.github/workflows/release.yml`. Every user-facing reference — `README.md`, `docs/ARCHITECTURE.md` and the
-GitHub issue templates — uses these coordinates; no file in the repository refers to `ghcr.io`.
+GitHub issue templates — uses these coordinates; no usage reference to `ghcr.io` remains.
 
 ## Consequences
 
 - The release workflow keeps a single registry login (`DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`) and needs
   no `packages: write` permission.
 - A new reference to the image (docs, templates, examples) must use the Docker Hub coordinates; a search
-  for `ghcr.io` in the repository should come up empty.
+  for `ghcr.io` in the repository should find only this record.
 - Revisiting this (adding GHCR as a mirror or switching registries) needs a new record that supersedes
   this one, a release workflow change, and an update of every reference listed above.

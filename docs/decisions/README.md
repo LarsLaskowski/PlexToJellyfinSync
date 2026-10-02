@@ -40,3 +40,4 @@ links the record.
 | [0012](0012-worker-reconcile-guard-kept-as-defense-in-depth.md) | Worker keeps its reconcile guard as defense-in-depth | Superseded by [0013](0013-worker-guards-both-orchestrator-calls.md) | 2026-10-02 |
 | [0013](0013-worker-guards-both-orchestrator-calls.md) | Worker guards both orchestrator calls alike | Accepted | 2026-10-02 |
 | [0014](0014-squad-working-records-off-main.md) | Squad working records stay off main, and product PRs never change the squad | Accepted | 2026-10-02 |
+| [0015](0015-container-images-on-docker-hub-only.md) | Container images are published to Docker Hub only | Accepted | 2026-10-02 |
