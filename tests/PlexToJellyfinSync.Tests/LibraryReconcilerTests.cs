@@ -143,6 +143,7 @@ public sealed class LibraryReconcilerTests
     {
         AddMovies("1", 3);
         _nfoWriter.FailuresByRatingKey["m2"] = new IOException("disk full");
+        _status.Update(s => s.PlexConnected = true);
 
         var reconciler = CreateReconciler();
 
@@ -153,7 +154,7 @@ public sealed class LibraryReconcilerTests
         Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Movie), "The remaining movies should still be written!");
         Assert.AreEqual(1L, snapshot.Errors, "The failure should be counted!");
         Assert.AreEqual("disk full", snapshot.LastError, "The last error should be set!");
-        Assert.IsFalse(snapshot.PlexConnected, "A failing item should not change the connection state!");
+        Assert.IsTrue(snapshot.PlexConnected, "A failing item should not change the connection state!");
         Assert.AreEqual(3L, snapshot.ItemsProcessed, "Every movie should be counted as processed!");
     }
 
@@ -186,6 +187,7 @@ public sealed class LibraryReconcilerTests
         AddShow("s1", "e", 3);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
         _nfoWriter.FailuresByRatingKey["e2"] = new IOException("disk full");
+        _status.Update(s => s.PlexConnected = true);
 
         var reconciler = CreateReconciler(new SyncOptions
                                           {
@@ -199,7 +201,7 @@ public sealed class LibraryReconcilerTests
         Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Episode), "The remaining episodes should still be written!");
         Assert.AreEqual(1L, snapshot.Errors, "The failure should be counted!");
         Assert.AreEqual("disk full", snapshot.LastError, "The last error should be set!");
-        Assert.IsFalse(snapshot.PlexConnected, "A failing item should not change the connection state!");
+        Assert.IsTrue(snapshot.PlexConnected, "A failing item should not change the connection state!");
     }
 
     /// <summary>
@@ -213,6 +215,7 @@ public sealed class LibraryReconcilerTests
         AddShow("s2", "f", 2);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"], _plexClient.Items["s2"]];
         _plexClient.EpisodesExceptions["s1"] = new HttpRequestException("plex down");
+        _status.Update(s => s.PlexConnected = true);
 
         var reconciler = CreateReconciler(new SyncOptions
                                           {
@@ -228,7 +231,7 @@ public sealed class LibraryReconcilerTests
         Assert.IsTrue(written.All(write => write.Item.ShowRatingKey == "s2"), "Only the episodes of the healthy show should be written!");
         Assert.AreEqual(1L, snapshot.Errors, "The failing show should be counted once!");
         Assert.AreEqual("plex down", snapshot.LastError, "The last error should be set!");
-        Assert.IsFalse(snapshot.PlexConnected, "A failing show should not change the connection state!");
+        Assert.IsTrue(snapshot.PlexConnected, "A failing show should not change the connection state!");
     }
 
     /// <summary>

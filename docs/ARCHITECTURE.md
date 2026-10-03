@@ -213,7 +213,7 @@ Studio standard for solution files, not a migration artifact.
      the whole read-modify-write body, not just the temp-file save. This is what makes two writers
      resolving to the same NFO target — a multi-episode file's episodes, or two Plex libraries that
      happen to share a folder — safe to run concurrently, whether that concurrency comes from
-     `SyncOrchestrator`'s per-episode `Parallel.ForEachAsync` or from the per-library one; without
+     `LibraryReconciler`'s per-episode `Parallel.ForEachAsync` or from `SyncOrchestrator`'s per-library one; without
      it, the second writer's `.tmp` file would collide with the first's mid-write. The dictionary
      holds one semaphore per distinct target path ever written and never evicts an entry, so it
      grows with the number of movies/episodes/seasons/series reconciled over the process lifetime —
