@@ -43,3 +43,4 @@ links the record.
 | [0015](0015-container-images-on-docker-hub-only.md) | Container images are published to Docker Hub only | Accepted | 2026-10-02 |
 | [0016](0016-options-validated-at-startup.md) | Options are validated at startup with DataAnnotations | Accepted | 2026-10-02 |
 | [0017](0017-plex-token-stays-optional.md) | The Plex token stays optional | Accepted | 2026-10-02 |
+| [0018](0018-sync-orchestrator-split-into-collaborators.md) | SyncOrchestrator is split into an item writer, a series aggregate writer and a library reconciler | Accepted | 2026-10-03 |

@@ -49,6 +49,32 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     /// <summary>
+    /// The orchestrator collaborators are registered as singletons and the orchestrator still resolves
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsRegistersOrchestratorCollaboratorsAsSingletons()
+    {
+        using var provider = BuildProvider();
+
+        Assert.IsNotNull(provider.GetService<IMediaItemWriter>(), "The media item writer should be registered!");
+        Assert.IsNotNull(provider.GetService<ISeriesAggregateWriter>(), "The series aggregate writer should be registered!");
+        Assert.IsNotNull(provider.GetService<ILibraryReconciler>(), "The library reconciler should be registered!");
+        Assert.IsNotNull(provider.GetService<ISyncOrchestrator>(), "The orchestrator should still resolve!");
+
+        Assert.AreSame(provider.GetRequiredService<IMediaItemWriter>(),
+                       provider.GetRequiredService<IMediaItemWriter>(),
+                       "The media item writer should be a singleton!");
+
+        Assert.AreSame(provider.GetRequiredService<ISeriesAggregateWriter>(),
+                       provider.GetRequiredService<ISeriesAggregateWriter>(),
+                       "The series aggregate writer should be a singleton!");
+
+        Assert.AreSame(provider.GetRequiredService<ILibraryReconciler>(),
+                       provider.GetRequiredService<ILibraryReconciler>(),
+                       "The library reconciler should be a singleton!");
+    }
+
+    /// <summary>
     /// The shared state holders are registered as singletons
     /// </summary>
     [TestMethod]

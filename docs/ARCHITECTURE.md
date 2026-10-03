@@ -15,9 +15,15 @@ recorded in [`decisions/`](decisions/README.md).
 flowchart LR
     Plex["Plex Media Server<br>(HTTP API)"] -->|poll| PlexClient
     PlexClient --> SyncOrchestrator
-    SyncOrchestrator --> WatchAggregator
-    SyncOrchestrator --> PathMapper
-    SyncOrchestrator --> NfoWriter
+    SyncOrchestrator --> LibraryReconciler
+    SyncOrchestrator --> SeriesAggregateWriter
+    SyncOrchestrator --> MediaItemWriter
+    LibraryReconciler --> MediaItemWriter
+    LibraryReconciler --> SeriesAggregateWriter
+    SeriesAggregateWriter --> WatchAggregator
+    SeriesAggregateWriter --> MediaItemWriter
+    MediaItemWriter --> PathMapper
+    MediaItemWriter --> NfoWriter
     NfoWriter -->|writes| Nfo[(.nfo files<br>on shared media volume)]
     SyncOrchestrator --> StateStore
     StateStore -->|state.json| Config[(/config volume)]
@@ -58,11 +64,17 @@ Studio standard for solution files, not a migration artifact.
    `PeriodicTimer`; overlapping runs cannot occur because each iteration awaits the previous sync
    call to finish before scheduling the next delay.
 2. **`SyncOrchestrator`** (`src/PlexToJellyfinSync.Service/SyncOrchestrator.cs`) implements both
-   sync strategies:
+   sync strategies and delegates to three collaborators (see
+   [0018](decisions/0018-sync-orchestrator-split-into-collaborators.md)): the orchestrator owns the
+   run lifecycle, the owner-id cache, the incremental history pipeline, the `Plex:Libraries` filter and
+   the library-level fan-out; `LibraryReconciler` owns the per-kind reconcile of one library and the
+   episode parallelism; `SeriesAggregateWriter` owns the season and series aggregates;
+   `MediaItemWriter` owns the path-mapping skip and the NFO write with its created/updated counters.
+   All three are stateless singletons:
    - **`ProcessHistoryAsync`** (incremental, cheap, runs every poll) reads the persisted
      high-water mark from `IStateStore`, calls `IPlexClient.GetHistorySinceAsync` for entries
      newer than that mark for the configured owner account, writes/updates the NFO for each
-     affected item via `WriteItemAsync`, then advances the high-water mark to the latest
+     affected item via `MediaItemWriter.WriteItemAsync`, then advances the high-water mark to the latest
      `ViewedAt` seen. On the very first run (no persisted high-water mark yet), it seeds the mark
      to "now" and returns without processing anything — this deliberately avoids replaying the
      owner's entire watch history as a flood of NFO writes on first startup.
@@ -71,11 +83,11 @@ Studio standard for solution files, not a migration artifact.
      every movie or episode found, regardless of watch state. This is the catch-up path for
      changes `ProcessHistoryAsync` cannot see — for example items marked watched through means
      that do not produce a Plex history entry. The filtered libraries themselves are reconciled
-     concurrently, bounded by `Sync:LibraryReconcileParallelism` (`Parallel.ForEachAsync`, minimum 1
+     concurrently, bounded by `Sync:LibraryReconcileParallelism` (`Parallel.ForEachAsync` in `SyncOrchestrator`, minimum 1
      — a configured value below that is rejected at startup; the clamp remains as defense-in-depth), so wall-clock reconcile time
      scales with the slowest library instead of the number of libraries. Within a series library, a
      show's episode writes run concurrently, bounded by `Sync:EpisodeReconcileParallelism`
-     (`Parallel.ForEachAsync`, minimum 1, rejected at startup and clamped the same way); shows themselves are still
+     (`Parallel.ForEachAsync` in `LibraryReconciler`, minimum 1, rejected at startup and clamped the same way); shows themselves are still
      reconciled one at a time within their library. Episodes that share a file (a multi-episode file
      such as `S01E01-E02.mkv` maps to one NFO target) are grouped and written sequentially within
      that group so two concurrent writers never race on the same target's temp file. A library's
@@ -88,10 +100,10 @@ Studio standard for solution files, not a migration artifact.
      written. A show's episodes are still collected in full (`ToListAsync`) before being grouped by
      file, since that grouping needs every episode at once; peak memory there is bounded by one
      show's episode count rather than the whole library.
-   - Both paths funnel through `WriteItemAsync`, which resolves the local path via `IPathMapper`
+   - Both paths funnel through `MediaItemWriter.WriteItemAsync`, which resolves the local path via `IPathMapper`
      and skips the item (with a log warning) if no mapping matches or the item has no file path.
    - When `Sync:WriteSeriesSeasonAggregates` is enabled, both paths additionally call
-     `UpdateSeriesAggregatesAsync` for every show touched by the run: it re-fetches all episodes of
+     `SeriesAggregateWriter.WriteAggregatesAsync` for every show touched by the run: it re-fetches all episodes of
      that show, aggregates their `WatchInfo` per season and for the whole series via
      `WatchAggregator`, and writes `season.nfo` / `tvshow.nfo` next to the episode files.
    - Both entry points catch and log unexpected exceptions (`HandleError`) rather than letting
@@ -201,7 +213,7 @@ Studio standard for solution files, not a migration artifact.
      the whole read-modify-write body, not just the temp-file save. This is what makes two writers
      resolving to the same NFO target — a multi-episode file's episodes, or two Plex libraries that
      happen to share a folder — safe to run concurrently, whether that concurrency comes from
-     `SyncOrchestrator`'s per-episode `Parallel.ForEachAsync` or from the per-library one; without
+     `LibraryReconciler`'s per-episode `Parallel.ForEachAsync` or from `SyncOrchestrator`'s per-library one; without
      it, the second writer's `.tmp` file would collide with the first's mid-write. The dictionary
      holds one semaphore per distinct target path ever written and never evicts an entry, so it
      grows with the number of movies/episodes/seasons/series reconciled over the process lifetime —
