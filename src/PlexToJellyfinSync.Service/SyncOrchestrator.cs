@@ -16,9 +16,9 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     #region Fields
 
     private readonly IPlexClient _plexClient;
-    private readonly INfoWriter _nfoWriter;
-    private readonly IPathMapper _pathMapper;
-    private readonly WatchAggregator _aggregator;
+    private readonly IMediaItemWriter _itemWriter;
+    private readonly ISeriesAggregateWriter _aggregateWriter;
+    private readonly ILibraryReconciler _libraryReconciler;
     private readonly IStateStore _stateStore;
     private readonly ISyncStatusProvider _status;
     private readonly PlexOptions _plexOptions;
@@ -35,18 +35,18 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// Constructor
     /// </summary>
     /// <param name="plexClient">Plex client</param>
-    /// <param name="nfoWriter">NFO writer</param>
-    /// <param name="pathMapper">Path mapper</param>
-    /// <param name="aggregator">Watch aggregator</param>
+    /// <param name="itemWriter">Media item writer</param>
+    /// <param name="aggregateWriter">Series aggregate writer</param>
+    /// <param name="libraryReconciler">Library reconciler</param>
     /// <param name="stateStore">State store</param>
     /// <param name="status">Status provider</param>
     /// <param name="plexOptions">Plex options</param>
     /// <param name="syncOptions">Sync options</param>
     /// <param name="logger">Logging interface</param>
     public SyncOrchestrator(IPlexClient plexClient,
-                            INfoWriter nfoWriter,
-                            IPathMapper pathMapper,
-                            WatchAggregator aggregator,
+                            IMediaItemWriter itemWriter,
+                            ISeriesAggregateWriter aggregateWriter,
+                            ILibraryReconciler libraryReconciler,
                             IStateStore stateStore,
                             ISyncStatusProvider status,
                             IOptions<PlexOptions> plexOptions,
@@ -54,9 +54,9 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
                             ILogger<SyncOrchestrator> logger)
     {
         _plexClient = plexClient;
-        _nfoWriter = nfoWriter;
-        _pathMapper = pathMapper;
-        _aggregator = aggregator;
+        _itemWriter = itemWriter;
+        _aggregateWriter = aggregateWriter;
+        _libraryReconciler = libraryReconciler;
         _stateStore = stateStore;
         _status = status;
         _plexOptions = plexOptions.Value;
@@ -80,22 +80,6 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         _ownerAccountId ??= await _plexClient.GetOwnerAccountIdAsync(cancellationToken).ConfigureAwait(false);
 
         return _ownerAccountId.Value;
-    }
-
-    /// <summary>
-    /// Record an NFO write outcome in the status
-    /// </summary>
-    /// <param name="outcome">Write outcome</param>
-    private void RecordOutcome(NfoWriteOutcome outcome)
-    {
-        if (outcome == NfoWriteOutcome.Created)
-        {
-            _status.Update(s => s.NfoCreated++);
-        }
-        else if (outcome == NfoWriteOutcome.Updated)
-        {
-            _status.Update(s => s.NfoUpdated++);
-        }
     }
 
     /// <summary>
@@ -133,35 +117,6 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     }
 
     /// <summary>
-    /// Write the NFO file for a movie or episode
-    /// </summary>
-    /// <param name="item">Media item</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async Task WriteItemAsync(MediaItem item, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(item.FilePath))
-        {
-            _logger.LogWarning("Item {RatingKey} ({Title}) has no file path, skipping", item.RatingKey, item.Title);
-
-            return;
-        }
-
-        var localPath = _pathMapper.MapToLocal(item.FilePath);
-
-        if (localPath is null)
-        {
-            _logger.LogWarning("No path mapping for {FilePath}, skipping", item.FilePath);
-
-            return;
-        }
-
-        var outcome = await _nfoWriter.WriteAsync(item, localPath, cancellationToken).ConfigureAwait(false);
-
-        RecordOutcome(outcome);
-    }
-
-    /// <summary>
     /// Process a single item by its rating key
     /// </summary>
     /// <param name="ratingKey">Rating key</param>
@@ -178,83 +133,9 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
         _status.Update(s => s.ItemsProcessed++);
 
-        await WriteItemAsync(item, cancellationToken).ConfigureAwait(false);
+        await _itemWriter.WriteItemAsync(item, cancellationToken).ConfigureAwait(false);
 
         return item;
-    }
-
-    /// <summary>
-    /// Update the aggregated season and series NFO files for a show
-    /// </summary>
-    /// <param name="showRatingKey">Rating key of the show</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async Task UpdateSeriesAggregatesAsync(string showRatingKey, CancellationToken cancellationToken)
-    {
-        var mapped = new List<(MediaItem Episode, string Local)>();
-
-        await foreach (var episode in _plexClient.GetEpisodesAsync(showRatingKey, cancellationToken).ConfigureAwait(false))
-        {
-            if (string.IsNullOrWhiteSpace(episode.FilePath))
-            {
-                continue;
-            }
-
-            var local = _pathMapper.MapToLocal(episode.FilePath);
-
-            if (local is not null)
-            {
-                mapped.Add((episode, local));
-            }
-        }
-
-        if (mapped.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var season in mapped.GroupBy(x => x.Episode.SeasonNumber))
-        {
-            var seasonDirectory = Path.GetDirectoryName(season.First().Local);
-
-            if (string.IsNullOrEmpty(seasonDirectory))
-            {
-                continue;
-            }
-
-            var seasonItem = new MediaItem
-                             {
-                                 Kind = MediaKind.Season,
-                                 SeasonNumber = season.Key,
-                                 Title = season.Key.HasValue ? $"Season {season.Key.Value}" : "Season",
-                                 Watch = _aggregator.Aggregate(season.Select(x => x.Episode.Watch).ToList())
-                             };
-
-            var seasonOutcome = await _nfoWriter.WriteAsync(seasonItem, seasonDirectory, cancellationToken).ConfigureAwait(false);
-
-            RecordOutcome(seasonOutcome);
-        }
-
-        var anySeasonDirectory = Path.GetDirectoryName(mapped[0].Local);
-        var showDirectory = string.IsNullOrEmpty(anySeasonDirectory) ? null : Path.GetDirectoryName(anySeasonDirectory);
-
-        if (string.IsNullOrEmpty(showDirectory))
-        {
-            return;
-        }
-
-        var seriesItem = await _plexClient.GetMediaItemAsync(showRatingKey, cancellationToken).ConfigureAwait(false)
-                             ?? new MediaItem
-                                {
-                                    Title = mapped[0].Episode.ShowTitle ?? string.Empty
-                                };
-
-        seriesItem.Kind = MediaKind.Series;
-        seriesItem.Watch = _aggregator.Aggregate(mapped.Select(x => x.Episode.Watch).ToList());
-
-        var seriesOutcome = await _nfoWriter.WriteAsync(seriesItem, showDirectory, cancellationToken).ConfigureAwait(false);
-
-        RecordOutcome(seriesOutcome);
     }
 
     /// <summary>
@@ -280,7 +161,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
             if (item is not null && item.Kind == MediaKind.Episode && string.IsNullOrWhiteSpace(item.ShowRatingKey) == false)
             {
-                affectedShows.Add(item.ShowRatingKey!);
+                affectedShows.Add(item.ShowRatingKey);
             }
 
             if (entry.ViewedAt > maxViewed)
@@ -331,7 +212,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
             try
             {
-                await UpdateSeriesAggregatesAsync(show, cancellationToken).ConfigureAwait(false);
+                await _aggregateWriter.WriteAggregatesAsync(show, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -427,7 +308,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
                                       CancellationToken = cancellationToken
                                   };
 
-            await Parallel.ForEachAsync(librariesToReconcile, parallelOptions, ReconcileLibraryAsync).ConfigureAwait(false);
+            await Parallel.ForEachAsync(librariesToReconcile, parallelOptions, _libraryReconciler.ReconcileLibraryAsync).ConfigureAwait(false);
 
             _status.Update(s => s.LastReconcileAt = DateTimeOffset.UtcNow);
         }
@@ -442,136 +323,6 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         finally
         {
             _status.Update(s => s.IsRunning = false);
-        }
-    }
-
-    /// <summary>
-    /// Reconcile a single library according to its kind, isolating the dispatch so it can run concurrently with
-    /// the other configured libraries
-    /// </summary>
-    /// <param name="library">Library to reconcile</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async ValueTask ReconcileLibraryAsync(PlexLibrary library, CancellationToken cancellationToken)
-    {
-        if (library.Kind == MediaKind.Movie)
-        {
-            await ReconcileMovieLibraryAsync(library.Key, cancellationToken).ConfigureAwait(false);
-        }
-        else if (library.Kind == MediaKind.Series)
-        {
-            await ReconcileSeriesLibraryAsync(library.Key, cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    /// Reconcile all movies of a library
-    /// </summary>
-    /// <param name="libraryKey">Library key</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async Task ReconcileMovieLibraryAsync(string libraryKey, CancellationToken cancellationToken)
-    {
-        await foreach (var movie in _plexClient.GetLibraryItemsAsync(libraryKey, cancellationToken).ConfigureAwait(false))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            _status.Update(s => s.ItemsProcessed++);
-
-            try
-            {
-                await WriteItemAsync(movie, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                HandleItemError(ex, movie.RatingKey);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Reconcile all series of a library including episodes and aggregates
-    /// </summary>
-    /// <param name="libraryKey">Library key</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async Task ReconcileSeriesLibraryAsync(string libraryKey, CancellationToken cancellationToken)
-    {
-        await foreach (var show in _plexClient.GetLibraryItemsAsync(libraryKey, cancellationToken).ConfigureAwait(false))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                await ReconcileShowEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
-
-                if (_syncOptions.WriteSeriesSeasonAggregates)
-                {
-                    await UpdateSeriesAggregatesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                HandleItemError(ex, show.RatingKey);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Write the NFO for every episode of a show, running unrelated episodes concurrently while episodes that
-    /// share a file (a multi-episode file such as S01E01-E02.mkv) stay sequential within their own group so two
-    /// writers never race over the same NFO target's temp file
-    /// </summary>
-    /// <param name="showRatingKey">Rating key of the show</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async Task ReconcileShowEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
-    {
-        var episodes = await _plexClient.GetEpisodesAsync(showRatingKey, cancellationToken).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var episodeGroups = episodes.GroupBy(episode => episode.FilePath, StringComparer.Ordinal).ToList();
-
-        var parallelOptions = new ParallelOptions
-                              {
-                                  MaxDegreeOfParallelism = Math.Max(1, _syncOptions.EpisodeReconcileParallelism),
-                                  CancellationToken = cancellationToken
-                              };
-
-        await Parallel.ForEachAsync(episodeGroups, parallelOptions, WriteEpisodeGroupAsync).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Write every episode of a group (episodes that resolve to the same NFO target) one after another, isolating
-    /// a failure so it does not abort the rest of the group or the other groups running concurrently
-    /// </summary>
-    /// <param name="episodeGroup">Episodes sharing one NFO target</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async ValueTask WriteEpisodeGroupAsync(IEnumerable<MediaItem> episodeGroup, CancellationToken cancellationToken)
-    {
-        foreach (var episode in episodeGroup)
-        {
-            _status.Update(s => s.ItemsProcessed++);
-
-            try
-            {
-                await WriteItemAsync(episode, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                HandleItemError(ex, episode.RatingKey);
-            }
         }
     }
 

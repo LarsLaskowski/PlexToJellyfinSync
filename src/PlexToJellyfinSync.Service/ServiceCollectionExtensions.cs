@@ -45,6 +45,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INfoWriter, NfoWriter>();
         services.AddSingleton<IStateStore, StateStore>();
         services.AddSingleton<IPlexClient, PlexClient>();
+        services.AddSingleton<IMediaItemWriter, MediaItemWriter>();
+        services.AddSingleton<ISeriesAggregateWriter, SeriesAggregateWriter>();
+        services.AddSingleton<ILibraryReconciler, LibraryReconciler>();
         services.AddSingleton<ISyncOrchestrator, SyncOrchestrator>();
 
         // Registered as a named client, not a typed client (AddHttpClient<IPlexClient, PlexClient>), so

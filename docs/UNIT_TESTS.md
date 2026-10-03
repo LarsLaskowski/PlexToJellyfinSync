@@ -13,7 +13,7 @@ pattern.
 1. **Unit tests**
 
    A unit test exercises an individual component or method in isolation — `WatchAggregator`,
-   `PathMapper`, `NfoWriter`, `StateStore`, `SyncStatusService`, the login/throttle security
+   `PathMapper`, `NfoWriter`, `MediaItemWriter`, `SeriesAggregateWriter`, `LibraryReconciler`, `StateStore`, `SyncStatusService`, the login/throttle security
    classes. This is the large majority of `PlexToJellyfinSync.Tests`.
 
 2. **Integration-style tests**
@@ -23,7 +23,8 @@ pattern.
    `AddPlexToJellyfinSync` and resolves services/options/the named Plex `HttpClient` (via
    `IHttpClientFactory`) from it; `PlexClient` is tested against a real `HttpClient` wired to
    `StubHttpMessageHandler` so the actual JSON deserialization and URL construction is exercised
-   end to end; `SyncOrchestratorTests` drives the real `SyncOrchestrator` against fakes for its
+   end to end; `SyncOrchestratorTests` drives the real `SyncOrchestrator` with its real collaborators
+   (`MediaItemWriter`, `SeriesAggregateWriter`, `LibraryReconciler`) over fakes for the outer
    dependencies (`FakePlexClient`, `FakeStateStore`, `RecordingNfoWriter`, `StubPathMapper`) to
    verify the orchestration logic itself, not just each collaborator in isolation.
 

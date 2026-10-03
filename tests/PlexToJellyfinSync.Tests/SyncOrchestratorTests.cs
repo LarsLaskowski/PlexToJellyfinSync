@@ -1548,14 +1548,19 @@ public sealed class SyncOrchestratorTests
     /// <returns>The orchestrator under test</returns>
     private SyncOrchestrator CreateOrchestrator(SyncOptions? syncOptions = null, PlexOptions? plexOptions = null)
     {
+        var options = Options.Create(syncOptions ?? new SyncOptions());
+        var itemWriter = new MediaItemWriter(_nfoWriter, _pathMapper, _status, NullLogger<MediaItemWriter>.Instance);
+        var aggregateWriter = new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter, new WatchAggregator());
+        var reconciler = new LibraryReconciler(_plexClient, itemWriter, aggregateWriter, _status, options, NullLogger<LibraryReconciler>.Instance);
+
         return new SyncOrchestrator(_plexClient,
-                                    _nfoWriter,
-                                    _pathMapper,
-                                    new WatchAggregator(),
+                                    itemWriter,
+                                    aggregateWriter,
+                                    reconciler,
                                     _stateStore,
                                     _status,
                                     Options.Create(plexOptions ?? new PlexOptions()),
-                                    Options.Create(syncOptions ?? new SyncOptions()),
+                                    options,
                                     NullLogger<SyncOrchestrator>.Instance);
     }
 
