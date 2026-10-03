@@ -267,7 +267,7 @@ public sealed class LibraryReconcilerTests
     [TestMethod]
     public async Task LibraryReconcilerSharedFileEpisodesNeverOverlap()
     {
-        var sharedFile = _seasonDirectory + Path.DirectorySeparatorChar + "S01E01-E02.mkv";
+        var sharedFile = $"{_seasonDirectory}{Path.DirectorySeparatorChar}S01E01-E02.mkv";
         var episodes = new List<MediaItem>();
 
         for (var number = 1; number <= 2; number++)
@@ -421,7 +421,7 @@ public sealed class LibraryReconcilerTests
                              EpisodeNumber = number,
                              ShowRatingKey = showRatingKey,
                              ShowTitle = "Breaking Bad",
-                             FilePath = _seasonDirectory + Path.DirectorySeparatorChar + $"{showRatingKey}S01E{number:D2}.mkv"
+                             FilePath = $"{_seasonDirectory}{Path.DirectorySeparatorChar}{showRatingKey}S01E{number:D2}.mkv"
                          });
         }
 
