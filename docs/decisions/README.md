@@ -24,6 +24,7 @@ links the record.
 
 ## Index
 
+<!-- project:begin index -->
 | #    | Title | Status | Date |
 | ---- | ----- | ------ | ---- |
 | [0001](0001-polling-instead-of-webhooks.md) | Poll Plex instead of using webhooks | Accepted | 2026-10-01 |
@@ -39,8 +40,10 @@ links the record.
 | [0011](0011-local-analyzer-gate-covers-all-roslyn-diagnostics.md) | Local analyzer gate covers all Roslyn diagnostics | Accepted | 2026-10-02 |
 | [0012](0012-worker-reconcile-guard-kept-as-defense-in-depth.md) | Worker keeps its reconcile guard as defense-in-depth | Superseded by [0013](0013-worker-guards-both-orchestrator-calls.md) | 2026-10-02 |
 | [0013](0013-worker-guards-both-orchestrator-calls.md) | Worker guards both orchestrator calls alike | Accepted | 2026-10-02 |
-| [0014](0014-squad-working-records-off-main.md) | Squad working records stay off main, and product PRs never change the squad | Accepted | 2026-10-02 |
+| [0014](0014-squad-working-records-off-main.md) | Squad working records stay off main, and product PRs never change the squad | Superseded by [0019](0019-squad-maintained-in-the-template-repository.md) | 2026-10-02 |
 | [0015](0015-container-images-on-docker-hub-only.md) | Container images are published to Docker Hub only | Accepted | 2026-10-02 |
 | [0016](0016-options-validated-at-startup.md) | Options are validated at startup with DataAnnotations | Accepted | 2026-10-02 |
 | [0017](0017-plex-token-stays-optional.md) | The Plex token stays optional | Accepted | 2026-10-02 |
 | [0018](0018-sync-orchestrator-split-into-collaborators.md) | SyncOrchestrator is split into an item writer, a series aggregate writer and a library reconciler | Accepted | 2026-10-03 |
+| [0019](0019-squad-maintained-in-the-template-repository.md) | Product PRs never change the squad; squad lessons go to the template repository | Accepted | 2026-10-03 |
+<!-- project:end index -->

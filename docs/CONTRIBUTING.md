@@ -1,5 +1,6 @@
 # Contributing
 
+<!-- project:begin getting-started -->
 ## Getting started
 
 ### Machine setup
@@ -82,43 +83,46 @@ dotnet test PlexToJellyfinSync.slnx -c Release --no-build
 For detailed rules on how unit tests should be structured and named, see
 [`UNIT_TESTS.md`](UNIT_TESTS.md). **Unit tests are mandatory for newly written code** — see the
 checklist there before opening a pull request.
+<!-- project:end getting-started -->
 
-### Submitting a pull request
+## Submitting a pull request
 
-If you'd like to contribute by fixing a bug, implementing a feature, or even correcting typos in
-the documentation, you'll need to submit a pull request. Nothing is ever committed or pushed directly
-to `main` — every change goes through a separate branch and a pull request.
+Nothing is ever committed or pushed directly to `main` — every change goes through a separate branch and
+a pull request.
 
 Pull requests are merged with **Squash and merge**: the PR title becomes the single commit subject on
 `main` and the description its body, so the commits on the branch are working history and need not be
 curated. Keep the branch up to date by merging the current `main` into it (no force-push needed); do not
-use the plain *Create a merge commit* or *Rebase and merge* buttons (see
-[decision 0010](decisions/0010-squash-merge-pull-requests.md)).
+use the plain *Create a merge commit* or *Rebase and merge* buttons (see the decision record on
+squash-merging in [`decisions/`](decisions/README.md)).
 
 For PR naming use the following convention: `[area] Description` (no period at the end).
 
-- For the area, use the affected project or feature (for example `Core`, `Data`, `Service`,
-  `Host`, `Dashboard`, `Tests`, `Docker`, `CI`, `Docs`).
+- For the area, use one of the areas listed below, capitalized.
 - For the description, do not reference an issue number in there. A clear, short summary of what
   the change entails is enough; there is room to elaborate in the description.
+
+<!-- project:begin areas -->
+Areas: `Core`, `Data`, `Service`, `Host`, `Dashboard`, `Tests`, `Docker`, `CI`, `Docs` — the affected
+project or feature, not a class name (a `Worker` change is `Host`).
+<!-- project:end areas -->
 
 When a PR is related to an issue, use the `Closes #issuenumber` syntax so the issue links to the
 PR automatically and closes when the PR is merged.
 
 Follow the PR template in [`.github/pull_request_template.md`](../.github/pull_request_template.md).
 
-## Code style
+## Quality gates
 
-Detailed C# code-style rules (naming, `#region` layout, formatting, XML docs, null handling) are
-documented in [`CLAUDE.md`](../CLAUDE.md) and [`.github/copilot-instructions.md`](../.github/copilot-instructions.md)
-and are binding for all contributions. Run `reihitsu-format ./` before opening a pull request; a
-clean build must show **zero Reihitsu (`RH####`) warnings and errors**, and no changed file may carry an
-analyzer diagnostic of any severity (`S####`, `MSTEST####`, …, including info-level ones that only
-SonarQube Cloud reports) — run `python3 .squad/tools/analyzer-check.py`. CI does
-**not** re-check formatting — a pull request is expected to arrive clean (see
-[decision 0009](decisions/0009-quality-gates-before-the-pull-request.md)). New or changed production
-code needs at least 80 % line coverage (see [`UNIT_TESTS.md`](UNIT_TESTS.md#code-coverage)).
+Code-style rules are documented in [`CLAUDE.md`](../CLAUDE.md) (mirrored in `AGENTS.md` and
+[`.github/copilot-instructions.md`](../.github/copilot-instructions.md)) and in
+[`.squad/stack.md`](../.squad/stack.md), and are binding for all contributions. Before opening a pull
+request, run the commands from `stack.md`: *Format*, *Build*, the *Analyzer gate* (no analyzer diagnostic
+of any severity in a changed file) and the *Coverage gate* (at least 80 % line coverage on new or changed
+production code and overall, see [`UNIT_TESTS.md`](UNIT_TESTS.md#code-coverage)). A pull request is
+expected to arrive clean (see the decision record on quality gates in [`decisions/`](decisions/README.md)).
 
+<!-- project:begin releases -->
 ## Versioning and releases
 
 Releases are triggered manually, never by merging a PR (see
@@ -126,7 +130,9 @@ Releases are triggered manually, never by merging a PR (see
 (with its tag) on `main` via the GitHub UI when you want a new release; that tag push builds and
 publishes the Docker image. Merging a PR into `main` by itself never publishes an image or a
 release.
+<!-- project:end releases -->
 
+<!-- project:begin stability -->
 ## Stability policy
 
 An essential consideration in every pull request is its impact on the system. Avoid introducing
@@ -143,6 +149,7 @@ usability. In particular:
   relying solely on `PathMapper`'s own traversal guard.
 - Keep the dashboard optional and unauthenticated-by-default behavior intact; do not silently
   add a hard authentication requirement.
+<!-- project:end stability -->
 
 ## Reporting security issues
 
@@ -151,5 +158,7 @@ Do not report security vulnerabilities through public GitHub issues. See
 
 ## License
 
+<!-- project:begin license -->
 By contributing to this project, you agree that your contributions will be licensed under the
 same [MIT License](../LICENSE.md) that covers the project.
+<!-- project:end license -->

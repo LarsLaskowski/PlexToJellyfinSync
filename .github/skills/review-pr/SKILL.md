@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Use when the user asks to review a PlexToJellyfinSync pull request on GitHub. Checks out the PR, runs the build and tests, reviews it with the squad-reviewer subagent against this project's C#, analyzer, security and unit-test conventions, and posts the findings with an explicit verdict.
+description: Use when the user asks to review a pull request of this repository on GitHub. Checks out the PR, runs the build and tests, reviews it with the squad-reviewer subagent against this project's stack, analyzer, security and unit-test conventions, and posts the findings with an explicit verdict.
 ---
 
 # Review PR
@@ -37,7 +37,7 @@ anything posted to GitHub — regardless of the language the user wrote in.
      comment.
    - **Only genuine findings.** No positive remarks, no confirmation that
      checklist items pass, no "looks good" filler, no formatting
-     `reihitsu-format` already fixes.
+     the formatter already fixes.
    - Lead the review body with the verdict line the subagent produced
      (`APPROVE`, or the blocking/non-blocking counts), so the author can see
      whether anything is required of them without reading every thread.
@@ -98,9 +98,9 @@ When acting as the author of a PR under review:
   `Fixed in <sha>: <what changed>`. The reasoning belongs in the commit
   message, where it stays with the code; the reviewer verifies the commit,
   not the reply.
-- Re-run `reihitsu-format --force ./`, the Release build (zero `RH####`
-  diagnostics), `.squad/tools/analyzer-check.py` (no diagnostic in a changed file), `dotnet test` and the coverage
-  check (`.squad/tools/coverage-check.py`) before each push — a fix that turns CI red costs more
+- Re-run *Format*, *Build*, the *Analyzer gate* (no diagnostic in a changed
+  file), *Test with coverage* and the *Coverage gate* from `.squad/stack.md`
+  before each push — a fix that turns CI red costs more
   than the finding did.
 - Resolve the thread once it is answered. One summary comment per round beats
   one essay per thread.

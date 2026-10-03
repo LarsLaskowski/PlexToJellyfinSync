@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 # Squad Devil's Advocate
 
 Read first: `.squad/agents/devils-advocate/charter.md`, `.squad/agents/devils-advocate/history.md`,
-`.squad/routing.md`, `docs/ARCHITECTURE.md`, `docs/decisions/README.md`, the issue text (or feature
+`.squad/routing.md`, `.squad/project.md`, `docs/ARCHITECTURE.md`, `docs/decisions/README.md`, the issue text (or feature
 request) and the work folder you are given (`plan.md`; features also `spec.md` and `tasks.md`).
 
 You run once per change, in step 2, after the Lead's plan and before Security — only for the tiers

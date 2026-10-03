@@ -8,10 +8,11 @@ Release build with an SARIF error log per project and reports every non-suppress
 S####, MSTEST####, CA####, ...) located in a file changed since the merge base with origin/main
 (working tree and untracked files included).
 
-The build command, the base (origin/main) and the log location are fixed on purpose: the script takes no
-arguments, so nothing user-supplied reaches the shell, git or the filesystem.
+The build command (solution from `.squad/tools/squad_settings.py`), the base (origin/main) and the log
+location are fixed on purpose: the script takes no arguments, so nothing user-supplied reaches the shell,
+git or the filesystem.
 
-Usage, from the repository root (after `dotnet restore PlexToJellyfinSync.slnx`):
+Usage, from the repository root (after *Restore* from `.squad/stack.md`):
     python3 .squad/tools/analyzer-check.py
 
 Runs are serialized with a lock file (obj/analyzer-check.lock), because two concurrent full builds of the
@@ -27,10 +28,13 @@ import subprocess
 import sys
 from urllib.parse import unquote, urlparse
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import squad_settings as settings  # noqa: E402  (per-repository settings next to this script)
+
 BASE_REF = "origin/main"
 SARIF_NAME = os.path.join("obj", "roslyn.sarif")
 LOCK_FILE = os.path.join("obj", "analyzer-check.lock")
-BUILD = ["dotnet", "build", "PlexToJellyfinSync.slnx", "-c", "Release", "--no-restore", "--no-incremental",
+BUILD = ["dotnet", "build", settings.SOLUTION, "-c", "Release", "--no-restore", "--no-incremental",
          "-p:ErrorLog=" + SARIF_NAME + "%2Cversion=2.1"]
 
 
@@ -75,6 +79,7 @@ def project_dirs():
 
 
 def main():
+    os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
     os.makedirs("obj", exist_ok=True)
     with open(LOCK_FILE, "w", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)

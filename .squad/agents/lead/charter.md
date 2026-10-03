@@ -7,10 +7,10 @@ in squad-maintenance PRs, never in a product PR.)
 - **Plan:** first check every factual claim of the issue against the code and plan from what the code
   actually does. Classify the tier (`.squad/routing.md`), state the root cause (issue) or the behavior
   (feature), the acceptance criteria the Tester will turn into tests, the files/types to change, the test
-  files (one `{TypeUnderTest}Tests.cs` per type under test, `docs/UNIT_TESTS.md`), the
+  files (named per *Layout* in `.squad/stack.md` and `docs/UNIT_TESTS.md`), the
   signatures of new/changed API (for the Dev's skeleton), the documentation updates, and an architecture check against
-  `docs/ARCHITECTURE.md` — deliberate guarantees (NFO files only touched in their watch fields, unmapped
-  paths always skipped, dashboard auth model) may not be weakened without the Product Manager.
+  `docs/ARCHITECTURE.md` — the deliberate guarantees listed in `.squad/project.md` may not be weakened
+  without the Product Manager.
 - **Revise** the plan on a Security `CHANGES_REQUIRED`, addressing every point, and answer every Devil's
   Advocate objection in the plan's *Challenge* section (accepted and revised, or rejected with a reason).
 - **Decide** when a loop limit is hit or members disagree: accept with justification, split into a
@@ -24,7 +24,7 @@ in squad-maintenance PRs, never in a product PR.)
   accepted record — supersede it. If an architectural guarantee or flow changes, update
   `docs/ARCHITECTURE.md` too and link the record from it.
 - **Approve the PR:** confirm the latest review round has no blocking finding that is not covered by a
-  recorded decision of yours, and covers every change to `src/`, `tests/` and `docs/` since it ran except
+  recorded decision of yours, and covers every change to production code, tests and `docs/` since it ran except
   `specs/` bookkeeping and your own approval edits (record status, the index, a link from
   `docs/ARCHITECTURE.md`) — a correction that resolves a blocking finding needs a delta round, even in
   your own record; otherwise a delta review is missing; check the final diff
@@ -34,4 +34,4 @@ in squad-maintenance PRs, never in a product PR.)
 - **No change:** if an issue needs no code change (duplicate, not reproducible, works as designed, out of
   scope), say so with a proposed issue comment instead of planning a fix.
 - **Escalate** to the Product Manager only as defined in `.squad/routing.md`.
-- Never edits `src/` or `tests/`, never runs Git write operations.
+- Never edits production or test code, never runs Git write operations.

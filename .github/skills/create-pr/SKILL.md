@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: Use when the user asks to open/create a pull request for PlexToJellyfinSync changes on this branch. Runs local verification (format, build, test), reviews the change with the squad-reviewer subagent, then pushes the branch and opens a PR following this repo's pull request template.
+description: Use when the user asks to open/create a pull request for changes on this branch. Runs local verification (format, build, test), reviews the change with the squad-reviewer subagent, then pushes the branch and opens a PR following this repo's pull request template.
 ---
 
 # Create PR
@@ -29,24 +29,22 @@ in.
    without a corresponding test, write one before proceeding (following
    `UNIT_TESTS.md`'s naming, test-double and assert-message conventions)
    rather than opening the PR without coverage.
-4. **Run local verification** before pushing, from the repository root:
-   - `dotnet restore PlexToJellyfinSync.slnx`
-   - `reihitsu-format --force ./` (`--force` skips the confirmation prompt
-     for more than 25 files, which a non-interactive session cannot answer)
-   - `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` — the
-     build must finish with **zero Reihitsu (`RH####`) warnings and errors**
-   - `python3 .squad/tools/analyzer-check.py` — no analyzer diagnostic of any
-     severity (`S####`, `MSTEST####`, …, including info-level ones SonarQube
-     Cloud reports) in a changed file; treat each as a failure
-   - `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults`
-     and `python3 .squad/tools/coverage-check.py` — at least
-     80 % line coverage on new/changed production code and overall
-   - `python3 .squad/tools/config-check.py` when the diff touches `.claude/`
-     or `.github/skills/` — Claude Code silently drops an agent or skill
-     whose front matter does not parse, and the two skill copies must match
+4. **Run local verification** before pushing, from the repository root,
+   with the commands from [`.squad/stack.md`](../../../.squad/stack.md):
+   - *Restore* (if the stack has one) and *Format*
+   - *Build* — it must finish without errors and without the warnings
+     `stack.md` lists as forbidden
+   - *Analyzer gate* — no analyzer diagnostic of any severity in a changed
+     file; treat each as a failure
+   - *Test with coverage* and *Coverage gate* — at least 80 % line coverage
+     on new/changed production code and overall
+   - `python3 .squad/tools/config-check.py` when the diff touches `.claude/`,
+     `.github/skills/`, `.agents/skills/` or an instruction file — Claude Code
+     silently drops an agent or skill whose front matter does not parse, and
+     the skill copies and instruction files must match
    Fix any failures before proceeding — do not open a PR with failing checks,
-   unformatted code or outstanding analyzer diagnostics. CI does not check
-   formatting, so this step is the only gate for it.
+   unformatted code or outstanding analyzer diagnostics. This step is the gate
+   before the PR; CI is not meant to find anything here.
 5. **Commit** with a subject line of at most 80 characters, not written in
    the first person and without a trailing period, and a body of 3–5
    sentences explaining *what* changed and *why* if it is not obvious from
@@ -59,15 +57,14 @@ in.
    `.github/pull_request_template.md`:
    - base branch `main`, unless the user explicitly requests a different base
    - title `[area] Description` per
-     [`CONTRIBUTING.md`](../../../docs/CONTRIBUTING.md) — area is the affected
-     project or feature (`Core`, `Data`, `Service`, `Host`, `Dashboard`,
-     `Tests`, `Docker`, `CI`, `Docs`), no period at the end, no issue number
+     [`CONTRIBUTING.md`](../../../docs/CONTRIBUTING.md) — area is one of the
+     areas CONTRIBUTING lists, capitalized, no period at the end, no issue number
      in the description, under 70 characters
    - fill in Description, Issues (link the related issue if one exists, with
      `Closes #<number>`), Reviewer Notes and Test Plan, and check off the
      checklist items that are actually true (don't check items you haven't
-     verified) — including the unit-test, `reihitsu-format`, documentation and
-     Central Package Management items, not just the general ones
+     verified) — including the unit-test, formatting, analyzer, coverage,
+     documentation and dependency items, not just the general ones
    - wrap the body in a HEREDOC so the formatting survives
 9. Report the branch name and the PR URL back to the user.
 
@@ -143,8 +140,9 @@ posted comment.
   of continuing as if it succeeded.
 - Never force-push over another contributor's commits without explicit
   confirmation.
-- If the change touches the sync pipeline, path mapping, NFO writing, the
-  dashboard's auth model, a configuration key, or the Docker/CI setup, make
+- If the change touches a guarantee, security area or integration-surface
+  entry in [`.squad/project.md`](../../../.squad/project.md), a configuration
+  key, or the Docker/CI setup, make
   sure the corresponding documentation — [`README.md`](../../../README.md),
   [`ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md),
   [`SECURITY.md`](../../../SECURITY.md) — was updated in the same PR (see the

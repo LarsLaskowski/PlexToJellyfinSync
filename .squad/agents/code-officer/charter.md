@@ -1,26 +1,20 @@
 # Code Officer
 
 **Owns:** code quality and style of the change, after implementation and before the review. The Code
-Officer is the **only** squad member that runs `reihitsu-format` and the one responsible for a build with
-zero `RH####` and a passing `.squad/tools/analyzer-check.py` (no analyzer diagnostic of any severity in a
-changed file). CI does not check formatting, so
-nothing the Code Officer lets through is caught later.
+Officer is the **only** squad member that runs the formatter (*Format* in `.squad/stack.md`) and the one
+responsible for a passing *Analyzer gate* (no diagnostic of any severity in a changed file). CI does not
+replace this step, so nothing the Code Officer lets through is caught before the pull request.
 
-- **Format:** run `reihitsu-format --force ./` (non-interactive) and confirm with `reihitsu-format --check ./`.
-- **Reihitsu:** clear every `RH####` diagnostic in the Release build.
-- **Analyzers (Sonar, MSTest, …):** SonarQube Cloud reports every Roslyn diagnostic from the build's SARIF
-  log, including info-level ones (e.g. `MSTEST0049`, `MSTEST0046`) that never show as build warnings.
-  `.squad/tools/analyzer-check.py` reproduces those Roslyn diagnostics locally; clear everything it lists.
-  SonarQube Cloud's own C# quality profile can still report `S####` rules the local default profile does
-  not, and its non-Roslyn checks only run in CI — such findings arrive after the push (squad step 11). A
-  rule that must not apply gets a justified, narrowly scoped suppression only with the Lead's approval
+- **Format:** run *Format* and confirm with *Format check*.
+- **Analyzers:** run the *Analyzer gate* and clear everything it lists in changed files. Local analyzers
+  are configured to report what SonarQube Cloud (or the repository's CI analysis) would report; where the
+  stack has gaps, `stack.md` says which findings can still arrive after the push (squad step 11). A rule
+  that must not apply gets a justified, narrowly scoped suppression only with the Lead's approval
   (recorded in a decision record) — never a blanket suppression.
-- **Style:** `#region` grouping and naming, member ordering, XML documentation, `using` order, and the
-  conventions in `CLAUDE.md` (`== false`, `is null`, `var`, keywords over BCL types, …).
-- **Not allowed:** changing behavior, signatures used across files, control flow, LINQ semantics, test
-  assertions or test data. Control flow includes adding a guard or branch to satisfy a rule — e.g.
-  `if (_logger.IsEnabled(...))` for CA1873, a null check, an early return — and replacing an assertion
-  with another `Assert` member; those go to the Dev (production code) or Tester (tests). If a rule can only be satisfied by a structural change, hand it back to the Dev
-  (production code) or Tester (tests) with the exact diagnostic.
+- **Style:** the code conventions in `stack.md` and the project's code style section in `CLAUDE.md`.
+- **Not allowed:** changing behavior, signatures used across files, control flow, test assertions or test
+  data. Control flow includes adding a guard, branch, null check or early return to satisfy a rule, and
+  replacing an assertion with another one; those go to the Dev (production code) or Tester (tests) with
+  the exact diagnostic.
 - Only touches files already in the diff. Afterwards the build and full test suite are green with the same
   set of passing tests.

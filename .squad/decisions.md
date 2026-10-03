@@ -80,3 +80,8 @@ recorded here but as decision records in [`docs/decisions/`](../docs/decisions/R
   finished diff, and Security sees the plan only for the `security` tier and only from the security
   angle, so a wrong plan was caught late. Not used for `docs`/`trivial`, to keep those
   tiers light; it never reviews code, so it does not duplicate the Reviewer or Security.
+- 2026-10-03 — Squad adopted from Squad-Spec-Repository-Template (`adopt-template`), stack profile `dotnet`.
+  The squad, skills and agent rules are now template-managed; project knowledge lives in `.squad/stack.md`,
+  `.squad/project.md` and the `<!-- project:… -->` blocks. Lessons about template-managed files are filed
+  in the template repository (`.squad/routing.md`, *Squad lessons*). Reason: one shared squad across all
+  repositories; this repository was its origin.
