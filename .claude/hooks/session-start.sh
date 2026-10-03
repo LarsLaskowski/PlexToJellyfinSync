@@ -1,6 +1,6 @@
 #!/bin/bash
-# SessionStart hook for Claude Code on the web: prepares the .NET toolchain so the squad can format,
-# build, test and check coverage. Idempotent; does nothing outside remote sessions.
+# SessionStart hook for Claude Code on the web (.NET profile): prepares the toolchain so the squad can
+# format, build, test and check coverage. Idempotent; does nothing outside remote sessions.
 set -euo pipefail
 
 if [[ "${CLAUDE_CODE_REMOTE:-}" != "true" ]]; then
@@ -25,4 +25,9 @@ if ! command -v reihitsu-format >/dev/null 2>&1; then
   dotnet tool install -g Reihitsu.Cli
 fi
 
-dotnet restore PlexToJellyfinSync.slnx
+# Restore every solution at the repository root (the squad's settings name the one the gates build).
+for solution in *.slnx *.sln; do
+  if [[ -e "$solution" ]]; then
+    dotnet restore "$solution"
+  fi
+done

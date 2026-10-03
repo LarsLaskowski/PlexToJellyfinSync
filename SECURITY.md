@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Only the latest release of PlexToJellyfin Sync receives security fixes.
+Only the latest release receives security fixes.
 
 | Version | Supported |
 | ------- | --------- |
@@ -13,9 +13,11 @@ Only the latest release of PlexToJellyfin Sync receives security fixes.
 
 Please **do not** open a public GitHub issue for security vulnerabilities.
 
+<!-- project:begin contact -->
 Report vulnerabilities by e-mail to:
 
 **Development@e-networld.de**
+<!-- project:end contact -->
 
 Include in your report:
 
@@ -24,8 +26,11 @@ Include in your report:
 - Potential impact
 - Any suggested fix (optional)
 
-You will receive an acknowledgement within **5 business days**. We aim to release a fix or mitigation within **30 days** for confirmed vulnerabilities. We will keep you informed of progress throughout the process.
+You will receive an acknowledgement within **5 business days**. We aim to release a fix or mitigation
+within **30 days** for confirmed vulnerabilities. We will keep you informed of progress throughout the
+process.
 
+<!-- project:begin deployment -->
 ## Deployment Security Considerations
 
 PlexToJellyfin Sync is designed for **home-network use or deployment behind a trusted reverse proxy**. The optional `TokenAuthMiddleware` provides basic token-based protection for the dashboard, but it is not a substitute for network-level controls.
@@ -38,7 +43,9 @@ Before exposing the application to any network:
 - Store the Plex token and the Jellyfin API key exclusively in environment variables or secrets — never hard-code them.
 - Mount the Jellyfin media directory with the **minimum required permissions** (read/write only for the configured media path; no unnecessary host access).
 - Do not expose the dashboard port directly to the internet.
+<!-- project:end deployment -->
 
+<!-- project:begin scope -->
 ## Scope
 
 The following are considered in scope for vulnerability reports:
@@ -56,3 +63,4 @@ The following are **out of scope**:
 - Issues arising from misconfiguration of the deployment environment (e.g. world-readable secrets)
 - Denial-of-service through resource exhaustion on the local network
 - Missing dashboard authentication when `TokenAuthMiddleware` is deliberately disabled (this is a design decision; use a reverse proxy or restrict network access)
+<!-- project:end scope -->

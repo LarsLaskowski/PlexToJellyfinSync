@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a problem with PlexToJellyfinSync
+about: Report a problem
 title: "[BUG] "
 labels: bug
 assignees: ''
@@ -18,6 +18,7 @@ Steps to reproduce the behavior:
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
+<!-- project:begin environment -->
 **Environment**
  - PlexToJellyfinSync image tag: [e.g. `networlddev/plextojellyfinsync:1.2.2` or `latest`]
  - Deployment method: [e.g. `docker run`, Docker Compose, Kubernetes]
@@ -28,9 +29,10 @@ A clear and concise description of what you expected to happen.
 **Configuration**
  - Relevant `PathMappings` entries (redact real paths if sensitive):
  - Any non-default `Sync` / `Nfo` settings:
+<!-- project:end environment -->
 
 **Logs**
-Paste the relevant excerpt from the container logs or the dashboard "Logs" page (redact your Plex token).
+Paste the relevant log excerpt (redact tokens, passwords and other secrets).
 
 ```
 paste logs here

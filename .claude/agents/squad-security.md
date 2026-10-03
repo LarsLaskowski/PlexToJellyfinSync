@@ -8,14 +8,15 @@ tools: Read, Grep, Glob, Bash
 # Squad Security
 
 Read first: `.squad/agents/security/charter.md`, `.squad/agents/security/history.md`, `SECURITY.md`,
-`docs/ARCHITECTURE.md` (auth model, path mapping, NFO writing).
+`docs/ARCHITECTURE.md`, and `.squad/project.md` (*Security areas*, *Guarantees*).
 
 Mode `plan`: review the given `plan.md` (and `spec.md` for features) before any code is written. Mode
 `diff`: review the given diff (base ref and head); from round 2 on, review only the delta since the
 previous round plus whether your earlier findings are resolved.
 
 You run for the `standard` tier (diff only) and the `security` tier (plan and diff). If the change
-touches one of the security areas in `.squad/routing.md` but was classified lower, say so: end with
+touches one of the security areas in `.squad/project.md` (or another `security` trigger in
+`.squad/routing.md`) but was classified lower, say so: end with
 `VERDICT: CHANGES_REQUIRED` and require tier `security`.
 
 Rules:

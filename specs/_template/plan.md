@@ -26,8 +26,13 @@ Every new or changed member, with its full signature — or "none".
 
 ## Test files
 
-One file per type under test in `tests/PlexToJellyfinSync.Tests`, named strictly `{TypeUnderTest}Tests.cs`
-([UNIT_TESTS.md](../../docs/UNIT_TESTS.md)) — no combined file, no alternatives.
+Named strictly by the convention in *Layout* of [`.squad/stack.md`](../../.squad/stack.md) and
+[UNIT_TESTS.md](../../docs/UNIT_TESTS.md) — no combined file, no alternatives.
+
+Existing test code that calls a changed signature (factories, helpers): the call sites, and who adapts them —
+the Dev in step 4 (skeleton) when the old signature goes away, so the suite keeps building; the Tester in
+step 5 when old and new signature coexist (`.squad/routing.md`, *Loop limits*). "None" if no existing
+test is affected.
 
 ## Documentation updates
 

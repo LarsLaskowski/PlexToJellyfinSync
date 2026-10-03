@@ -1,5 +1,6 @@
 # Architecture
 
+<!-- project:begin architecture -->
 This document describes how PlexToJellyfinSync is put together and, where the reasoning is
 recoverable from the code or existing docs, *why* it looks the way it does. It complements
 [`README.md`](../README.md) (setup and configuration), [`CONTRIBUTING.md`](CONTRIBUTING.md)
@@ -378,56 +379,34 @@ Studio standard for solution files, not a migration artifact.
   tag) is created manually via the GitHub UI, which is what triggers this workflow in the first
   place.
 
----
-
-## AI agent instructions
-
-Several files carry near-duplicate project guidance for different AI tools:
-[`CLAUDE.md`](../CLAUDE.md) (Claude Code), [`AGENTS.md`](../AGENTS.md) (Codex/generic agents), and
-[`.github/copilot-instructions.md`](../.github/copilot-instructions.md) (GitHub Copilot), plus
-per-workflow skill files under `.claude/skills/` and `.github/skills/` (kept identical between
-the two locations) that encode the create-PR, squad (issue and feature) and review-PR workflows in more procedural
-detail. All of these are meant to stay consistent with each other and with this document,
-`CONTRIBUTING.md` and `UNIT_TESTS.md` — a change to project conventions should be reflected in
-every one of them, not just the one the current tool happens to read.
-
-The review those skills run is defined once, in
-[`.claude/agents/squad-reviewer.md`](../.claude/agents/squad-reviewer.md):
-a read-only reviewer with its own integration-surface sweep, convention checklist and
-blocking/non-blocking severity model. `create-pr` and the squad skills run it against the local branch
-*before* pushing, so a change arrives on GitHub already reviewed instead of accumulating review
-rounds afterwards; `review-pr` runs the same definition against an already-open pull request. The
-loop is bounded deliberately — round 1 is a full review, every later round looks only at the delta,
-and only blocking findings earn another round — because a fresh full re-review of unchanged code
-always finds something new.
-
-The squad skills (`squad-issue`, `squad-spec`) wrap that review in a larger, bounded pipeline described
-in [`.squad/routing.md`](../.squad/routing.md): an Opus Lead plans, classifies the change into a tier
-(`docs`, `trivial`, `standard`, `security`) that decides how much of the pipeline runs, and owns every decision
-including PR approval, for `standard` and `security` a Devil's Advocate challenges the plan once (no veto)
-before Security sees it, a Security member reviews the plan before any code exists (at most two rejections) and the
-diff afterwards, tests are written first and new/changed code reaches at least 80 % line coverage, a
-Code Officer clears formatting, Reihitsu and Sonar diagnostics *before* the review so the reviewed code
-is the merged code, and the review loop is one full pass plus at most two delta rounds. Every limit
-ends in a Lead decision, and only a decision the Lead cannot make reaches the human. The reasoning behind
-individual choices is kept out of this document and recorded instead as decision records in
-[`docs/decisions/`](decisions/README.md); this document describes how the system works and links a record
-where a guarantee or flow is the result of one.
-
-Two consequences of that arrangement are load-bearing and easy to undo by accident:
-
-- **A pull request documents the change, not how it was produced.** The internal review loop leaves
-  no trace in the PR body or the commit messages; a reader of the history wants the finished
-  change, not the corrections that led to it.
-- **A finding posted as a review comment is resolved in that same pull request**, blocking or not —
-  fixed, or answered with a reason or a linked issue opened at that moment. Nothing is deferred to
-  "the next change in this area": no such change is scheduled, and the agent session that held the
-  context needed to act on the comment does not survive to a later one.
-
----
-
 ## Undocumented decisions
 
 If a future change introduces a decision without a stated reason, record it as a decision record in
 [`decisions/`](decisions/README.md) instead of leaving the gap for the next person. None are currently
 outstanding.
+<!-- project:end architecture -->
+
+## Development process
+
+This repository is developed with AI agents (Claude Code, Codex/GPT, GitHub Copilot) that follow the same
+rules: `CLAUDE.md`, `AGENTS.md` and `.github/copilot-instructions.md` hold one shared rule set, and the
+skills under `.claude/skills/`, `.agents/skills/` and `.github/skills/` are identical copies. Every pull
+request is reviewed before it is opened by the read-only reviewer in `.claude/agents/squad-reviewer.md`
+— round 1 is a full review, every later round looks only at the delta, and only blocking findings earn
+another round, because a fresh full re-review of unchanged code always finds something new.
+
+The squad skills (`squad-issue`, `squad-spec`) wrap that review in a larger, bounded pipeline described in
+[`.squad/routing.md`](../.squad/routing.md): an Opus Lead plans, classifies the change into a tier (`docs`,
+`trivial`, `standard`, `security`) that decides how much of the pipeline runs, and owns every decision
+including PR approval; for `standard` and `security` a Devil's Advocate challenges the plan once (no veto)
+before Security sees it; a Security member reviews the plan (tier `security`) and the diff; tests are
+written first and new/changed code reaches at least 80 % line coverage; a Code Officer clears formatting
+and analyzer diagnostics *before* the review so the reviewed code is the merged code; and the review loop
+is one full pass plus at most two delta rounds. Every limit ends in a Lead decision, and only a decision
+the Lead cannot make reaches the human. The stack-specific commands live in
+[`.squad/stack.md`](../.squad/stack.md), the project's guarantees and attack surface in
+[`.squad/project.md`](../.squad/project.md).
+
+The reasoning behind individual choices is kept out of this document and recorded instead as decision
+records in [`docs/decisions/`](decisions/README.md); this document describes how the system works and
+links a record where a guarantee or flow is the result of one.

@@ -39,13 +39,13 @@ Please provide a summary of the tests affected by this work and any unique strat
 
 <!--- Review the list and put an x in the boxes that apply. -->
 
-- [ ] I have added or updated [Unit Tests](../docs/UNIT_TESTS.md) in `PlexToJellyfinSync.Tests` for the change.
+- [ ] I have added or updated [Unit Tests](../docs/UNIT_TESTS.md) for the change.
 - [ ] I have tested my changes.
-- [ ] I have run `reihitsu-format ./`, the build shows zero Reihitsu (`RH####`) warnings and errors, and `.squad/tools/analyzer-check.py` reports no diagnostic in a changed file.
-- [ ] New or changed production code has at least 80 % line coverage, and overall coverage is at least 80 % (`.squad/tools/coverage-check.py`).
+- [ ] I have run *Format* and *Build* from [`.squad/stack.md`](../.squad/stack.md), and the *Analyzer gate* reports no diagnostic in a changed file.
+- [ ] New or changed production code has at least 80 % line coverage, and overall coverage is at least 80 % (*Coverage gate* in `.squad/stack.md`).
 - [ ] I have updated the project documentation ([`README.md`](../README.md), [`ARCHITECTURE.md`](../docs/ARCHITECTURE.md)) to reflect my changes.
 - [ ] I have read the [CONTRIBUTING](../docs/CONTRIBUTING.md) documentation and followed the project's code style guidelines.
-- [ ] New NuGet packages, if any, were added through Central Package Management (`Directory.Packages.props`).
+- [ ] New dependencies, if any, were added the way *Dependencies* in `.squad/stack.md` prescribes.
 
 ## ⏭ Next Steps
 
