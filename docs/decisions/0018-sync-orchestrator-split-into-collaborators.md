@@ -1,6 +1,6 @@
 # 0018: SyncOrchestrator is split into an item writer, a series aggregate writer and a library reconciler
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-03
 - **Source:** Issue #56 (review finding F-407)
 - **Supersedes:** —
