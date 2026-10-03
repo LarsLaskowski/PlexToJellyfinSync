@@ -2,10 +2,10 @@
 
 Project guidance for GitHub Copilot when working in this repository. These rules mirror `CLAUDE.md` and `AGENTS.md`; keep all three in sync —
 everything from the first `##` heading on is identical in all three files. This file is a summary; the
-binding, detailed references are [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) (how the system is put
-together and why), [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) (workflow, PR conventions, versioning),
-[`UNIT_TESTS.md`](docs/UNIT_TESTS.md) (test conventions — **unit tests are mandatory for new code**) and
-[`.squad/stack.md`](.squad/stack.md) (toolchain and commands). Read them before making a non-trivial
+binding, detailed references are [`ARCHITECTURE.md`](/docs/ARCHITECTURE.md) (how the system is put
+together and why), [`CONTRIBUTING.md`](/docs/CONTRIBUTING.md) (workflow, PR conventions, versioning),
+[`UNIT_TESTS.md`](/docs/UNIT_TESTS.md) (test conventions — **unit tests are mandatory for new code**) and
+[`.squad/stack.md`](/.squad/stack.md) (toolchain and commands). Read them before making a non-trivial
 change; when this file and one of them appear to disagree, treat that as a sync bug to fix, not as
 license to pick either one.
 
@@ -15,7 +15,7 @@ license to pick either one.
 A .NET 10 worker with an ASP.NET / Blazor Server host that **cyclically reads the Plex watch state
 and writes it into Jellyfin `.nfo` files**. Polling only (no webhooks), single user (the Plex owner),
 runs as a Docker container, and exposes a web dashboard (status + live logs). See
-[`ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the sync pipeline, dashboard and deployment fit
+[`ARCHITECTURE.md`](/docs/ARCHITECTURE.md) for how the sync pipeline, dashboard and deployment fit
 together.
 <!-- project:end overview -->
 
@@ -31,14 +31,14 @@ together.
   skills open a PR after the Lead's approval (tier `docs`: after a clean review); outside the squad, a PR
   is opened only when the user explicitly asks for one (e.g. by running the `create-pr` skill). Never open
   a PR on your own initiative.
-- Run *Format* from [`.squad/stack.md`](.squad/stack.md) after editing code and before building; CI is
+- Run *Format* from [`.squad/stack.md`](/.squad/stack.md) after editing code and before building; CI is
   not meant to find formatting issues. In the squad skills only the Code Officer runs it.
 - A changed file may not carry **any analyzer diagnostic of any severity**, including info-level ones that
   never show up as build warnings but that the CI code analysis (e.g. SonarQube Cloud) reports. Check with
   the *Analyzer gate* from `.squad/stack.md` and fix every finding before considering the work done (in
   the squad skills, the Code Officer owns this).
 - New or changed production code needs **at least 80 % line coverage**, and overall coverage must stay
-  at least 80 % (*Coverage gate* in `.squad/stack.md`, see [`UNIT_TESTS.md`](docs/UNIT_TESTS.md#code-coverage)).
+  at least 80 % (*Coverage gate* in `.squad/stack.md`, see [`UNIT_TESTS.md`](/docs/UNIT_TESTS.md#code-coverage)).
 <!-- stack:begin golden-rules -->
 - Add new packages via **Central Package Management** (`Directory.Packages.props`); do not put version
   numbers in individual `.csproj` files.
@@ -77,15 +77,17 @@ python3 .squad/tools/coverage-check.py                      # coverage gate, aft
 ```
 <!-- stack:end commands -->
 
-All commands, with what each one checks, are listed in [`.squad/stack.md`](.squad/stack.md).
+All commands, with what each one checks, are listed in [`.squad/stack.md`](/.squad/stack.md).
 
 ## Architecture
 
 <!-- project:begin architecture -->
 - `PlexToJellyfinSync.Core` — interfaces, enums, options, domain/view models
 - `PlexToJellyfinSync.Data` — Plex JSON DTOs
-- `PlexToJellyfinSync.Service` — PlexClient, NfoWriter, PathMapper, WatchAggregator, SyncOrchestrator,
-  StateStore, SyncStatusService, in-memory log store/provider, DI registration
+- `PlexToJellyfinSync.Service` — PlexClient, NfoWriter, PathMapper, WatchAggregator, SyncOrchestrator with
+  its collaborators LibraryReconciler, SeriesAggregateWriter and MediaItemWriter, StateStore,
+  SyncStatusService, in-memory log store/provider with SecretLogRedactor, dashboard login services, DI
+  registration
 - `PlexToJellyfinSync` — Blazor Server host: `Program.cs`, `Worker` (BackgroundService), dashboard
   components (`Dashboard.razor`, `Logs.razor`), optional `TokenAuthMiddleware`
 - `PlexToJellyfinSync.Tests` — MSTest
@@ -94,7 +96,7 @@ All commands, with what each one checks, are listed in [`.squad/stack.md`](.squa
 ## Project configuration
 
 <!-- stack:begin configuration -->
-- **Target framework** as set in `Directory.Build.props` (see `.squad/stack.md`); **nullable reference types**, **implicit usings**, and
+- **Target framework** as set in the project files (see `.squad/stack.md`); **nullable reference types**, **implicit usings**, and
   **documentation XML** generation are all enabled.
 - **Central Package Management** via `Directory.Packages.props`; never put versions in individual
   `.csproj` files.
@@ -105,7 +107,7 @@ All commands, with what each one checks, are listed in [`.squad/stack.md`](.squa
 <!-- project:begin configuration -->
 - **Target framework** `net10.0`; one solution, `PlexToJellyfinSync.slnx`, at the repository root.
 - Configuration keys use the `PLEXSYNC__` environment-variable prefix (see the configuration table in
-  [`README.md`](README.md)).
+  [`README.md`](/README.md)).
 <!-- project:end configuration -->
 
 ## Code style
@@ -133,7 +135,7 @@ library — use real objects or the hand-written fakes/stubs). Classes `{TypeUnd
 `{Class}{Scenario}{ExpectedResult}` in PascalCase **without underscores**; always pass an assert message.
 <!-- stack:end testing -->
 Full conventions, including the project's test doubles and the checklist to run before committing a new
-test, are in [`UNIT_TESTS.md`](docs/UNIT_TESTS.md).
+test, are in [`UNIT_TESTS.md`](/docs/UNIT_TESTS.md).
 
 ## Related skills
 
@@ -141,7 +143,7 @@ Project-specific workflow skills live under `.claude/skills/`, mirrored identica
 `.agents/skills/` (Codex/GPT) and `.github/skills/` (GitHub Copilot):
 
 - `create-pr` — verify (format, build, tests, analyzer and coverage gates), review the change locally,
-  then open a PR following [`.github/pull_request_template.md`](.github/pull_request_template.md).
+  then open a PR following [`.github/pull_request_template.md`](/.github/pull_request_template.md).
 - `squad-issue` — fix a GitHub issue with the squad: the Lead plans and picks a tier
   (`docs` / `trivial` / `standard` / `security`), the Devil's Advocate challenges `standard`/`security`
   plans once, Security reviews security-relevant plans, the Tester writes failing tests first, the Dev
@@ -159,13 +161,13 @@ checklist, the integration-surface sweep, the blocking/non-blocking severity mod
 full review, later rounds review only the delta" rule live in that one file, so they are identical either
 way. An agent without subagent support follows the same file inline.
 
-The squad skills run a multi-role pipeline defined in [`.squad/`](.squad/team.md) — Lead (plan, decisions,
+The squad skills run a multi-role pipeline defined in [`.squad/`](/.squad/team.md) — Lead (plan, decisions,
 PR approval), Devil's Advocate (one plan challenge), Security (plan and diff), Tester (tests first,
 coverage), Dev, Code Officer (format, analyzers) and Reviewer — as subagents under
 `.claude/agents/squad-*.md`, with the loop limits and escalation rules in
-[`.squad/routing.md`](.squad/routing.md). Stack commands live in [`.squad/stack.md`](.squad/stack.md),
+[`.squad/routing.md`](/.squad/routing.md). Stack commands live in [`.squad/stack.md`](/.squad/stack.md),
 the project's guarantees, security areas and integration surface in
-[`.squad/project.md`](.squad/project.md). Their working records (`plan.md`, `log.md`, for features also
+[`.squad/project.md`](/.squad/project.md). Their working records (`plan.md`, `log.md`, for features also
 `spec.md` and `tasks.md`) live under `specs/` on the work branch only; before the PR they are posted as a
 comment on the issue and removed, so `main` keeps no working records. An issue or feature PR never changes
 the squad or these instructions (`.squad/` except `stack.md` and `project.md`, `.claude/`,
@@ -180,7 +182,7 @@ and is only asked when the Lead escalates. Pull requests are merged with *Squash
 PR title and description reach `main`.
 
 The reasoning behind code decisions — why something was built the way it was — is recorded by the Lead
-as one decision record per decision in [`docs/decisions/`](docs/decisions/README.md) (append-only,
+as one decision record per decision in [`docs/decisions/`](/docs/decisions/README.md) (append-only,
 superseded rather than rewritten), not in `ARCHITECTURE.md`. Read the relevant records before changing
 code they cover, and do not contradict an accepted record without superseding it.
 
@@ -196,8 +198,8 @@ Two rules these skills enforce that are easy to get wrong:
 
 ## Pull requests, contributing and architecture
 
-Follow [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) for branch/PR naming (`[area] Description`), the PR
-checklist in [`.github/pull_request_template.md`](.github/pull_request_template.md), and the
-stability policy. Consult [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing the behavior it
-describes — the guarantees listed in [`.squad/project.md`](.squad/project.md) are deliberate, not
+Follow [`CONTRIBUTING.md`](/docs/CONTRIBUTING.md) for branch/PR naming (`[area] Description`), the PR
+checklist in [`.github/pull_request_template.md`](/.github/pull_request_template.md), and the
+stability policy. Consult [`ARCHITECTURE.md`](/docs/ARCHITECTURE.md) before changing the behavior it
+describes — the guarantees listed in [`.squad/project.md`](/.squad/project.md) are deliberate, not
 incidental behavior.

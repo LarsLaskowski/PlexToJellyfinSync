@@ -1,6 +1,6 @@
 # 0014: Squad working records stay off main, and product PRs never change the squad
 
-- **Status:** Accepted
+- **Status:** Superseded by [0019](0019-squad-maintained-in-the-template-repository.md)
 - **Date:** 2026-10-02
 - **Source:** Review of the squad run for issue #188 (PR #190)
 - **Supersedes:** —

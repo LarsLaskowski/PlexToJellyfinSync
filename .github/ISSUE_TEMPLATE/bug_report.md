@@ -32,7 +32,9 @@ A clear and concise description of what you expected to happen.
 <!-- project:end environment -->
 
 **Logs**
-Paste the relevant log excerpt (redact tokens, passwords and other secrets).
+<!-- project:begin logs -->
+Paste the relevant excerpt from the container logs or the dashboard "Logs" page (redact your Plex token).
+<!-- project:end logs -->
 
 ```
 paste logs here

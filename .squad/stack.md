@@ -10,8 +10,9 @@ profile and owned by this repository: keep it true when the build changes.
 - Formatter: `reihitsu-format` (`dotnet tool install -g Reihitsu.Cli`), on the same release line as the
   **Reihitsu.Analyzer** version pinned in `Directory.Packages.props`; otherwise the formatter can revert
   code the analyzer considers correct.
-- Analyzers in every project via `Directory.Build.props`: **Reihitsu.Analyzer**, **SonarAnalyzer.CSharp**
-  (the Sonar C# rules locally, so SonarQube issues surface before the push) and the MSTest analyzers.
+- Analyzers in every project via `Directory.Build.props`: **Reihitsu.Analyzer** and **SonarAnalyzer.CSharp**
+  (the Sonar C# rules locally, so SonarQube issues surface before the push); no StyleCop.Analyzers. The
+  MSTest analyzers come with the `MSTest` package in the test project.
 - The SessionStart hook `.claude/hooks/session-start.sh` installs the formatter, sets `DOTNET_ROOT` and
   restores the solution in remote sessions.
 
