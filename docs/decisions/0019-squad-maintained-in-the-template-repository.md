@@ -1,4 +1,4 @@
-# 0019: Squad working records stay off main, and product PRs never change the squad
+# 0019: Product PRs never change the squad; squad lessons go to the template repository
 
 - **Status:** Accepted
 - **Date:** 2026-10-03
