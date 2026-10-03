@@ -174,7 +174,12 @@ public sealed class MediaItemWriterTests
 
         var writer = CreateWriter();
 
-        await writer.WriteAggregateAsync(new MediaItem { Kind = MediaKind.Series }, "/local/Show", _testContext.CancellationToken);
+        await writer.WriteAggregateAsync(new MediaItem
+                                         {
+                                             Kind = MediaKind.Series
+                                         },
+                                         "/local/Show",
+                                         _testContext.CancellationToken);
 
         var snapshot = _status.GetSnapshot();
 
@@ -232,15 +237,6 @@ public sealed class MediaItemWriterTests
     }
 
     /// <summary>
-    /// Create the writer under test wired to the current test doubles
-    /// </summary>
-    /// <returns>The writer under test</returns>
-    private MediaItemWriter CreateWriter()
-    {
-        return new MediaItemWriter(_nfoWriter, _pathMapper, _status, NullLogger<MediaItemWriter>.Instance);
-    }
-
-    /// <summary>
     /// Create a movie
     /// </summary>
     /// <param name="filePath">Plex file path</param>
@@ -254,6 +250,15 @@ public sealed class MediaItemWriterTests
                    Title = "Heat",
                    FilePath = filePath
                };
+    }
+
+    /// <summary>
+    /// Create the writer under test wired to the current test doubles
+    /// </summary>
+    /// <returns>The writer under test</returns>
+    private MediaItemWriter CreateWriter()
+    {
+        return new MediaItemWriter(_nfoWriter, _pathMapper, _status, NullLogger<MediaItemWriter>.Instance);
     }
 
     #endregion // Methods

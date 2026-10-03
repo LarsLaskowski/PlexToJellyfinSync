@@ -64,12 +64,16 @@ public sealed class SeriesAggregateWriterTests
     [TestMethod]
     public async Task SeriesAggregateWriterPartiallyWatchedWritesUnwatchedSeasonAndSeries()
     {
-        _plexClient.Items["s1"] = new MediaItem { RatingKey = "s1", Kind = MediaKind.Series, Title = "Breaking Bad" };
-        _plexClient.Episodes["s1"] =
-        [
-            CreateEpisode("e1", 1, _seasonOneDirectory, watched: true),
-            CreateEpisode("e2", 1, _seasonOneDirectory, watched: false)
-        ];
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
+        _plexClient.Episodes["s1"] = [
+                                         CreateEpisode("e1", 1, _seasonOneDirectory, watched: true),
+                                         CreateEpisode("e2", 1, _seasonOneDirectory, watched: false)
+                                     ];
 
         var writer = CreateWriter();
 
@@ -96,12 +100,16 @@ public sealed class SeriesAggregateWriterTests
     [TestMethod]
     public async Task SeriesAggregateWriterAllWatchedWritesWatchedSeasonAndSeries()
     {
-        _plexClient.Items["s1"] = new MediaItem { RatingKey = "s1", Kind = MediaKind.Series, Title = "Breaking Bad" };
-        _plexClient.Episodes["s1"] =
-        [
-            CreateEpisode("e1", 1, _seasonOneDirectory, watched: true, lastPlayed: _firstPlayed),
-            CreateEpisode("e2", 1, _seasonOneDirectory, watched: true, lastPlayed: _lastPlayed)
-        ];
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
+        _plexClient.Episodes["s1"] = [
+                                         CreateEpisode("e1", 1, _seasonOneDirectory, watched: true, lastPlayed: _firstPlayed),
+                                         CreateEpisode("e2", 1, _seasonOneDirectory, watched: true, lastPlayed: _lastPlayed)
+                                     ];
 
         var writer = CreateWriter();
 
@@ -123,12 +131,16 @@ public sealed class SeriesAggregateWriterTests
     [TestMethod]
     public async Task SeriesAggregateWriterTwoSeasonsWritesOneItemPerSeasonDirectory()
     {
-        _plexClient.Items["s1"] = new MediaItem { RatingKey = "s1", Kind = MediaKind.Series, Title = "Breaking Bad" };
-        _plexClient.Episodes["s1"] =
-        [
-            CreateEpisode("e1", 1, _seasonOneDirectory, watched: true),
-            CreateEpisode("e2", 2, _seasonTwoDirectory, watched: false)
-        ];
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
+        _plexClient.Episodes["s1"] = [
+                                         CreateEpisode("e1", 1, _seasonOneDirectory, watched: true),
+                                         CreateEpisode("e2", 2, _seasonTwoDirectory, watched: false)
+                                     ];
 
         var writer = CreateWriter();
 
@@ -149,7 +161,12 @@ public sealed class SeriesAggregateWriterTests
     [TestMethod]
     public async Task SeriesAggregateWriterEpisodesWithoutSeasonNumberWriteGenericSeasonTitle()
     {
-        _plexClient.Items["s1"] = new MediaItem { RatingKey = "s1", Kind = MediaKind.Series, Title = "Breaking Bad" };
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
         _plexClient.Episodes["s1"] = [CreateEpisode("e1", null, _seasonOneDirectory, watched: true)];
 
         var writer = CreateWriter();
@@ -169,7 +186,12 @@ public sealed class SeriesAggregateWriterTests
     [TestMethod]
     public async Task SeriesAggregateWriterUnmappedEpisodesAreLeftOut()
     {
-        _plexClient.Items["s1"] = new MediaItem { RatingKey = "s1", Kind = MediaKind.Series, Title = "Breaking Bad" };
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
 
         var noPath = CreateEpisode("e1", 1, _seasonOneDirectory, watched: false);
         var unmapped = CreateEpisode("e2", 1, _seasonOneDirectory, watched: false);
@@ -254,7 +276,12 @@ public sealed class SeriesAggregateWriterTests
     [TestMethod]
     public async Task SeriesAggregateWriterPathWithoutDirectoryWritesNothing()
     {
-        _plexClient.Items["s1"] = new MediaItem { RatingKey = "s1", Kind = MediaKind.Series, Title = "Breaking Bad" };
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
 
         var episode = CreateEpisode("e1", 1, _seasonOneDirectory, watched: true);
 
@@ -292,7 +319,12 @@ public sealed class SeriesAggregateWriterTests
     [TestMethod]
     public async Task SeriesAggregateWriterNfoFailurePropagates()
     {
-        _plexClient.Items["s1"] = new MediaItem { RatingKey = "s1", Kind = MediaKind.Series, Title = "Breaking Bad" };
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
         _plexClient.Episodes["s1"] = [CreateEpisode("e1", 1, _seasonOneDirectory, watched: true)];
         _nfoWriter.FailuresByRatingKey["s1"] = new IOException("disk full");
 
@@ -302,17 +334,6 @@ public sealed class SeriesAggregateWriterTests
                                               "A failing NFO write should propagate to the caller!");
 
         Assert.AreEqual(0L, _status.GetSnapshot().Errors, "The writer should leave the error handling to its caller!");
-    }
-
-    /// <summary>
-    /// Create the writer under test wired to the current test doubles and a real item writer
-    /// </summary>
-    /// <returns>The writer under test</returns>
-    private SeriesAggregateWriter CreateWriter()
-    {
-        var itemWriter = new MediaItemWriter(_nfoWriter, _pathMapper, _status, NullLogger<MediaItemWriter>.Instance);
-
-        return new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter, new WatchAggregator());
     }
 
     /// <summary>
@@ -342,6 +363,17 @@ public sealed class SeriesAggregateWriterTests
                                LastPlayed = watched ? lastPlayed ?? _firstPlayed : null
                            }
                };
+    }
+
+    /// <summary>
+    /// Create the writer under test wired to the current test doubles and a real item writer
+    /// </summary>
+    /// <returns>The writer under test</returns>
+    private SeriesAggregateWriter CreateWriter()
+    {
+        var itemWriter = new MediaItemWriter(_nfoWriter, _pathMapper, _status, NullLogger<MediaItemWriter>.Instance);
+
+        return new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter, new WatchAggregator());
     }
 
     #endregion // Methods

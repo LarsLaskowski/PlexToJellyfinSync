@@ -82,7 +82,10 @@ public sealed class LibraryReconcilerTests
         AddShow("s2", "f", 2);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"], _plexClient.Items["s2"]];
 
-        var reconciler = CreateReconciler(new SyncOptions { WriteSeriesSeasonAggregates = true });
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
@@ -102,7 +105,10 @@ public sealed class LibraryReconcilerTests
         AddShow("s1", "e", 2);
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
 
-        var reconciler = CreateReconciler(new SyncOptions { WriteSeriesSeasonAggregates = false });
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = false
+                                          });
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
@@ -181,7 +187,10 @@ public sealed class LibraryReconcilerTests
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
         _nfoWriter.FailuresByRatingKey["e2"] = new IOException("disk full");
 
-        var reconciler = CreateReconciler(new SyncOptions { WriteSeriesSeasonAggregates = false });
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = false
+                                          });
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
@@ -205,7 +214,10 @@ public sealed class LibraryReconcilerTests
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"], _plexClient.Items["s2"]];
         _plexClient.EpisodesExceptions["s1"] = new HttpRequestException("plex down");
 
-        var reconciler = CreateReconciler(new SyncOptions { WriteSeriesSeasonAggregates = false });
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = false
+                                          });
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
@@ -230,7 +242,11 @@ public sealed class LibraryReconcilerTests
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
         _nfoWriter.ConcurrencyGate = 2;
 
-        var reconciler = CreateReconciler(new SyncOptions { EpisodeReconcileParallelism = 2, WriteSeriesSeasonAggregates = false });
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              EpisodeReconcileParallelism = 2,
+                                              WriteSeriesSeasonAggregates = false
+                                          });
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
@@ -252,7 +268,11 @@ public sealed class LibraryReconcilerTests
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
         _nfoWriter.ConcurrencyGate = 2;
 
-        var reconciler = CreateReconciler(new SyncOptions { EpisodeReconcileParallelism = parallelism, WriteSeriesSeasonAggregates = false });
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              EpisodeReconcileParallelism = parallelism,
+                                              WriteSeriesSeasonAggregates = false
+                                          });
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
@@ -283,12 +303,21 @@ public sealed class LibraryReconcilerTests
                          });
         }
 
-        _plexClient.Items["s1"] = new MediaItem { RatingKey = "s1", Kind = MediaKind.Series, Title = "Breaking Bad" };
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
         _plexClient.Episodes["s1"] = episodes;
         _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
         _nfoWriter.ConcurrencyGate = 2;
 
-        var reconciler = CreateReconciler(new SyncOptions { EpisodeReconcileParallelism = 4, WriteSeriesSeasonAggregates = false });
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              EpisodeReconcileParallelism = 4,
+                                              WriteSeriesSeasonAggregates = false
+                                          });
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
@@ -309,7 +338,11 @@ public sealed class LibraryReconcilerTests
         _nfoWriter.ConcurrencyGateTimeout = TimeSpan.FromSeconds(5);
         _nfoWriter.NotifyAtConcurrency = 2;
 
-        var reconciler = CreateReconciler(new SyncOptions { EpisodeReconcileParallelism = 2, WriteSeriesSeasonAggregates = false });
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              EpisodeReconcileParallelism = 2,
+                                              WriteSeriesSeasonAggregates = false
+                                          });
 
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_testContext.CancellationToken);
 
@@ -344,6 +377,22 @@ public sealed class LibraryReconcilerTests
     }
 
     /// <summary>
+    /// Create a library
+    /// </summary>
+    /// <param name="key">Section key</param>
+    /// <param name="kind">Library kind</param>
+    /// <returns>The library</returns>
+    private static PlexLibrary CreateLibrary(string key, MediaKind kind)
+    {
+        return new PlexLibrary
+               {
+                   Key = key,
+                   Title = "Library " + key,
+                   Kind = kind
+               };
+    }
+
+    /// <summary>
     /// Create the reconciler under test wired to the current test doubles and real collaborators
     /// </summary>
     /// <param name="syncOptions">Sync options, or <c>null</c> for the defaults</param>
@@ -359,22 +408,6 @@ public sealed class LibraryReconcilerTests
                                      _status,
                                      Options.Create(syncOptions ?? new SyncOptions()),
                                      NullLogger<LibraryReconciler>.Instance);
-    }
-
-    /// <summary>
-    /// Create a library
-    /// </summary>
-    /// <param name="key">Section key</param>
-    /// <param name="kind">Library kind</param>
-    /// <returns>The library</returns>
-    private static PlexLibrary CreateLibrary(string key, MediaKind kind)
-    {
-        return new PlexLibrary
-               {
-                   Key = key,
-                   Title = "Library " + key,
-                   Kind = kind
-               };
     }
 
     /// <summary>
