@@ -102,6 +102,16 @@ internal sealed class FakePlexClient : IPlexClient
     /// </summary>
     public List<string> LibraryItemRequests { get; } = [];
 
+    /// <summary>
+    /// Rating keys for which a single media item has been requested
+    /// </summary>
+    public List<string> MediaItemRequests { get; } = [];
+
+    /// <summary>
+    /// Exceptions thrown when the episodes of a given series are requested, keyed by the rating key of the series
+    /// </summary>
+    public Dictionary<string, Exception> EpisodesExceptions { get; } = new(StringComparer.Ordinal);
+
     #endregion // Properties
 
     #region IPlexClient
@@ -165,6 +175,11 @@ internal sealed class FakePlexClient : IPlexClient
     /// <returns>The configured media item, or <c>null</c></returns>
     public Task<MediaItem?> GetMediaItemAsync(string ratingKey, CancellationToken cancellationToken)
     {
+        lock (_lock)
+        {
+            MediaItemRequests.Add(ratingKey);
+        }
+
         Items.TryGetValue(ratingKey, out var item);
 
         return Task.FromResult(item);
@@ -183,6 +198,11 @@ internal sealed class FakePlexClient : IPlexClient
         lock (_lock)
         {
             EpisodeRequests.Add(showRatingKey);
+        }
+
+        if (EpisodesExceptions.TryGetValue(showRatingKey, out var exception))
+        {
+            throw exception;
         }
 
         if (Episodes.TryGetValue(showRatingKey, out var episodes))
