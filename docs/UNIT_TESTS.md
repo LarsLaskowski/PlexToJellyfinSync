@@ -280,6 +280,7 @@ This produces a `coverage.opencover.xml` file, which CI feeds into SonarQube Clo
 — the same measure as SonarQube's "coverage on new code". Check it locally before a push:
 
 ```shell
+rm -rf TestResults
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
 python3 .squad/tools/coverage-check.py
 ```

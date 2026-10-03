@@ -123,16 +123,19 @@ members (English, no `<remarks>`); `.ConfigureAwait(false)` in library/service c
 <!-- project:begin code-style -->
 - CRLF line endings and no trailing newline (`.editorconfig`); 4-space indent.
 - Test classes `{Feature}Tests`, methods `{Class}{Scenario}{ExpectedResult}` (e.g.
-  `WatchAggregatorAllWatchedReturnsWatched`, not `WatchAggregator_AllWatched_ReturnsWatched`); the hand-written
-  fakes/stubs live in `tests/PlexToJellyfinSync.Tests` (`.squad/project.md`, *Test doubles*).
+  `WatchAggregatorAllWatchedReturnsWatched`, not `WatchAggregator_AllWatched_ReturnsWatched`); **no mocking
+  library** — the hand-written fakes/stubs live in `tests/PlexToJellyfinSync.Tests` (`.squad/project.md`,
+  *Test doubles*).
 <!-- project:end code-style -->
 
 ## Testing
 
 <!-- stack:begin testing -->
-**Unit tests are mandatory for newly written code.** MSTest only (no FluentAssertions, no mocking
-library — use real objects or the hand-written fakes/stubs). Classes `{TypeUnderTest}Tests`, methods
-`{Class}{Scenario}{ExpectedResult}` in PascalCase **without underscores**; always pass an assert message.
+**Unit tests are mandatory for newly written code.** MSTest with its own `Assert` / `CollectionAssert` (no
+FluentAssertions); test doubles as `.squad/project.md` (*Test doubles*) and `docs/UNIT_TESTS.md` prescribe —
+real objects and hand-written fakes/stubs unless the project names a mocking library. Classes
+`{TypeUnderTest}Tests`, methods `{Class}{Scenario}{ExpectedResult}` in PascalCase **without underscores**;
+always pass an assert message.
 <!-- stack:end testing -->
 Full conventions, including the project's test doubles and the checklist to run before committing a new
 test, are in [`UNIT_TESTS.md`](/docs/UNIT_TESTS.md).
