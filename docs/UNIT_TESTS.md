@@ -273,13 +273,16 @@ Run the full suite with coverage collection:
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build --logger trx --collect:"XPlat Code Coverage"
 ```
 
-This produces a `coverage.opencover.xml` file, which CI feeds into SonarQube Cloud analysis (see
-`.github/workflows/ci.yml`).
+This writes a `coverage.cobertura.xml` report. CI runs the same command with
+`-- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover`, so it produces
+the `coverage.opencover.xml` it feeds into SonarQube Cloud (see `.github/workflows/ci.yml`). For the local
+coverage gate, use the commands below.
 
 **Threshold: at least 80 % line coverage on new or changed production code, and at least 80 % overall**
 — the same measure as SonarQube's "coverage on new code". Check it locally before a push:
 
 ```shell
+rm -rf TestResults
 dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
 python3 .squad/tools/coverage-check.py
 ```

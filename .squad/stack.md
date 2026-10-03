@@ -34,7 +34,7 @@ profile and owned by this repository: keep it true when the build changes.
 | *Build* | `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` |
 | *Test* | `dotnet test PlexToJellyfinSync.slnx -c Release --no-build` |
 | *Single test* | `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj --filter "FullyQualifiedName~ClassName.MethodName"` |
-| *Test with coverage* | `dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults` |
+| *Test with coverage* | `rm -rf TestResults && dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults` (clears earlier runs: the coverage gate merges every report it finds) |
 | *Coverage gate* | `python3 .squad/tools/coverage-check.py` |
 | *Analyzer gate* | `python3 .squad/tools/analyzer-check.py` |
 
