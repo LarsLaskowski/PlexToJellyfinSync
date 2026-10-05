@@ -38,7 +38,7 @@ action yourself — including follow-up issues the Lead decides on.
   untracked files, and after every further completed step. PRs are merged with *Squash and merge*, so only
   the PR title and description reach `main`; intermediate commit messages may name the step, but never
   contain secrets. Interim work-in-progress commits — e.g. demanded by a stop hook while a member is still
-  working — are fine for the same reason. Stage with plain `git add -A`: ignored paths such as `TestResults/`
+  working — are fine for the same reason; the commit that closes the round gets a final subject. Stage with plain `git add -A`: ignored paths such as `TestResults/`
   are skipped anyway, and an exclusion pathspec for an ignored path makes `git add` fail and stage
   nothing. Never commit to `main`.
 - **GitHub access:** use the GitHub MCP tools (`mcp__github__*`) for issues, comments, labels and pull
@@ -83,8 +83,11 @@ action yourself — including follow-up issues the Lead decides on.
    `NO OBJECTIONS`) and the Lead's answer in `log.md`.
 3. **Plan security review** (`security` tier only). Launch `squad-security` in mode `plan`. On
    `CHANGES_REQUIRED`, launch `squad-lead` in mode `revise` and repeat. After the **2nd** rejection launch
-   `squad-lead` in mode `decide` (scope down, split into issues, abort, or escalate).
-4. **Skeleton** (only if the plan adds or changes API). Launch `squad-dev` in mode `skeleton`: the planned
+   `squad-lead` in mode `decide` (scope down, split into issues, abort, escalate, or — for a pure wording defect — accept and fix it followed by exactly one `squad-security` delta confirmation).
+4. **Skeleton** (only if the plan adds or changes API; not applicable when the plan declares the change free of
+   production and test code — see *Changes without production or test code* in `.squad/routing.md`, which also
+   skips step 5 and the *Coverage gate* in step 6 and requires the plan's *Verification without tests* section;
+   log the skipped steps and run the verification named there instead). Launch `squad-dev` in mode `skeleton`: the planned
    signatures built as *Skeleton* in `.squad/stack.md` describes (bodies fail when called), plus the existing
    test call sites the plan assigns to the Dev for an incompatible signature change, so the tests of step 5
    compile.
@@ -92,17 +95,21 @@ action yourself — including follow-up issues the Lead decides on.
    that the new tests compile and fail on the current code (unless the Tester justified why one cannot).
    A fix without a reproducing test is only acceptable when the bug genuinely needs a live external
    system — then the PR says so.
-6. **Implement and cover.** Launch `squad-dev` in mode `implement` with the plan and the test names; it
-   also makes the documentation updates the plan lists. If the Dev disputes a test, launch `squad-lead`
-   in mode `decide`; the Tester changes a test only if the Lead says so. Then launch `squad-tester` in
-   mode `coverage`; repeat Dev/Tester until the *Coverage gate* (after *Test with coverage*, both in
-   `.squad/stack.md`) passes (≥ 80 % on new/changed production code and overall). Lines reported as not unit-testable go to
+6. **Implement and cover.** For a change without production or test code this is the Dev's edits alone: no
+   `squad-tester`, no *Test with coverage*, no *Coverage gate*. Launch `squad-dev` in mode `implement` with the plan and the test names; it
+   also makes the documentation updates the plan lists and may adapt a test call site that no longer
+   compiles only because of a signature or field change it made itself (`.squad/routing.md`, *Loop limits*). If the Dev disputes a test, launch `squad-lead`
+   in mode `decide`; the Tester changes a test only if the Lead says so. Then run *Test with coverage* and
+   the *Coverage gate* yourself (both in `.squad/stack.md`). Launch `squad-tester` in mode `coverage` only
+   when the gate fails or the Dev reports uncovered new lines; if the gate already passes and the only
+   uncovered lines are accepted gaps, skip the pass and log why in `log.md`. Repeat Dev/Tester until the gate passes (≥ 80 % on new/changed production code and overall). Lines reported as not unit-testable go to
    `squad-lead` in mode `decide`; an accepted gap is recorded in `log.md`.
 7. **Code check.** Launch `squad-code-officer` with the base ref — the only member that runs
    the formatter and clears analyzer diagnostics. Then verify yourself, without formatting, with the
    commands from `.squad/stack.md`: *Format check* exits 0, the *Analyzer gate* passes (no diagnostic of
    any severity in a changed file), *Test* is green with the same tests, and the *Coverage gate* still
-   passes. Structural items handed back go to `squad-dev` (or
+   passes (not run for a change without production or test code). Record status and index are the Lead's in step 9: treat any status claim in the
+   Code Officer's report as unverified until you have read the file. Structural items handed back go to `squad-dev` (or
    `squad-tester`), followed by another code check. This is the gate before the PR; CI is not meant to find anything here.
 8. **Review.** Launch `squad-reviewer` (round 1, full) and — for `standard` and `security` —
    `squad-security` in mode `diff`, in parallel, against the base ref. Pass both the work folder
@@ -125,7 +132,10 @@ action yourself — including follow-up issues the Lead decides on.
    in `docs/decisions/README.md`.
 10. **Pull request** (Dev role, performed by you). First move the working record off the branch: post
     `plan.md` (none for tier `docs`) and `log.md` as one comment on the issue (each inside a collapsed `<details>` block, headed
-    "Squad working record"), then `git rm -r specs/issue-<number>/`, commit ("Remove squad working
+    "Squad working record"). When `plan.md` is so long that re-typing it through a tool call is impractical,
+    post a permalink to the last commit that contains it (`https://github.com/<owner>/<repo>/blob/<sha>/specs/issue-<number>/plan.md`)
+    plus a summary of the tier, acceptance criteria, decisions and challenge outcome instead; that commit
+    stays reachable through the PR's history. Then `git rm -r specs/issue-<number>/`, commit ("Remove squad working
     record"), and push. Later log rows (steps 11–12) are appended by editing that comment. Then open the
     PR from
     [`.github/pull_request_template.md`](../../../.github/pull_request_template.md): title per
@@ -149,13 +159,16 @@ action yourself — including follow-up issues the Lead decides on.
     `docs`: the first log row; features:
     also `spec.md` and `tasks.md`) from the "Squad working record" comment, or via
     `git show <commit-before-removal>:specs/<folder>/<file>`, and record each log row by editing that
-    comment. Never skip, disable or weaken a test to get green.
+    comment. Edit a restored working record in one batch: interim commits that a stop hook demands while it
+    is half edited each re-trigger the code analysis on the open PR. Never skip, disable or weaken a test to
+    get green.
 12. **Wrap-up (mandatory).** Collect what this run taught about the squad itself (a rule that was
     unclear or contradictory, a tool that misbehaved, an agent that could not be launched, a step that
     had to be improvised), each with the role it concerns and a concrete proposal, and file them as
     `.squad/routing.md`, *Squad lessons*, says: lessons about template-managed files as **one** issue
-    labelled `squad` in the template repository named in `.squad/template.json` (attach that repository to the session if
-    needed; without access, file it here with the label `squad-upstream`), lessons about project knowledge
+    labelled `squad` in the template repository named in `.squad/template.json` (a general lesson belongs there, never in this
+    repository: attach that repository to the session first if needed, with the access to create the issue;
+    only if attaching is refused, file it here with the label `squad-upstream`), lessons about project knowledge
     as **one** issue labelled `squad` in this repository (create the labels if missing). Link the issues
     from the working record comment. Do **not** edit `.squad/`, `.claude/` or the instruction files.
     Report the branch, the PR URL, the tier, the `squad` issues (or "no lessons") and any escalation or
