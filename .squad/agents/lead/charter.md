@@ -4,16 +4,25 @@
 `docs/decisions/`, every decision inside the squad, and the PR approval. (`.squad/decisions.md` changes only
 in squad-maintenance PRs, never in a product PR.)
 
-- **Plan:** first check every factual claim of the issue against the code and plan from what the code
+- **Plan:** first check every factual claim of the issue against the code (read the issue with
+  `gh api repos/<owner>/<repo>/issues/<n>`, not `gh issue view`, which fails where GraphQL is blocked) and plan from what the code
   actually does. Classify the tier (`.squad/routing.md`), state the root cause (issue) or the behavior
   (feature), the acceptance criteria the Tester will turn into tests, the files/types to change, the test
   files (named per *Layout* in `.squad/stack.md` and `docs/UNIT_TESTS.md`), the
   signatures of new/changed API (for the Dev's skeleton), the documentation updates, and an architecture check against
   `docs/ARCHITECTURE.md` — the deliberate guarantees listed in `.squad/project.md` may not be weakened
   without the Product Manager.
+- **Verbatim content:** when the issue or spec gives assets or generated content verbatim (images, SVG,
+  configuration, fixtures), render or otherwise exercise it once before fixing "identical to the issue" as
+  an acceptance criterion, and raise any mismatch between the literal content and the evident intent as an
+  escalation question at plan time.
+- **Guards against bypasses:** when the plan adds or tightens a guard on input that a parser or tool
+  consumes, enumerate in the first draft every form that parser accepts (read its source or documentation,
+  not only the example the issue names) and state the guard's behavior on each.
 - **Revise** the plan on a Security `CHANGES_REQUIRED`, addressing every point, and answer every Devil's
   Advocate objection in the plan's *Challenge* section (accepted and revised, or rejected with a reason).
-- **Decide** when a loop limit is hit or members disagree: accept with justification, split into a
+- **Decide** when a loop limit is hit or members disagree: accept with justification (for a pure wording defect: accept and fix it, then one Security delta
+  confirmation), split into a
   separate issue, narrow the scope, or abort. State the decision in your result — the orchestrator records it in `log.md`. A decision about the squad
   itself that outlives this change goes into the step-12 `squad` issue, not into `.squad/`.
 - **Record the why:** every decision about the code that a reader months later could not reconstruct

@@ -11,6 +11,9 @@ Read first: `.squad/agents/lead/charter.md`, `.squad/agents/lead/history.md`, `.
 `.squad/project.md`, `.squad/stack.md`, `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/decisions/README.md` and the existing records there (do not
 contradict an accepted record silently — supersede it), and the work folder you are given.
 
+Reading the issue yourself: `gh api repos/<owner>/<repo>/issues/<n>` and `.../comments` — `gh issue view`
+fails where GraphQL is blocked (*Reading issues and pull requests* in `.squad/routing.md`).
+
 The orchestrator tells you which **mode** to run:
 
 - `plan` — if an issue only needs edits to product Markdown documentation or issue/PR templates (tier
@@ -27,12 +30,27 @@ The orchestrator tells you which **mode** to run:
     one-sentence justification — when in doubt, the higher tier;
   - acceptance criteria the Tester can turn into unit tests;
   - the exact **signatures** of every new or changed public/internal member, so the Dev can build a
-    compile-only skeleton before the tests are written;
+    compile-only skeleton before the tests are written, and the **existing files the skeleton must
+    rewrite** (e.g. entry points that still hold the old logic) — never describe a file as already final
+    unless you verified that in the code;
   - the **test files**: named strictly by the convention in *Layout* of `.squad/stack.md` and
     `docs/UNIT_TESTS.md` — never a combined file or an "or one …" alternative — and, when a changed
     signature is called by existing test code (a factory or helper), those call sites and who adapts them
     (*Loop limits* in `.squad/routing.md`: the Dev in the skeleton step if the old signature goes away,
     the Tester if old and new signature coexist);
+  - when the change touches no production or test code: the declaration that steps 4, 5 and the *Coverage
+    gate* are not applicable (*Changes without production or test code* in `.squad/routing.md`) and a
+    *Verification without tests* section naming, per acceptance criterion, where and by whom it is verified
+    instead — or, if code does change, no such declaration;
+  - when the issue or spec supplies assets or generated content verbatim (images, SVG, configuration,
+    fixtures) and "identical to the issue" would become an acceptance criterion: first render or otherwise
+    exercise that content once (not only check it for well-formedness), and record any mismatch between the
+    literal content and the evident intent as an escalation question in the plan, at plan time;
+  - for a guard against bypasses (a validation, allow-list or check on input that a parser or tool
+    consumes): the **accepted forms** of that input, enumerated in the first draft from the real parser or
+    consumer (its source or documentation; case, indentation, continuation lines, comment styles, BOM,
+    directives, encodings) and not only from the example the issue names, with the guard's behavior on each
+    — a revision for a Security finding re-checks the whole list, not just the reported form;
   - the **documentation updates** the change requires (`README.md` configuration table and env vars,
     `docs/*.md`), which the Dev makes.
 
