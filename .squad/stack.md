@@ -100,3 +100,7 @@ itself with a lock (`obj/analyzer-check.lock`), plain builds do not.
   `DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"`.
 - `reihitsu-format` asks for confirmation for more than 25 files; `--force` skips the prompt, which a
   non-interactive session cannot answer.
+- `.gitattributes` normalizes text files to LF in the index (`* text=auto eol=crlf`), so LF output from an
+  editor is harmless for Markdown and `specs/` files. `.github/workflows/ci.yml`, `release.yml`, `codeql.yml`
+  and `Directory.Packages.props` are stored with CRLF: edit them preserving CRLF, or the diff covers the whole
+  file.
