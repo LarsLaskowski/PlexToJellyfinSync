@@ -1,5 +1,8 @@
 {
   "repository": "LarsLaskowski/Squad-Spec-Repository-Template",
-  "commit": "787149d9202eefbef8d44e4cc60ebbb9266ea0c7",
-  "profile": "dotnet"
+  "commit": "d5be132bf190d6c109d01a1738a9d01a207022e1",
+  "profile": "dotnet",
+  "profiles": [
+    "dotnet"
+  ]
 }

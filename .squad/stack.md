@@ -54,6 +54,9 @@ SonarQube Cloud's own quality profile can still report `S####` rules the local d
 and its non-Roslyn checks (duplication, hotspots, taint analysis) only run in CI — such findings arrive in
 squad step 11.
 
+Changed shell scripts (`*.sh`) are checked with `shellcheck` when it is installed; the script says so when it
+skips them. Without it, SonarQube Cloud's shell rules (`shelldre:*`) only report in squad step 11.
+
 ## Writing code
 
 - File-scoped namespaces; one top-level type per file; `using` outside the namespace (System first).
@@ -97,3 +100,7 @@ itself with a lock (`obj/analyzer-check.lock`), plain builds do not.
   `DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"`.
 - `reihitsu-format` asks for confirmation for more than 25 files; `--force` skips the prompt, which a
   non-interactive session cannot answer.
+- `.gitattributes` normalizes text files to LF in the index (`* text=auto eol=crlf`), so LF output from an
+  editor is harmless for Markdown and `specs/` files. `.github/workflows/ci.yml`, `release.yml`, `codeql.yml`
+  and `Directory.Packages.props` are stored with CRLF: edit them preserving CRLF, or the diff covers the whole
+  file.

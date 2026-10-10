@@ -137,7 +137,7 @@ Test class names follow `{TypeUnderTest}Tests` (for example `WatchAggregatorTest
 
 Follow Arrange, Act, Assert without labeling the sections with comments — a blank line before the
 act and before the assert block is enough to separate them, consistent with the blank-line rules
-in [`CLAUDE.md`](../CLAUDE.md) / [`.github/copilot-instructions.md`](../.github/copilot-instructions.md).
+in [`CLAUDE.md`](../CLAUDE.md).
 
 ```csharp
 [TestMethod]
@@ -246,8 +246,7 @@ style) using `new ConfigurationBuilder().AddInMemoryCollection(values).Build()` 
 
 ## XML documentation on tests
 
-Per [`CLAUDE.md`](../CLAUDE.md) / [`.github/copilot-instructions.md`](../.github/copilot-instructions.md),
-XML documentation is required on all members, including test classes and test methods. Document
+Per [`CLAUDE.md`](../CLAUDE.md), XML documentation is required on all members, including test classes and test methods. Document
 what the test verifies, not what MSTest attribute it carries:
 
 ```csharp
@@ -279,7 +278,10 @@ the `coverage.opencover.xml` it feeds into SonarQube Cloud (see `.github/workflo
 coverage gate, use the commands below.
 
 **Threshold: at least 80 % line coverage on new or changed production code, and at least 80 % overall**
-— the same measure as SonarQube's "coverage on new code". Check it locally before a push:
+— the same measure as SonarQube's "coverage on new code". Both values are set in
+`.squad/tools/squad_settings.py` (`COVERAGE_THRESHOLD`, `COVERAGE_OVERALL_THRESHOLD`); the overall one may
+start lower in a repository adopted with a coverage debt and is only ever raised. Check it locally before a
+push:
 
 ```shell
 rm -rf TestResults
@@ -311,6 +313,5 @@ accepted.
 - [ ] Timing-sensitive logic driven through an injected `TimeProvider`, not `Thread.Sleep` or the
       real clock.
 - [ ] Shared setup factored into a private/static helper method, not a constructor.
-- [ ] `#region` layout and XML docs follow [`CLAUDE.md`](../CLAUDE.md) /
-      [`.github/copilot-instructions.md`](../.github/copilot-instructions.md).
+- [ ] `#region` layout and XML docs follow [`CLAUDE.md`](../CLAUDE.md).
 - [ ] `reihitsu-format ./` run before committing.
