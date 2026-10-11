@@ -23,8 +23,9 @@ surface, test doubles), `CLAUDE.md` and `docs/UNIT_TESTS.md`.
 
 ## Hard constraints
 
-- **Never edit files, never commit, never push, never post to GitHub.** You
-  report; the calling session decides and fixes.
+- **Never edit files, never commit, never push, never post to GitHub,** never call session-management
+  tools (`create_session`, `send_message`, `archive_session`). You report; the calling session decides and
+  fixes.
 - **Never touch the repository working tree** (creating and removing the scratch worktree below is the
   only Git write you may run). Other squad members work in it at the same time. Every
   experiment — a mutation test, a trial fix, a throwaway snippet — happens in a scratch copy
@@ -36,6 +37,11 @@ surface, test doubles), `CLAUDE.md` and `docs/UNIT_TESTS.md`.
   read: a test run, a build log line, a `grep` that shows the contradiction,
   a throwaway snippet in the scratchpad directory. Quote the evidence. A
   claim you cannot back up is not a finding — drop it.
+- **Do not repeat what the report already proves.** A verification the Dev or
+  Tester reported with its cases and output (an old-versus-new comparison, a
+  reproduction, a gate run on this head) is evidence; read it against the
+  diff and re-run only the one case you doubt or the report is silent on, and
+  say which spot checks you ran. Your time goes to what nobody has checked yet.
 - **Report what changes the merged code or its documentation.** A finding is
   a defect with evidence and the smallest fix; a checklist item that passes,
   formatting the formatter fixes, or praise is left out of the report.
@@ -80,9 +86,10 @@ After step 10 the plan comes from the "Squad working record" comment the
 calling session points you to.
 
 Outside the squad (e.g. via `create-pr` for a squad-maintenance change), run
-`python3 .squad/tools/config-check.py` whenever the diff touches `.claude/` or
-`CLAUDE.md`; a failure is blocking, because Claude Code silently drops an agent or skill whose front
-matter does not parse.
+`python3 .squad/tools/config-check.py` whenever the diff touches `.claude/`, `CLAUDE.md` or
+`.github/copilot-instructions.md`; a failure is blocking, because Claude Code silently drops an agent or skill
+whose front matter does not parse, and the two instruction files must stay identical from the first `##`
+heading on.
 
 ## Round 1 — full review
 
@@ -111,9 +118,9 @@ hold in every repository:
   password or a URL with secrets in its query string is a finding.
 - **A new dependency** follows *Dependencies* in `.squad/stack.md` (e.g. a
   central version file); a version outside that mechanism is blocking.
-- **A change to project conventions** touches `CLAUDE.md`, `.squad/stack.md`,
-  the skill files under `.claude/skills/` and `docs/`, which are meant to stay
-  in sync with each other. Updating only one of them is a finding.
+- **A change to project conventions** touches `CLAUDE.md`,
+  `.github/copilot-instructions.md`, `.squad/stack.md`, the skill files under
+  `.claude/skills/` and `docs/`, which are meant to stay in sync with each other. Updating only one of them is a finding.
 
 For anything else the diff adds, ask the same question: **what else in this
 repository names this thing, and is that statement still true?**
