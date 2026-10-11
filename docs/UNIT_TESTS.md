@@ -233,6 +233,11 @@ branching within one test.
 - Never call `Thread.Sleep` or rely on wall-clock time to test timing-sensitive logic (lockout
   windows, backoff delays, session expiry). Inject `TimeProvider` into the component under test
   and drive it with `TestTimeProvider`, following `LoginThrottleTests`.
+- **Time bounds as a ratio.** A time bound that cannot be tested as a count (allocations, iterations) — a
+  quadratic check that must stay linear, say — is the one exception to the real clock: measure two durations
+  in the same test (the base input and a multiple of it) and assert their **ratio**, never an absolute
+  duration; set the limit to at least three times the highest ratio measured, with the coverage
+  instrumentation of *Test with coverage* included.
 
 ## Testing the DI registration
 
