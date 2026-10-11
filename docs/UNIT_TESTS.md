@@ -237,7 +237,7 @@ branching within one test.
   quadratic check that must stay linear, say — is the one exception to the real clock: measure two durations
   in the same test (the base input and a multiple of it) and assert their **ratio**, never an absolute
   duration; set the limit to at least three times the highest ratio measured, with the coverage
-  instrumentation of *Test with coverage* included.
+  instrumentation of *Test with coverage* (`.squad/stack.md`) included.
 
 ## Testing the DI registration
 
@@ -316,7 +316,7 @@ accepted.
 - [ ] No mocking library introduced — real objects, real `ServiceProvider`/`HttpClient`, or a
       hand-written fake/stub implementing the relevant `Core.Abstractions` interface instead.
 - [ ] Timing-sensitive logic driven through an injected `TimeProvider`, not `Thread.Sleep` or the
-      real clock.
+      real clock (a time bound: the ratio of two durations, see above).
 - [ ] Shared setup factored into a private/static helper method, not a constructor.
 - [ ] `#region` layout and XML docs follow [`CLAUDE.md`](../CLAUDE.md).
 - [ ] `reihitsu-format ./` run before committing.
