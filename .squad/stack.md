@@ -29,14 +29,16 @@ profile and owned by this repository: keep it true when the build changes.
 | Name | Command |
 | ---- | ------- |
 | *Restore* | `dotnet restore PlexToJellyfinSync.slnx` |
-| *Format* (Code Officer only in the squad) | `reihitsu-format --force ./` |
+| *Format* (in the squad: by the member that changed the files, `.squad/team.md`) | `reihitsu-format --force ./` |
 | *Format check* | `reihitsu-format --check ./` |
 | *Build* | `dotnet build PlexToJellyfinSync.slnx -c Release --no-restore` |
 | *Test* | `dotnet test PlexToJellyfinSync.slnx -c Release --no-build` |
 | *Single test* | `dotnet test tests/PlexToJellyfinSync.Tests/PlexToJellyfinSync.Tests.csproj --filter "FullyQualifiedName~ClassName.MethodName"` |
+| *Test (project)* | `dotnet test tests/PlexToJellyfinSync.Tests -c Release --no-build` (the test project of the changed code; a `patch` that changes only test code, `.squad/routing.md` *Gates of a patch* — it writes no coverage report, so a `patch` that changes production code runs *Test with coverage* instead) |
 | *Test with coverage* | `rm -rf TestResults && dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults` (clears earlier runs: the coverage gate merges every report it finds) |
 | *Coverage gate* | `python3 .squad/tools/coverage-check.py` |
 | *Analyzer gate* | `python3 .squad/tools/analyzer-check.py` |
+| *Image build check* | `docker build -f Dockerfile .` where Docker runs; otherwise the restore-order reproduction under *Image build check* below (`.squad/routing.md`, *Criteria verified only in CI*) |
 
 ## Analyzer gate
 
@@ -62,6 +64,39 @@ download, for example). The gate itself checks two SonarQube Cloud shell rules s
 local variable first) and `shelldre:S7688` (`[ … ]` instead of `[[ … ]]`). Other `shelldre:*` findings only report
 in squad step 11.
 
+## Image build check
+
+The Dockerfile copies the project files first, restores `src/PlexToJellyfinSync/PlexToJellyfinSync.csproj`,
+then copies the sources and publishes. The .NET SDK decides at restore time what the publish output holds
+(content items, static web assets, the `_framework/` scripts of a Blazor app), so a publish from the full
+working tree can contain files the image never gets (Vandox#24: `_framework/blazor.web.js` was in the local
+publish and missing from the image, because no `.razor` file existed at restore time). Where Docker runs, build
+the image. Where it does not (the sandbox), reproduce the Dockerfile's order in a scratch directory; every
+change to a `.csproj`, `Directory.*.props`, a `.razor` or other content item, a static web asset or the
+Dockerfile runs it before the review:
+
+```bash
+scratch="$(mktemp -d)"
+cp Directory.Build.props Directory.Packages.props PlexToJellyfinSync.slnx "$scratch"
+git ls-files -z -- 'src/*.csproj' | xargs -0 -I{} cp --parents {} "$scratch"
+(cd "$scratch" && dotnet restore src/PlexToJellyfinSync/PlexToJellyfinSync.csproj)
+git ls-files -z | xargs -0 -I{} cp --parents {} "$scratch"
+(cd "$scratch" && dotnet publish src/PlexToJellyfinSync/PlexToJellyfinSync.csproj -c Release -o ./publish)
+ls "$scratch"/publish/wwwroot/_framework/blazor.web.js
+```
+
+Keep the first copy equal to the `COPY` lines before `RUN dotnet restore` in the Dockerfile. A publish that
+fails, or an output that is missing, is the defect the CI release build would report after the PR is open.
+
+## Coverage exclusions
+
+Two places compute coverage and must agree (`.squad/routing.md`, *Code a unit test cannot cover*): the
+*Coverage gate* reads `COVERAGE_PATHSPECS` and `COVERAGE_EXCLUDES` in `.squad/tools/squad_settings.py`
+(`src/*.cs` and `src/*.razor`), and SonarQube Cloud reads `sonar.coverage.exclusions`, passed as
+`/d:sonar.coverage.exclusions=…` in the *Begin SonarQube analysis* step of `.github/workflows/ci.yml`. A file
+no unit test can cover (own browser scripts, a generated file) is added to that argument with a decision
+record — never to `sonar.exclusions`, which would drop it from the analysis too.
+
 ## Writing code
 
 - File-scoped namespaces; one top-level type per file; `using` outside the namespace (System first).
@@ -76,6 +111,18 @@ in squad step 11.
 - Guards an analyzer asks for (e.g. `if (_logger.IsEnabled(...))` for CA1873) are written by the Dev,
   not added later by the Code Officer.
 
+## Logger arguments
+
+CodeQL's *Clear text storage of sensitive information* (`cs/cleartext-storage-of-sensitive-information`) judges
+a value by its **name**: a variable, field, constant, property or parameter whose lower-case name contains
+`password`, `passwd`, `trusted`, `account…id`, `accnt…id`, `account…key`, `accnt…key`, `license…key`,
+`licence…key` or `voucher…code` counts as sensitive (`csharp/ql/lib/semmle/code/csharp/security/SensitiveActions.qll`
+in `github/codeql`). For names there is no exemption: `PasswordHash` and a constant `EnvWebPasswordHash` that
+holds only the name of an environment variable count too (the `hashed`/`encrypted`/`crypt` exemption applies
+to string values, not to names). Such a name passed to a log call fails the PR in CI, and no local gate
+reports it. The remedy is a neutral name for the value (a constant `WebLoginHashVariable` for the variable
+name, for example) whose text a test pins, never a suppression.
+
 ## Writing tests
 
 See `docs/UNIT_TESTS.md`. The rules the MSTest and Sonar analyzers enforce and the Code Officer cannot fix
@@ -87,6 +134,10 @@ without handing back: pass `TestContext.CancellationToken` to every call that ac
 
 New members with their full signature, XML docs and `#region` blocks, bodies
 `throw new NotImplementedException();`, so the solution builds and the tests compile and fail.
+Constructors store their arguments and never throw: a test harness builds these types, so only member bodies
+fail.
+The `Skeleton` body above is the default. A zero-value stub is allowed only where it would break a test that
+exists and passes today: the new tests must still fail on the stub, and the Dev reports it as a deviation.
 
 ## Dependencies
 
@@ -105,6 +156,11 @@ itself with a lock (`obj/analyzer-check.lock`), plain builds do not.
   `DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"`.
 - `reihitsu-format` asks for confirmation for more than 25 files; `--force` skips the prompt, which a
   non-interactive session cannot answer.
+- `reihitsu-format` rewrites a `\u` escape in a C# string literal into the character it names, so a literal
+  U+2028 then breaks the compilation and a test about an escape tests the wrong input. After *Format*, check
+  the escapes of the changed files on disk (`grep -n '\\u' <file>`, *Escapes in files* in `.squad/team.md`);
+  where the formatter keeps rewriting one, build the character at run time (`char.ConvertFromUtf32(0x2028)`)
+  instead of writing it as an escape in a literal.
 - `.gitattributes` normalizes text files to LF in the index (`* text=auto eol=crlf`), so LF output from an
   editor is harmless for Markdown and `specs/` files. `.github/workflows/ci.yml`, `release.yml`, `codeql.yml`
   and `Directory.Packages.props` are stored with CRLF: edit them preserving CRLF, or the diff covers the whole
