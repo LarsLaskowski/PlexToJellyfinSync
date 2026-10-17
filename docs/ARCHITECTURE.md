@@ -361,9 +361,10 @@ Studio standard for solution files, not a migration artifact.
   (`XPlat Code Coverage`, OpenCover format), and — when `SONAR_TOKEN` is available (not exposed to
   Dependabot or fork PRs) — feeds the coverage into SonarQube Cloud analysis
   (`networlddev_PlexToJellyfinSync`). CI deliberately does **not** check formatting: formatting, Reihitsu
-  and Sonar diagnostics are cleared before a push (in the squad, by the Code Officer), with the
-  `SonarAnalyzer.CSharp` rules running in every local build — see
-  [decision 0009](decisions/0009-quality-gates-before-the-pull-request.md).
+  and Sonar diagnostics are cleared before a push (in the squad, the member that changed the files formats
+  them and the Code Officer clears analyzer diagnostics), with the `SonarAnalyzer.CSharp` rules running in
+  every local build — see [decision 0009](decisions/0009-quality-gates-before-the-pull-request.md) and
+  [decision 0020](decisions/0020-squad-member-who-changed-files-runs-the-formatter.md).
 - **CodeQL** (`.github/workflows/codeql.yml`) runs on push/PR to `main` and weekly on a schedule,
   analyzing both C# and JavaScript/TypeScript in `build-mode: none` (no compiled build needed for
   CodeQL's extraction).

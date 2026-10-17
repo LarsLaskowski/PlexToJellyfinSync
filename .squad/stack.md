@@ -56,6 +56,12 @@ SonarQube Cloud's own quality profile can still report `S####` rules the local d
 and its non-Roslyn checks (duplication, hotspots, taint analysis) only run in CI — such findings arrive in
 squad step 11.
 
+Own browser scripts (collocated `src/**/*.razor.js`, e.g. `Components/Layout/ReconnectModal.razor.js`; no Node
+build) have no local analyzer: SonarQube Cloud's JavaScript rules report on them only in squad step 11, so write
+them to those rules from the start. The one that bit (`javascript:S2486`): a `catch` block that ignores the
+exception holds exactly one whole-line comment and nothing else — a comment before a `return` inside the block
+is still flagged.
+
 Changed shell scripts (`*.sh`), GitHub workflows (`.github/workflows/*.yml`) and Dockerfiles are checked with
 `shellcheck`, `actionlint` and `hadolint`; the SessionStart hook installs the three as pinned, checksum-verified
 binaries (`.claude/hooks/install-linters.sh`), and the gate reports NOT RUN for one that is missing (a refused
@@ -86,7 +92,8 @@ ls "$scratch"/publish/wwwroot/_framework/blazor.web.js
 ```
 
 Keep the first copy equal to the `COPY` lines before `RUN dotnet restore` in the Dockerfile. A publish that
-fails, or an output that is missing, is the defect the CI release build would report after the PR is open.
+fails, or an output that is missing, is the defect the tag-triggered release build
+(`.github/workflows/release.yml`) would report only after the merge; no pull request check builds the image.
 
 ## Coverage exclusions
 
