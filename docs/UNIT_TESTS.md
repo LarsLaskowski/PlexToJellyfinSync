@@ -137,7 +137,7 @@ Test class names follow `{TypeUnderTest}Tests` (for example `WatchAggregatorTest
 
 Follow Arrange, Act, Assert without labeling the sections with comments — a blank line before the
 act and before the assert block is enough to separate them, consistent with the blank-line rules
-in [`CLAUDE.md`](../CLAUDE.md).
+in [`AGENTS.md`](../AGENTS.md).
 
 ```csharp
 [TestMethod]
@@ -208,7 +208,7 @@ must be checked against the same behavior, use MSTest's `[DataRow]` on a single 
 
 MSTest constructs a fresh test class instance per test, so shared state is already isolated. Even
 so, factor repeated setup into a private (or private static) helper method rather than a
-constructor, following the `#region Methods` ordering from [`CLAUDE.md`](../CLAUDE.md) — see
+constructor, following the `#region Methods` ordering from [`AGENTS.md`](../AGENTS.md) — see
 `ServiceCollectionExtensionsTests.BuildProvider(values)` for the pattern used throughout this
 project: a private static helper that builds a real `ServiceProvider` from an in-memory
 configuration dictionary, called from every test in the class instead of duplicating the setup.
@@ -251,7 +251,7 @@ style) using `new ConfigurationBuilder().AddInMemoryCollection(values).Build()` 
 
 ## XML documentation on tests
 
-Per [`CLAUDE.md`](../CLAUDE.md), XML documentation is required on all members, including test classes and test methods. Document
+Per [`AGENTS.md`](../AGENTS.md), XML documentation is required on all members, including test classes and test methods. Document
 what the test verifies, not what MSTest attribute it carries:
 
 ```csharp
@@ -318,5 +318,5 @@ accepted.
 - [ ] Timing-sensitive logic driven through an injected `TimeProvider`, not `Thread.Sleep` or the
       real clock (a time bound: the ratio of two durations, see above).
 - [ ] Shared setup factored into a private/static helper method, not a constructor.
-- [ ] `#region` layout and XML docs follow [`CLAUDE.md`](../CLAUDE.md).
+- [ ] `#region` layout and XML docs follow [`AGENTS.md`](../AGENTS.md).
 - [ ] `reihitsu-format ./` run before committing.

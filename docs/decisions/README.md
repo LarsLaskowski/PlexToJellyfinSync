@@ -70,4 +70,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0017](0017-plex-token-stays-optional.md) | The Plex token stays optional | Accepted | 2026-10-02 |
 | [0018](0018-sync-orchestrator-split-into-collaborators.md) | SyncOrchestrator is split into an item writer, a series aggregate writer and a library reconciler | Accepted | 2026-10-03 |
 | [0019](0019-squad-maintained-in-the-template-repository.md) | Product PRs never change the squad; squad lessons go to the template repository | Accepted | 2026-10-03 |
+| [0020](0020-squad-member-who-changed-files-runs-the-formatter.md) | In the squad, the member that changed the files runs the formatter | Accepted | 2026-10-17 |
 <!-- project:end index -->

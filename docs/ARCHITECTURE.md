@@ -361,9 +361,10 @@ Studio standard for solution files, not a migration artifact.
   (`XPlat Code Coverage`, OpenCover format), and — when `SONAR_TOKEN` is available (not exposed to
   Dependabot or fork PRs) — feeds the coverage into SonarQube Cloud analysis
   (`networlddev_PlexToJellyfinSync`). CI deliberately does **not** check formatting: formatting, Reihitsu
-  and Sonar diagnostics are cleared before a push (in the squad, by the Code Officer), with the
-  `SonarAnalyzer.CSharp` rules running in every local build — see
-  [decision 0009](decisions/0009-quality-gates-before-the-pull-request.md).
+  and Sonar diagnostics are cleared before a push (in the squad, the member that changed the files formats
+  them and the Code Officer clears analyzer diagnostics), with the `SonarAnalyzer.CSharp` rules running in
+  every local build — see [decision 0009](decisions/0009-quality-gates-before-the-pull-request.md) and
+  [decision 0020](decisions/0020-squad-member-who-changed-files-runs-the-formatter.md).
 - **CodeQL** (`.github/workflows/codeql.yml`) runs on push/PR to `main` and weekly on a schedule,
   analyzing both C# and JavaScript/TypeScript in `build-mode: none` (no compiled build needed for
   CodeQL's extraction).
@@ -388,19 +389,19 @@ outstanding.
 
 ## Development process
 
-This repository is developed with Claude Code: `CLAUDE.md` holds the rules (mirrored for GitHub Copilot in
-`.github/copilot-instructions.md`), the skills live under `.claude/skills/` and the squad roles under
-`.claude/agents/`. Every pull request is reviewed before it is opened by the read-only reviewer in `.claude/agents/squad-reviewer.md`
+This repository is developed with Claude Code: `AGENTS.md` holds the rules every AI coding agent reads
+(imported by `CLAUDE.md`, mirrored for GitHub Copilot in `.github/copilot-instructions.md`), the skills
+live under `.claude/skills/` and the squad roles under `.claude/agents/`. Every pull request is reviewed before it is opened by the read-only reviewer in `.claude/agents/squad-reviewer.md`
 — round 1 is a full review, every later round looks only at the delta, and only blocking findings earn
 another round, because a fresh full re-review of unchanged code always finds something new.
 
 The squad skills (`squad-issue`, `squad-spec`) wrap that review in a larger, bounded pipeline described in
 [`.squad/routing.md`](../.squad/routing.md): an Opus Lead plans, classifies the change into a tier (`docs`,
-`trivial`, `standard`, `security`) that decides how much of the pipeline runs, and owns every decision;
-for `standard` and `security` a Devil's Advocate challenges the plan once (no veto); on the `security` tier
-a Security member reviews the plan and the diff, below it the Reviewer carries the security checklist; tests are
-written first and new/changed code is covered until the *Coverage gate* passes; a Code Officer clears formatting
-and analyzer diagnostics *before* the review so the reviewed code is the merged code; and the review loop
+`patch`, `trivial`, `standard`, `security`) that decides how much of the pipeline runs, and owns every decision;
+for `standard` and `security` plans that weigh options a Devil's Advocate challenges the plan once (no veto); on
+the `security` tier a Security member reviews the plan (in parallel with the challenge) and the diff, below it the Reviewer carries the security checklist; tests are
+written first and new/changed code is covered until the *Coverage gate* passes; the member that changed the files
+formats them and a Code Officer clears analyzer diagnostics *before* the review so the reviewed code is the merged code; and the review loop
 is one full pass plus at most two delta rounds; the pull request is approved by a checklist the orchestrating
 session runs, and the Lead is asked only for what is open. Every limit ends in a Lead decision, and only a
 decision the Lead cannot make reaches the human. The stack-specific commands live in
