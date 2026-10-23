@@ -1,9 +1,9 @@
 # Plan: Introduce area documents
 
 Source: Issue #224 | [spec.md](spec.md)
-Status: Draft
+Status: Revised (1)
 Tier: trivial — documentation only, with a decision record (0021) and no change to behavior or control flow (`.squad/routing.md`, *Tiers*: "a documentation change that needs a decision record").
-Security areas touched: Dashboard authentication, Tokens and secrets — documentation only: `docs/areas/dashboard-and-auth.md` becomes the normative statement of the token login, sessions, cookie flags, throttle, security headers, forwarded-header trust and log masking, and it publishes the forwarded-header behavior behind spec E12; no security control is created, changed or removed, so the tier stays below `security`, but Security reviews the plan for the accuracy of those statements and the disclosure wording (step 3).
+Security areas touched: Dashboard authentication, Tokens and secrets, Logging of external data (`dashboard-and-auth.md`: login, sessions, cookie flags, throttle, headers, forwarded-header trust, log buffer and masking); Path mapping and file writes, `.nfo` / XML handling (`path-mapping-and-nfo.md`); HTTP calls to Plex, State on disk (`sync-pipeline.md`) — documentation only in every one: these documents become the normative statement of those controls, and `dashboard-and-auth.md` states the forwarded-header consequence of spec E12; no security control is created, changed or removed, so the tier stays below `security`.
 
 ## Problem / root cause
 
@@ -27,6 +27,12 @@ can name an area.
 | 11 | Forwarded headers: `X-Forwarded-For` and `X-Forwarded-Proto` with known networks and proxies cleared; the throttle keys on `Connection.RemoteIpAddress` | `src/PlexToJellyfinSync/Security/DashboardStartup.cs` lines 28–40; `LoginEndpoints.cs` line 61 | confirmed |
 | 12 | Throttle 5 free attempts, 5 min cap, 15 min retention, 1024 clients; 8 h session; Plex client timeout 30 s; `state.json.corrupt` only for a parse error | `LoginThrottle.cs` lines 17–30; `LoginEndpoints.cs` line 21; `ServiceCollectionExtensions.cs` line 72; `StateStore.cs` lines 85–115 | confirmed |
 | 13 | The first history run without a mark sets it to "now" and returns; aggregates after a history run only with `Sync:WriteSeriesSeasonAggregates` | `SyncOrchestrator.cs` lines 241–264 | confirmed |
+| 15 | The throttle map has no bound: pruning starts above 1024 keys and removes only entries idle > 15 min and not locked | `LoginThrottle.cs` lines 56–72 | confirmed |
+| 16 | Root containment is lexical: `Path.GetFullPath` and an ordinal prefix comparison, symlinks never resolved | `NfoWriter.cs` lines 258–265, 471 | confirmed |
+| 17 | Log buffer: level Information and above; ordinal replacement of the configured tokens in message and exception text; console output not masked | `InMemoryLogger.cs` lines 48–67; `SecretLogRedactor.cs` line 66 | confirmed |
+| 18 | Public paths: `/health`, `/login` exact, case-insensitive; prefixes `/_framework/`, `/_content/`, `/_blazor` (ordinal); static assets by extension of the last segment | `TokenAuthMiddleware.cs` lines 34–39, 73–94 | confirmed |
+| 19 | A locked-out attempt returns before the token is compared and does not extend the lockout | `DashboardLoginService.cs` lines 57–59; `LoginThrottle.cs` lines 84–102 | confirmed |
+| 20 | Forwarded headers use the rightmost `X-Forwarded-For` entry, one hop | ASP.NET Core `ForwardedHeadersOptions.ForwardLimit` default 1, not overridden in `DashboardStartup.cs`; Security's plan review | confirmed |
 | 14 | No Jellyfin API key exists in the application, contrary to `SECURITY.md` | no option or code path in `src/` (grep for `apikey` / `api key`) | confirmed |
 
 ## Acceptance criteria
@@ -49,7 +55,7 @@ or test code*); step 6 is the Lead's documentation edits (mode `docs`, `tasks.md
 | AC2 | On a full clone (`git fetch --unshallow --tags origin`, then `git rev-parse --is-shallow-repository` prints `false`; tag names of `git tag --list 'v*'` equal `git ls-remote --tags origin` without `refs/tags/` and `^{}` entries): `python3 .squad/tools/decision-check.py` prints `Checked 21 decision records: PASS` and no `WARNING`; `python3 .squad/tools/config-check.py` passes | Orchestrator, step 7 (output to the Reviewer) |
 | AC3 | `git diff $(git merge-base origin/main HEAD) HEAD -- docs/decisions/00{01..14}-*.md` is empty; read the 0021 table: rows 0001–0014 once each with the spec's areas | Orchestrator, step 7; Reviewer, step 8 |
 | AC4 | `git diff` of 0015–0019 shows only the `Area:` line, the area-document link (0015–0018) and the 0016 bullet cut; 0020 unchanged; 0021 and its index row `Proposed` (set `Accepted` at step 9) | Reviewer, step 8; orchestrator, step 9 |
-| AC5 | Each value of each area document compared with the code location named in *Verified facts* or the file it comes from; class names only as "implemented in" pointers; no Jellyfin API key; E12 wording present in `dashboard-and-auth.md` | Lead while writing (G1); Security (plan review sets the wording bar), Reviewer, step 8 |
+| AC5 | Each value of each area document compared with the code location named in *Verified facts* (rows 9–20) or the file it comes from; class names only as "implemented in" pointers; no Jellyfin API key; in `dashboard-and-auth.md` every item of spec AC5 present (forwarded-header consequence and mitigation under *Limits and errors*, no throttle bound, lockout, sessions, public paths, masking scope); in `path-mapping-and-nfo.md` containment described as lexical, case-sensitive, not following symlinks | Lead while writing (G1); Reviewer, step 8, item by item against spec AC5 |
 | AC6 | Read each *Related decisions*: exactly the spec table's records for its area, 0012 marked superseded by 0013, no `—` record | Reviewer, step 8 |
 | AC7 | Read the `architecture` block: four area links; no value, format, limit or error rule left that an area document states; diagram, project references, component roles, CI/CodeQL/Dependabot/release text kept; headings *Sync pipeline* and *Deployment* unchanged | Reviewer, step 8 |
 | AC8 | Read `.squad/project.md` *Guarantees* and *Integration surface* against the spec's list | Reviewer, step 8 |
@@ -66,9 +72,11 @@ or test code*); step 6 is the Lead's documentation edits (mode `docs`, `tasks.md
    *Behavior* one `###` sub-heading per topic, short normative sentences or bullets; values once, in the area
    that owns them, the other areas link. The Configuration document carries one settings table (key, environment
    variable, default, allowed values) in the README's order. `dashboard-and-auth.md` states the forwarded-header
-   behavior factually ("`X-Forwarded-For` and `X-Forwarded-Proto` are accepted from any sender; the login
-   throttle counts by the resulting client address") without a claim of a per-client limit and without
-   describing how to exploit it — the remedy is the private follow-up (*Out of scope / follow-ups*).
+   behavior, its consequence and the operator's mitigation openly under *Limits and errors*, as spec AC5 lists
+   them; it claims no per-client limit and no bound on the throttle's memory. The behavior is already public in
+   `docs/ARCHITECTURE.md`, and Security rated it low; the code change is the public follow-up issue.
+   `path-mapping-and-nfo.md` describes root containment as lexical (normalized path, case-sensitive prefix, no
+   symlink resolution).
 2. **Records and index (G2).** In 0015–0019 insert `- **Area:** <area>` after `- **Date:**`; in 0015–0018 add one
    sentence to *Decision* that links the area document for the resulting rules; in 0016 replace the three value
    bullets (`Plex:BaseUrl`…, `Sync:PollIntervalSeconds`…, `Dashboard:LogBufferSize`…) with "The rules — required
@@ -142,8 +150,9 @@ introduction already says it links the areas). No flow changes, so no record is 
 
 - [ ] Byte or length limits on parsed input: no limits (no code).
 - [ ] Exceptions reaching a user-visible message: none (no code).
-- [ ] The area documents name no token value, host or path of a real installation; the forwarded-header
-  statement in `dashboard-and-auth.md` describes behavior without exploitation steps (Security, step 3).
+- [ ] The area documents name no token value, host or path of a real installation, and promise no protection
+  the code does not give: no throttle or memory bound, no symlink safety, no masking beyond the dashboard
+  buffer; the forwarded-header consequence is stated with its mitigation (spec AC5, E12).
 
 ## Decision records
 
@@ -159,7 +168,30 @@ Created by the orchestrator after the PR, not part of this change:
    *Deployment Security Considerations* and *Scope* sections of `SECURITY.md` refer to a Jellyfin API key, but
    the application has no such setting (see `src/PlexToJellyfinSync.Core/Options/`); only the Plex token and the
    dashboard token exist. Remove or correct the references."
-2. "[Security] Login throttle can be bypassed through a spoofed X-Forwarded-For header" — body as in spec.md
-   (*Out of scope*, E12). Lead decision: report it as a private GitHub security advisory, as `SECURITY.md` asks
-   for vulnerabilities, not as a public issue, unless the Product Manager decides otherwise; Security confirms the
-   finding in step 3.
+2. Public issue "[Security] Login throttle can be bypassed through a spoofed X-Forwarded-For header" — body as in
+   spec.md (*Out of scope*, E12), including the unbounded growth of the throttle map and the `X-Forwarded-Proto`
+   effect on the cookie's `Secure` flag. Public because Security rated it low and the behavior is already
+   public in `docs/ARCHITECTURE.md`. The Product Manager may still choose a different form; this PR does not
+   depend on that decision, since the issue is filed after it.
+
+## Security review
+
+Security's plan review returned `CHANGES_REQUIRED`; each finding and its resolution:
+
+1. "1024 tracked clients" promised a bound the code does not give — accepted: spec outline and AC5 now say
+   pruning of idle, unlocked entries starts above 1024 keys and claim no bound (fact 15).
+2. E12 disclosure inconsistent — accepted: the private-advisory reasoning is dropped in spec.md (E12, *Out of
+   scope*) and here (*Approach* 1, *Security considerations*, follow-up 2); the behavior is documented publicly
+   and the follow-up is a public issue that also names the unbounded map. The Product Manager may decide the
+   follow-up's form differently after the PR.
+3. Consequence and mitigation in *Limits and errors* — accepted: spec AC5 lists the consequence, the
+   `X-Forwarded-Proto` effect on `Secure` and the mitigation (proxy setting or appending `X-Forwarded-For`,
+   rightmost entry, one hop; port off untrusted networks; long random `Dashboard:Token`) (fact 20).
+4. *Security areas touched* incomplete — accepted: the line now names all seven areas the documents describe,
+   each documentation only.
+5. Containment not symlink-safe — accepted: spec outline and AC5 describe it as lexical, case-sensitive,
+   without following symbolic links (fact 16).
+
+Non-blocking notes, all applied to spec AC5 and the outline: masking scope and level (fact 17), public paths and
+unauthenticated `/health` (fact 18), sessions in memory, non-sliding, lost on restart, revoked by logout,
+locked-out attempts not checked and not extending the lockout (fact 19).

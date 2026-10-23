@@ -136,9 +136,14 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
   (`src/PlexToJellyfinSync/Security/DashboardStartup.cs`) honours `X-Forwarded-For` as well as
   `X-Forwarded-Proto` with the known networks and proxies cleared, and the login throttle keys on the resulting
   remote address (`src/PlexToJellyfinSync/Security/LoginEndpoints.cs`). A client that reaches the port directly
-  can therefore choose the address it is counted under. The area document states this behavior as it is and
-  makes no claim that the throttle limits a single client; whether it is acceptable is Security's call, outside
-  this documentation change (follow-up proposed under *Out of scope*).
+  can therefore choose the address it is counted under, so the throttle does not limit it, and every new address
+  adds an entry to the throttle's map, which is pruned only of entries idle for 15 minutes and not locked once it
+  holds more than 1024 keys — it has no upper bound. `X-Forwarded-Proto` from any sender likewise decides whether
+  a request counts as HTTPS and with it the cookie's `Secure` flag. Security rated this low (it needs direct reach
+  to the port and a guessable token; a deployment behind a reverse proxy is not affected; resource exhaustion on
+  the local network is out of scope in `SECURITY.md`). The behavior is already public in `docs/ARCHITECTURE.md`;
+  `dashboard-and-auth.md` states it, its consequence and the operator's mitigation openly (AC5), and the code
+  change is a public follow-up issue (*Out of scope*).
 
 ## Non-functional requirements
 
@@ -184,9 +189,29 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
 - [ ] AC5: Every concrete value in an area document (default, range, limit, lifetime, header, file name, route,
   error behavior) matches the current code and `README.md`; every class, type or function name in an area
   document is a pointer to the implementation, not the subject of a rule; no area document repeats the
-  Jellyfin API key claim of `SECURITY.md`; `dashboard-and-auth.md` states that forwarded headers are honoured
-  from any sender and that the login throttle counts by the resulting client address, without claiming a
-  per-client limit. (S1, E7, E8, E12)
+  Jellyfin API key claim of `SECURITY.md`. In `dashboard-and-auth.md`:
+  - *Limits and errors* states that `X-Forwarded-For` and `X-Forwarded-Proto` are accepted from any sender; that
+    a client reaching the port directly chooses the address the throttle counts it under, so the throttle does
+    not limit it; that `X-Forwarded-Proto` decides whether a request counts as HTTPS and with it the cookie's
+    `Secure` flag; and the mitigation: a reverse proxy in front that sets or appends `X-Forwarded-For` (the
+    rightmost entry is used, one hop), the port kept off untrusted networks, and a long random
+    `Dashboard:Token`;
+  - the throttle is described as pruning entries idle for more than 15 minutes and not locked once more than
+    1024 client keys are tracked, with no memory or client bound claimed;
+  - while a client is locked out its attempts get `429` with `Retry-After` without the token being checked
+    and do not extend the lockout;
+  - sessions live in process memory, are lost on restart, do not slide (8 hours absolute) and are revoked by
+    logout;
+  - public paths: `/health` and `/login` exact and case-insensitive, the prefixes `/_framework/`, `/_content/`
+    and `/_blazor` (no trailing slash), and any path whose last segment has one of the listed static-asset
+    extensions; `/health` reports the sync status without authentication even when a token is set;
+  - log masking replaces only literal, case-sensitive occurrences of the configured Plex and dashboard tokens
+    in message and exception text, only entries of level Information and above enter the buffer, and the
+    masking covers only the dashboard's in-memory buffer — console and container output is not masked.
+
+  In `path-mapping-and-nfo.md` root containment is described as a check on the normalized path with a
+  case-sensitive prefix comparison that does not follow symbolic links — never as symlink-safe.
+  (S1, E7, E8, E12)
 - [ ] AC6: Each area document's *Related decisions* lists exactly the records of its area from the assignment
   table, each linked by its relative path from `docs/areas/` (for example
   `../decisions/0003-nfo-only-watch-fields-touched.md`); in `sync-pipeline.md` 0012 is marked as superseded by
@@ -231,14 +256,17 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
   there go through a `squad` issue or the template repository.
 - E8: correcting the "Jellyfin API key" wording of `SECURITY.md` — proposed as a follow-up issue,
   "[Docs] SECURITY.md mentions a Jellyfin API key the application does not have".
-- E12: changing the forwarded-headers trust or the throttle key — proposed as a follow-up for Security,
-  reported privately (a GitHub security advisory, as `SECURITY.md` asks for vulnerabilities) unless the
-  Product Manager chooses a public issue; title "[Security] Login throttle can be bypassed through a spoofed X-Forwarded-For header", body: "The forwarded
+- E12: changing the forwarded-headers trust, the throttle key or the throttle's growth — a public follow-up
+  issue filed after this PR (Security rated it low and the behavior is already public in
+  `docs/ARCHITECTURE.md`; the Product Manager may still choose another form, which this PR does not depend on);
+  title "[Security] Login throttle can be bypassed through a spoofed X-Forwarded-For header", body: "The forwarded
   headers options (`DashboardStartup.CreateForwardedHeadersOptions`) honour `X-Forwarded-For` from any sender
   because `KnownIPNetworks` and `KnownProxies` are cleared, and `LoginEndpoints.HandleLoginAsync` keys the
   login throttle on `Connection.RemoteIpAddress`. A client that reaches the port directly can send a new
-  `X-Forwarded-For` value per attempt and is never locked out. Decide whether to trust forwarded headers only
-  from configured proxies or key the throttle differently."
+  `X-Forwarded-For` value per attempt and is never locked out; each new value also adds an entry to the
+  throttle's map, which is pruned only of idle, unlocked entries above 1024 keys and so grows without bound.
+  `X-Forwarded-Proto` from any sender likewise decides the session cookie's `Secure` flag. Decide whether to
+  trust forwarded headers only from configured proxies, key the throttle differently and bound the map."
 - Moving the configuration table out of `README.md`: it stays the user's setup reference, required by
   `.squad/project.md` (*Integration surface*); the `Configuration` area document is the normative statement and
   must agree with it.
@@ -289,7 +317,8 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
 - `docs/areas/path-mapping-and-nfo.md` (new) — longest matching prefix wins; a mapping is mandatory, an
   unmapped path or an item without a file path is skipped with the warning `No path mapping for <path>,
   skipping`; `..` traversal forms are rejected; the resolved target must lie under a configured local root,
-  checked independently of the mapping; NFO target names per kind and `Nfo:MovieFilenameStrategy`; an existing
+  checked independently of the mapping on the normalized path with a case-sensitive prefix comparison and
+  without following symbolic links (a symlink inside a root is not detected); NFO target names per kind and `Nfo:MovieFilenameStrategy`; an existing
   file changes only in `watched` / `playcount` / `lastplayed`, an unchanged value writes nothing, a missing last
   played removes `lastplayed`, no re-indenting, the encoding identified by the byte-order mark is kept (no BOM:
   UTF-8); a new file (only with `Sync:CreateMissingNfo`) is UTF-8 without BOM, indented, with the listed
@@ -298,16 +327,21 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
 - `docs/areas/dashboard-and-auth.md` (new) — routes; `Dashboard:Enabled` false maps `/health` only; without
   `Dashboard:Token` the dashboard is open and a startup warning is logged; with a token: the public paths and
   static-asset types, the session cookie `pjf_auth` (`HttpOnly`, `SameSite=Strict`, `Secure` only over HTTPS),
-  8-hour absolute server-side session, constant-time comparison, antiforgery on login and logout, `429` with
-  `Retry-After` after 5 free failures with doubling backoff from 1 s to 5 min, 15-minute reset, 1024 tracked
-  clients, counted per client address; the headers `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  server-side session in process memory, 8 hours absolute, not sliding, lost on restart, revoked by logout,
+  constant-time comparison, antiforgery on login and logout; `429` with `Retry-After` after 5 free failures with
+  doubling backoff from 1 s to 5 min, counted per client address, a locked-out attempt answered without checking
+  the token and without extending the lockout, a failure count reset after 15 idle minutes, and pruning of idle,
+  unlocked entries once more than 1024 keys are tracked (no bound claimed); public paths as AC5 lists them, with
+  `/health` reporting the sync status without authentication; the headers `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Strict-Transport-Security: max-age=31536000; includeSubDomains` and `Content-Security-Policy: default-src
   'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:;
   img-src 'self' data:` on every response; `X-Forwarded-Proto` and `X-Forwarded-For` are honoured from any
   sender (no known proxy is configured), so the scheme that decides the cookie's `Secure` flag and the client
-  address the login throttle counts by come from those headers when present (stated as it is; see E12); the
-  live log is a ring buffer of `Dashboard:LogBufferSize` entries with the configured tokens masked
-  and everything else shown verbatim.
+  address the login throttle counts by come from those headers when present, with the consequence and the
+  operator's mitigation of E12 under *Limits and errors*; the live log is a ring buffer of
+  `Dashboard:LogBufferSize` entries of level Information and above, with literal occurrences of the configured
+  tokens masked in message and exception text and everything else shown verbatim; console and container output
+  is not masked.
 - `docs/areas/configuration.md` (new) — sources (`appsettings.json`, environment variables with `PLEXSYNC__` and
   `__` for nesting); every setting with default and allowed values (taken from the options code, agreeing with
   the `README.md` table); startup validation stops the application before the worker and the web host start,
@@ -343,8 +377,9 @@ Objections of the Devil's Advocate and the answers.
   header values from `src/PlexToJellyfinSync/Program.cs`, and states that `X-Forwarded-For` and
   `X-Forwarded-Proto` are honoured from any sender (`DashboardStartup.cs` clears the known networks and
   proxies) and that the login throttle counts by the resulting address (`LoginEndpoints.cs`). The consequence —
-  a direct client can pick its throttle key — is new edge case E12, documented as it is and proposed as a
-  follow-up issue for Security (*Out of scope*); AC5 covers the wording.
+  a direct client can pick its throttle key — is new edge case E12, documented openly with its mitigation and
+  filed as a public follow-up issue (*Out of scope*, revised after Security's plan review); AC5 covers the
+  wording.
 - MINOR 5 (sync outline on the state file and aggregates): accepted, verified in `StateStore.cs` and
   `SyncOrchestrator.cs`. The outline now distinguishes an unparsable file (moved aside only if the move
   succeeds, error logged) from any other read error (warning, not moved), says that every "no mark" case sets
