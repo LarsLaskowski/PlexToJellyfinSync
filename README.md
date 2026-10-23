@@ -126,6 +126,7 @@ dotnet test PlexToJellyfinSync.slnx -c Release --no-build
 ```
 
 See [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the full contribution workflow,
+[`docs/areas/README.md`](docs/areas/README.md) for what the software guarantees, area by area,
 [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the sync pipeline, dashboard and deployment are put
 together, and [`UNIT_TESTS.md`](docs/UNIT_TESTS.md) for test conventions (unit tests are mandatory for
 new code).
