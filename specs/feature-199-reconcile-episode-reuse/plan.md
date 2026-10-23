@@ -183,3 +183,10 @@ Proposed follow-up issues (created by the orchestrator):
    `v1.5.0`, which are append-only. Decide how released records get their area (an amending record, or an
    exemption in the check) and then move the behavior from `docs/ARCHITECTURE.md` into area documents. Found
    while working on #199."
+
+## Plan challenge notes
+
+Devil's Advocate, mode `plan`: RESULT: OBJECTIONS (0 major, 2 minor).
+
+1. minor: The history path now holds more memory, which goes against the spec's "Memory: no increase" requirement. The plan has the rating-key overload collect the full listing with `ToListAsync` and hand it on, and its own *Architecture check* admits that "the history path now holds a show's full listing instead of its mapped part". Today `SeriesAggregateWriter.cs:50-63` streams the listing and keeps only the mapped (episode, local) pairs. Instruction for the Dev: keep the history path streaming. Move the path filter (the file-path check plus `_pathMapper.MapToLocal`) into one private helper that both overloads use. The rating-key overload filters while it enumerates `GetEpisodesAsync`, the list overload filters the passed list, and both hand the mapped pairs to one shared private aggregation-and-write method. The 0004 skip is then still decided in one place and the memory requirement holds for both paths. If the Lead prefers the plan as written, the spec's memory requirement should say "no increase for the reconcile" instead.
+2. minor: `LibraryReconcilerFailingEpisodeListingWritesNoAggregateAndIsNotRequestedAgain` (AC6) also passes on today's build. When the listing fails today, the exception skips the aggregate call, so `EpisodeRequests` is already `["s1","s2"]`. Instruction for the Tester: keep the test as a regression guard, but do not count it as one of the failing tests written first. AC1 and AC2 are the tests that prove the change.
