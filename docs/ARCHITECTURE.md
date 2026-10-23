@@ -147,8 +147,9 @@ Plex path becomes a local path and what a write changes in an `.nfo` file is sta
    `File.Move(overwrite: true)`. The rules are stated in [Path mapping and NFO](areas/path-mapping-and-nfo.md):
    [root containment](areas/path-mapping-and-nfo.md#root-containment),
    [targets](areas/path-mapping-and-nfo.md#targets),
-   [updating an existing file](areas/path-mapping-and-nfo.md#updating-an-existing-file) (the reason the
-   README can promise that existing `.nfo` files are left untouched except for the watch fields),
+   [updating an existing file](areas/path-mapping-and-nfo.md#updating-an-existing-file) (what backs the
+   README's promise that in existing `.nfo` files only the watch fields change and every other element keeps
+   its content),
    [creating a new file](areas/path-mapping-and-nfo.md#creating-a-new-file),
    [atomic replace](areas/path-mapping-and-nfo.md#atomic-replace) and malformed files under
    [*Limits and errors*](areas/path-mapping-and-nfo.md#limits-and-errors).

@@ -53,9 +53,10 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
 - In a movie library every movie is handed to the NFO writer, regardless of its watch state. In a show library
   every episode of every show is handed to the NFO writer, followed by the show's season and series aggregates
   when they are enabled.
-- Library contents and the episodes of a show are read page by page, 200 items per page. A further page is
-  requested only after the items of the pages before it have been processed, so a change in Plex during a long
-  reconcile may be seen by one page and missed by another until the next reconcile.
+- Library contents and the episodes of a show are read page by page, 200 items per page. A further page of a
+  library's contents is requested only after the items of the pages before it have been processed, so a change in
+  Plex during a long reconcile may be seen by one page and missed by another until the next reconcile; the
+  episodes of a show are all listed before the first of them is written.
 - The reconcile is the catch-up path: it writes changes that produce no history entry (for example an item marked
   watched by hand) and the items whose processing failed in an earlier run.
 

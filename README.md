@@ -1,9 +1,9 @@
 # PlexToJellyfinSync
 
 Cyclically reads the watch state from a **Plex** media server and writes it into **Jellyfin** `.nfo`
-files, so that everything you watch in Plex shows up as watched in Jellyfin. Existing `.nfo` files are
-left untouched except for the watch fields (`watched`, `playcount`, `lastplayed`); missing `.nfo`
-files are generated from the Plex metadata.
+files, so that everything you watch in Plex shows up as watched in Jellyfin. In existing `.nfo` files
+only the watch fields (`watched`, `playcount`, `lastplayed`) change, and every other element keeps its
+content; missing `.nfo` files are generated from the Plex metadata.
 
 Built with **C# / .NET 10**, runs as a small container, and ships a **web dashboard** for status and
 live logs.
@@ -99,7 +99,7 @@ double underscore for nesting).
 | `Sync:WriteSeriesSeasonAggregates` | `PLEXSYNC__Sync__WriteSeriesSeasonAggregates` | `true` | Write season/series aggregates |
 | `Sync:EpisodeReconcileParallelism` | `PLEXSYNC__Sync__EpisodeReconcileParallelism` | `4` | Concurrent episode writes per series reconcile (minimum 1) |
 | `Sync:LibraryReconcileParallelism` | `PLEXSYNC__Sync__LibraryReconcileParallelism` | `2` | Concurrent libraries reconciled per full reconcile run (minimum 1) |
-| `PathMappings:N:Plex` / `:Local` | `PLEXSYNC__PathMappings__N__Plex` / `__Local` | – | Path prefix mapping |
+| `PathMappings:N:Plex` / `:Local` | `PLEXSYNC__PathMappings__N__Plex` / `__Local` | example entry `/data/movies` → `/local/movies` at index 0 | Path prefix mapping |
 | `Nfo:DateTimeFormat` | `PLEXSYNC__Nfo__DateTimeFormat` | `yyyy-MM-dd HH:mm:ss` | `lastplayed` format |
 | `Nfo:MovieFilenameStrategy` | `PLEXSYNC__Nfo__MovieFilenameStrategy` | `PreferExistingMovieNfo` | Movie NFO naming |
 | `State:Directory` | `PLEXSYNC__State__Directory` | `/config` | Where `state.json` is stored (must not be empty) |
