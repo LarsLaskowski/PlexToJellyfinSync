@@ -400,13 +400,13 @@ public sealed class LibraryReconcilerTests
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new List<string>
-                                  {
-                                      "s1",
-                                      "s2"
-                                  },
-                                  _plexClient.EpisodeRequests,
-                                  "Each show's episodes should be listed exactly once!");
+        Assert.AreSequenceEqual(new List<string>
+                                {
+                                    "s1",
+                                    "s2"
+                                },
+                                _plexClient.EpisodeRequests,
+                                "Each show's episodes should be listed exactly once!");
         Assert.HasCount(5, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should be written!");
         Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Season), "One season per show should be written!");
         Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Series), "One series item per show should be written!");
@@ -470,13 +470,13 @@ public sealed class LibraryReconcilerTests
         var first = SeriesWriteOf("s1");
         var second = SeriesWriteOf("s2");
 
-        CollectionAssert.AreEqual(new List<string>
-                                  {
-                                      "s1",
-                                      "s2"
-                                  },
-                                  _plexClient.EpisodeRequests,
-                                  "Each show's episodes should be listed exactly once!");
+        Assert.AreSequenceEqual(new List<string>
+                                {
+                                    "s1",
+                                    "s2"
+                                },
+                                _plexClient.EpisodeRequests,
+                                "Each show's episodes should be listed exactly once!");
         Assert.IsTrue(first.Item.Watch.Watched, "The fully watched show should be watched!");
         Assert.AreEqual(newest, first.Item.Watch.LastPlayed, "The fully watched show should carry its newest play date!");
         Assert.IsFalse(second.Item.Watch.Watched, "The show with an unwatched episode should be unwatched!");
@@ -499,12 +499,12 @@ public sealed class LibraryReconcilerTests
 
         await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new List<string>
-                                  {
-                                      "s1"
-                                  },
-                                  _plexClient.EpisodeRequests,
-                                  "The episodes should be listed exactly once!");
+        Assert.AreSequenceEqual(new List<string>
+                                {
+                                    "s1"
+                                },
+                                _plexClient.EpisodeRequests,
+                                "The episodes should be listed exactly once!");
         Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should be written!");
         Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Season), "No season item should be written!");
         Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Series), "No series item should be written!");
@@ -585,13 +585,13 @@ public sealed class LibraryReconcilerTests
         var snapshot = _status.GetSnapshot();
         var series = _nfoWriter.WritesOf(MediaKind.Series);
 
-        CollectionAssert.AreEqual(new List<string>
-                                  {
-                                      "s1",
-                                      "s2"
-                                  },
-                                  _plexClient.EpisodeRequests,
-                                  "The failing listing should not be requested again!");
+        Assert.AreSequenceEqual(new List<string>
+                                {
+                                    "s1",
+                                    "s2"
+                                },
+                                _plexClient.EpisodeRequests,
+                                "The failing listing should not be requested again!");
         Assert.AreEqual(1L, snapshot.Errors, "The failing show should be counted once!");
         Assert.IsTrue(snapshot.PlexConnected, "A failing show should not change the connection state!");
         Assert.HasCount(1, series, "Only the healthy show should get a series item!");

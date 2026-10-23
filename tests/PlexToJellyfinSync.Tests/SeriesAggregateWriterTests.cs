@@ -397,12 +397,12 @@ public sealed class SeriesAggregateWriterTests
 
         await writer.WriteAggregatesAsync("s1", _testContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new List<string>
-                                  {
-                                      "s1"
-                                  },
-                                  _plexClient.EpisodeRequests,
-                                  "The episodes should be listed exactly once!");
+        Assert.AreSequenceEqual(new List<string>
+                                {
+                                    "s1"
+                                },
+                                _plexClient.EpisodeRequests,
+                                "The episodes should be listed exactly once!");
         Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Season), "One season item per season should be written!");
         Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Series), "One series item should be written!");
     }
