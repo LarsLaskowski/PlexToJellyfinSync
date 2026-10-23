@@ -104,9 +104,14 @@ Studio standard for solution files, not a migration artifact.
    - Both paths funnel through `MediaItemWriter.WriteItemAsync`, which resolves the local path via `IPathMapper`
      and skips the item (with a log warning) if no mapping matches or the item has no file path.
    - When `Sync:WriteSeriesSeasonAggregates` is enabled, both paths additionally call
-     `SeriesAggregateWriter.WriteAggregatesAsync` for every show touched by the run: it re-fetches all episodes of
-     that show, aggregates their `WatchInfo` per season and for the whole series via
-     `WatchAggregator`, and writes `season.nfo` / `tvshow.nfo` next to the episode files.
+     `SeriesAggregateWriter.WriteAggregatesAsync` for every show touched by the run: it keeps the show's episodes
+     that have a file path and a matching path mapping, aggregates their `WatchInfo` per season and for the whole
+     series via `WatchAggregator`, and writes `season.nfo` / `tvshow.nfo` next to the episode files. The episodes
+     come from one listing per show and run: `ReconcileAsync` passes the episodes it already listed for the
+     episode writes, so a reconcile lists each show's episodes once and its aggregates follow that same listing;
+     `ProcessHistoryAsync` holds no episode list, so the aggregate writer lists the episodes of each touched show
+     once itself, streaming them and keeping only the mapped ones (see
+     [0018](decisions/0018-sync-orchestrator-split-into-collaborators.md)).
    - Both entry points catch and log unexpected exceptions (`HandleError`) rather than letting
      the `Worker` loop die, and always reset `SyncStatusViewData.IsRunning` in a `finally` block.
      `OperationCanceledException` is re-thrown only when the run's `CancellationToken` was actually
