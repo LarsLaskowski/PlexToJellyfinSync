@@ -44,7 +44,7 @@ Security areas touched: Dashboard authentication (`LoginThrottle`, session cooki
 | 17 | No behavior depends on how `IPAddress.TryParse` treats surrounding white space | the parser trims every entry before parsing (*Approach* 2) | confirmed |
 | 18 | `IPAddress.TryParse` and `IPNetwork.TryParse` accept non-canonical IPv4 text: `192.168.001.010` gives `192.168.1.8`, `010.0.0.1` gives `8.0.0.1`, `167772160/8` and `0x0a000000/8` give `10.0.0.0/8`, `10/8` gives `0.0.0.0/8`; `fe80::1%eth0/64` and `[::1]/128` are accepted too | Security's plan review, measured | confirmed |
 | 19 | When the middleware applies a forwarded address it sets `X-Original-For`, when it applies a scheme `X-Original-Proto`; it never sets them otherwise | `ForwardedHeadersMiddleware.cs` lines 312-341 (10.0.13), `ForwardedHeadersDefaults.cs` | confirmed |
-| 20 | A list value set without an index (`PLEXSYNC__Dashboard__TrustedProxies=10.0.0.0/8`) binds to an empty array without an error | to verify: Dev, step 6, one scratch binding run before writing the README row (reported by Security, N2); the documentation states the indexed form either way | unverified |
+| 20 | A list value set without an index (`PLEXSYNC__Dashboard__TrustedProxies=10.0.0.0/8`) binds to an empty array without an error | scratch binding run by the Dev (`AddEnvironmentVariables("PLEXSYNC__")` + `Get<T>()` on a `string[]`): `PLEXSYNC__Dashboard__TrustedProxies=10.0.0.0/8` gives 0 entries, `PLEXSYNC__Dashboard__TrustedProxies__0=10.0.0.0/8` gives 1; the documentation states the indexed form | confirmed |
 
 ## Acceptance criteria
 

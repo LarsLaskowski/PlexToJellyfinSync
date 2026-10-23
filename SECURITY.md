@@ -35,7 +35,7 @@ PlexToJellyfin Sync is designed for **home-network use or deployment behind a tr
 Before exposing the application to any network:
 
 - Enable `TokenAuthMiddleware` and use a strong, randomly generated token.
-- Run the container behind a reverse proxy (Nginx, Caddy, Traefik) with authentication enabled.
+- Run the container behind a reverse proxy (Nginx, Caddy, Traefik) with authentication enabled, and list its address in `Dashboard:TrustedProxies`.
 - Restrict access at the network level (firewall, VLAN) to trusted clients only.
 - Store the Plex token and the Jellyfin API key exclusively in environment variables or secrets — never hard-code them.
 - Mount the Jellyfin media directory with the **minimum required permissions** (read/write only for the configured media path; no unnecessary host access).

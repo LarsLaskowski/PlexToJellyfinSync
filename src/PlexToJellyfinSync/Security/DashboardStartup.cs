@@ -28,7 +28,22 @@ public static class DashboardStartup
     /// <returns>Forwarded-headers options trusting loopback and the configured proxies</returns>
     public static ForwardedHeadersOptions CreateForwardedHeadersOptions(DashboardOptions options)
     {
-        throw new NotImplementedException();
+        var forwardedOptions = new ForwardedHeadersOptions
+                               {
+                                   ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+                                   ForwardLimit = 1
+                               };
+
+        foreach (var entry in options.TrustedProxies)
+        {
+            // An entry the parser rejects is skipped, never treated as "trust all"
+            if (TrustedProxyParser.TryParse(entry, out var network))
+            {
+                forwardedOptions.KnownIPNetworks.Add(network);
+            }
+        }
+
+        return forwardedOptions;
     }
 
     #endregion // Static methods

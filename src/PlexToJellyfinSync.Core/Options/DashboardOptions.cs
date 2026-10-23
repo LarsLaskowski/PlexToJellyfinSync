@@ -46,8 +46,16 @@ public sealed class DashboardOptions : IValidatableObject
     /// <inheritdoc/>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        // Skeleton stub: a zero-value result keeps the existing options tests green until the implementation
-        yield break;
+        var entries = TrustedProxies ?? [];
+
+        for (var index = 0; index < entries.Length; index++)
+        {
+            if (TrustedProxyParser.TryParse(entries[index], out _) == false)
+            {
+                yield return new ValidationResult($"Dashboard:TrustedProxies:{index} must be an IP address or a CIDR network such as 172.18.0.0/16 (environment variable PLEXSYNC__Dashboard__TrustedProxies__{index}).",
+                                                  [nameof(TrustedProxies)]);
+            }
+        }
     }
 
     #endregion // IValidatableObject

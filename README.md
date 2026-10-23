@@ -106,6 +106,7 @@ double underscore for nesting).
 | `Dashboard:Enabled` | `PLEXSYNC__Dashboard__Enabled` | `true` | Enable the web dashboard |
 | `Dashboard:Token` | `PLEXSYNC__Dashboard__Token` | – | Optional access token |
 | `Dashboard:LogBufferSize` | `PLEXSYNC__Dashboard__LogBufferSize` | `1000` | In-memory log entries (minimum 1) |
+| `Dashboard:TrustedProxies` | `PLEXSYNC__Dashboard__TrustedProxies__0`, `__1`, … | – | IP addresses or CIDR networks of reverse proxies whose `X-Forwarded-For`/`X-Forwarded-Proto` are trusted, each with its index; loopback is always trusted |
 
 Invalid or missing required settings stop the application at startup, before the sync worker or the dashboard
 start, with an error naming the setting (visible in `docker logs`), instead of failing on every sync.

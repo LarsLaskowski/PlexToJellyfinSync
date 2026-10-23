@@ -90,15 +90,30 @@ WebSocket connection; every other source is limited to the application's own ori
   counted as a failure nor extends the lockout.
 - A failure more than 15 minutes after the client's previous one starts the count again from zero. A successful
   login clears the client's record.
-- The records live in process memory and are lost on restart. Once more than 1024 client keys are tracked, each
-  recorded failure removes the records that have been idle for more than 15 minutes and are not locked. Records
-  that are recent or locked are kept, so the number of tracked clients, and the memory they use, has no upper
-  bound.
+- The records live in process memory and are lost on restart. At most 1024 per-client records are held. When a
+  client without a record meets a full set, the records idle for more than 15 minutes and not locked are removed
+  first, and the client gets its own record if that frees room.
+- While 1024 records are held and none can be removed, every client without a record is counted on one shared
+  record, which follows the same counting, backoff and reset rules. Clients with a record are still judged by
+  their own. A successful login clears the client's own record only, never the shared one.
 
 ### Forwarded headers
 
-- `X-Forwarded-For` and `X-Forwarded-Proto` are honoured from any sender: no known proxy or proxy network is
-  configured. Of a list of addresses in `X-Forwarded-For` the rightmost entry is used (one hop).
+- `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only from trusted senders: loopback (`127.0.0.0/8`,
+  `::1`) and the addresses and CIDR networks listed in `Dashboard:TrustedProxies` (see
+  [Configuration](configuration.md)). From any other sender both headers are ignored. Of a list of addresses in
+  `X-Forwarded-For` the rightmost entry is used (one hop).
+- The trusted proxy must set or append `X-Forwarded-For`: a proxy that passes the client's header through
+  unchanged lets the client choose the rightmost entry.
+- To trust every sender, as before the setting existed, list `0.0.0.0/0` and `::/0`; the bypass below then applies
+  again.
+- When `X-Forwarded-For` or `X-Forwarded-Proto` arrives and is not applied, the application logs one warning per
+  process: `Forwarded headers from {Sender} were not applied: the sender is not a trusted proxy or the header is
+  malformed. List the reverse proxy in Dashboard:TrustedProxies (environment variable
+  PLEXSYNC__Dashboard__TrustedProxies__0). This warning is logged once.` `{Sender}` is the connection's own
+  address, never a header value. List it only if it is your reverse proxy: the first untrusted sender claims the
+  single warning, which can be a client reaching the port directly, and it can take the slot before the real
+  proxy's request.
 - When present, `X-Forwarded-For` decides the client address the login throttle counts by, and
   `X-Forwarded-Proto` decides whether a request counts as HTTPS and with it whether the session cookie carries
   `Secure`. Without them the connection's own address and scheme are used.
@@ -119,15 +134,18 @@ WebSocket connection; every other source is limited to the application's own ori
 
 ## Limits and errors
 
-- **Forwarded headers from any sender.** Because `X-Forwarded-For` and `X-Forwarded-Proto` are accepted from
-  any sender, a client that reaches the application's port directly chooses the address the throttle counts it
-  under, so the throttle does not limit it; each address it uses also adds a throttle record, which is not
-  removed while it is recent (see *Login throttle*: no bound). Such a client likewise decides through
-  `X-Forwarded-Proto` whether its request counts as HTTPS and with it the cookie's `Secure` flag; behind a
-  TLS-terminating proxy that does not send the header, the cookie is issued without `Secure`.
+- **Forwarded headers from trusted senders only.** A client that reaches the application's port directly cannot
+  choose its throttle key or its scheme: its forwarded headers are ignored. A deployment behind a reverse proxy
+  that does not connect from loopback and does not list its address in `Dashboard:TrustedProxies` gets the
+  proxy's address as every client's address (all clients share one throttle key) and no forwarded scheme, so
+  the cookie is issued without `Secure` behind a TLS-terminating proxy; the one-time warning names the setting.
+  A client with many real source addresses, such as an IPv6 /64, can hold up to 1024 throttle records and in
+  steady state guess about 200 times per minute, plus the attempts of the shared record: an accepted trade-off.
+  While 1024 clients with recent failures are tracked, a new client can be locked out by the shared record's
+  failures.
   Mitigation for the operator:
   - put a reverse proxy in front that sets or appends `X-Forwarded-For` (the rightmost entry is used, one hop)
-    and sets `X-Forwarded-Proto`;
+    and sets `X-Forwarded-Proto`, and list its address in `Dashboard:TrustedProxies`;
   - keep the application's port off untrusted networks, so that only the proxy reaches it;
   - set a long, random `Dashboard:Token`.
 - **Masking reach.** Masking covers only the dashboard's in-memory log buffer. Console and container output is
@@ -145,6 +163,9 @@ WebSocket connection; every other source is limited to the application's own ori
 
 - [`decisions/0007-dashboard-auth-model.md`](../decisions/0007-dashboard-auth-model.md) — the dashboard is open
   by default and optionally protected by a shared token with server-side sessions.
+- [`decisions/0022-forwarded-headers-from-configured-proxies-only.md`](../decisions/0022-forwarded-headers-from-configured-proxies-only.md)
+  — forwarded headers are trusted only from loopback and `Dashboard:TrustedProxies`; the login throttle holds at
+  most 1024 records.
 
 ## Not here
 

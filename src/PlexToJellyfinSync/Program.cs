@@ -35,8 +35,7 @@ public static partial class Program
         builder.Services.AddRazorComponents()
                         .AddInteractiveServerComponents();
 
-        builder.Services.AddSingleton<ILoggerProvider>(serviceProvider =>
-        new InMemoryLogProvider(serviceProvider.GetRequiredService<ILogStore>(), serviceProvider.GetRequiredService<ILogRedactor>()));
+        builder.Services.AddSingleton<ILoggerProvider>(serviceProvider => new InMemoryLogProvider(serviceProvider.GetRequiredService<ILogStore>(), serviceProvider.GetRequiredService<ILogRedactor>()));
 
         var app = builder.Build();
 
@@ -48,6 +47,15 @@ public static partial class Program
         }
 
         app.UseForwardedHeaders(DashboardStartup.CreateForwardedHeadersOptions(dashboardOptions));
+
+        var forwardedHeadersWarning = new ForwardedHeadersWarning(app.Services.GetRequiredService<ILogger<ForwardedHeadersWarning>>());
+
+        app.Use(async (context, next) =>
+                {
+                    forwardedHeadersWarning.Inspect(context);
+
+                    await next(context).ConfigureAwait(false);
+                });
 
         if (app.Environment.IsDevelopment() == false)
         {

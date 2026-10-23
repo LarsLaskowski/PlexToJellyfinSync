@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 using PlexToJellyfinSync.Core.Abstractions;
 
 namespace PlexToJellyfinSync.Service.Security;
@@ -17,7 +15,9 @@ public sealed class LoginThrottle : ILoginThrottle
     private const int FreeAttempts = 5;
 
     /// <summary>
-    /// Upper bound on the number of tracked clients before stale entries are pruned
+    /// Upper bound on the number of per-client records; beyond it untracked clients share one record. A new client
+    /// meeting a full set scans all records under the one lock, which is cheap at this size, so do not raise the
+    /// bound without revisiting that cost
     /// </summary>
     private const int MaxTrackedClients = 1024;
 
@@ -29,7 +29,9 @@ public sealed class LoginThrottle : ILoginThrottle
     private static readonly TimeSpan _maxLockout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan _retentionWindow = TimeSpan.FromMinutes(15);
 
-    private readonly ConcurrentDictionary<string, LoginAttemptState> _attempts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LoginAttemptState> _attempts = new(StringComparer.Ordinal);
+    private readonly Lock _lock = new();
+    private readonly LoginAttemptState _sharedRecord = new();
     private readonly TimeProvider _timeProvider;
 
     #endregion // Fields
@@ -52,58 +54,81 @@ public sealed class LoginThrottle : ILoginThrottle
     /// <summary>
     /// Number of per-client records currently held
     /// </summary>
-    public int TrackedClientCount => throw new NotImplementedException();
+    public int TrackedClientCount
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _attempts.Count;
+            }
+        }
+    }
 
     #endregion // Properties
 
     #region Methods
 
     /// <summary>
-    /// Remove entries that have been idle beyond the retention window once the tracked set grows large
+    /// Find the record that judges a client; the caller holds the lock
     /// </summary>
+    /// <param name="clientKey">Client identifier</param>
     /// <param name="now">Current time</param>
-    private void PruneStaleEntries(DateTimeOffset now)
+    /// <param name="create">Whether a new record is created for an untracked client when there is room</param>
+    /// <returns>The client's record, the shared record when the set is full, or null for an untracked client without creation</returns>
+    private LoginAttemptState? ResolveRecord(string clientKey, DateTimeOffset now, bool create)
     {
-        if (_attempts.Count <= MaxTrackedClients)
+        if (_attempts.TryGetValue(clientKey, out var tracked))
         {
-            return;
+            return tracked;
         }
 
-        var stale = _attempts.Where(pair => now - pair.Value.LastActivity > _retentionWindow
-                                            && pair.Value.LockedUntil <= now)
-                             .Select(pair => pair.Key)
-                             .ToList();
-
-        foreach (var key in stale)
+        if (_attempts.Count >= MaxTrackedClients)
         {
-            _attempts.TryRemove(key, out _);
+            var stale = _attempts.Where(pair => now - pair.Value.LastActivity > _retentionWindow
+                                                && pair.Value.LockedUntil <= now)
+                                 .Select(pair => pair.Key)
+                                 .ToList();
+
+            foreach (var key in stale)
+            {
+                _attempts.Remove(key);
+            }
         }
+
+        if (_attempts.Count >= MaxTrackedClients)
+        {
+            return _sharedRecord;
+        }
+
+        if (create == false)
+        {
+            return null;
+        }
+
+        var added = new LoginAttemptState();
+
+        _attempts[clientKey] = added;
+
+        return added;
     }
 
     #endregion // Methods
 
     #region ILoginThrottle
 
-    /// <summary>
-    /// Determine whether a client is currently locked out from attempting a login
-    /// </summary>
-    /// <param name="clientKey">Identifier for the client, e.g. its remote IP address</param>
-    /// <param name="retryAfter">When locked out, the remaining time until the next attempt is allowed</param>
-    /// <returns>True when the client must wait before trying again</returns>
+    /// <inheritdoc/>
     public bool IsLockedOut(string clientKey, out TimeSpan retryAfter)
     {
         retryAfter = TimeSpan.Zero;
 
-        if (_attempts.TryGetValue(clientKey, out var attempt) == false)
-        {
-            return false;
-        }
-
         var now = _timeProvider.GetUtcNow();
 
-        lock (attempt)
+        lock (_lock)
         {
-            if (attempt.LockedUntil <= now)
+            var attempt = ResolveRecord(clientKey, now, false);
+
+            if (attempt is null || attempt.LockedUntil <= now)
             {
                 return false;
             }
@@ -114,17 +139,15 @@ public sealed class LoginThrottle : ILoginThrottle
         }
     }
 
-    /// <summary>
-    /// Record a failed login attempt for a client and extend its backoff lockout
-    /// </summary>
-    /// <param name="clientKey">Identifier for the client, e.g. its remote IP address</param>
+    /// <inheritdoc/>
     public void RegisterFailure(string clientKey)
     {
         var now = _timeProvider.GetUtcNow();
-        var attempt = _attempts.GetOrAdd(clientKey, _ => new LoginAttemptState());
 
-        lock (attempt)
+        lock (_lock)
         {
+            var attempt = ResolveRecord(clientKey, now, true)!;
+
             // A long idle period resets the counter so occasional typos do not accumulate forever.
             if (now - attempt.LastActivity > _retentionWindow)
             {
@@ -142,17 +165,15 @@ public sealed class LoginThrottle : ILoginThrottle
                 attempt.LockedUntil = now.AddSeconds(seconds);
             }
         }
-
-        PruneStaleEntries(now);
     }
 
-    /// <summary>
-    /// Clear the recorded failures for a client after a successful login
-    /// </summary>
-    /// <param name="clientKey">Identifier for the client, e.g. its remote IP address</param>
+    /// <inheritdoc/>
     public void RegisterSuccess(string clientKey)
     {
-        _attempts.TryRemove(clientKey, out _);
+        lock (_lock)
+        {
+            _attempts.Remove(clientKey);
+        }
     }
 
     #endregion // ILoginThrottle
