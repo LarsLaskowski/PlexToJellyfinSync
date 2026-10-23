@@ -6,3 +6,4 @@ are quoted in full.
 | Date | Step | Member | Result |
 | ---- | ---- | ------ | ------ |
 | 2026-10-23 20:25 | 1 Intake | Orchestrator | Issue #231 read (bug, security: forwarded headers / login throttle); branch fix-issue-231-forwarded-headers-throttle off main |
+| 2026-10-23 20:34 | 2 Plan | squad-lead | RESULT: DONE, tier security, plan.md + decision 0022 (Proposed); new setting Dashboard:TrustedProxies, bounded throttle (opus/medium · usage pending) |
