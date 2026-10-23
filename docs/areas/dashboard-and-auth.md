@@ -105,8 +105,9 @@ WebSocket connection; every other source is limited to the application's own ori
   `X-Forwarded-For` the rightmost entry is used (one hop).
 - The trusted proxy must set or append `X-Forwarded-For`: a proxy that passes the client's header through
   unchanged lets the client choose the rightmost entry.
-- To trust every sender, as before the setting existed, list `0.0.0.0/0` and `::/0`; the bypass below then applies
-  again.
+- To trust every sender, as before the setting existed, list `0.0.0.0/0` and `::/0`; then every client that
+  reaches the port directly chooses again the address the login throttle counts it under and whether its request
+  counts as HTTPS, and with it the cookie's `Secure` flag.
 - When `X-Forwarded-For` or `X-Forwarded-Proto` arrives and is not applied, the application logs one warning per
   process: `Forwarded headers from {Sender} were not applied: the sender is not a trusted proxy or the header is
   malformed. List the reverse proxy in Dashboard:TrustedProxies (environment variable
@@ -114,9 +115,9 @@ WebSocket connection; every other source is limited to the application's own ori
   address, never a header value. List it only if it is your reverse proxy: the first untrusted sender claims the
   single warning, which can be a client reaching the port directly, and it can take the slot before the real
   proxy's request.
-- When present, `X-Forwarded-For` decides the client address the login throttle counts by, and
+- When applied, `X-Forwarded-For` decides the client address the login throttle counts by, and
   `X-Forwarded-Proto` decides whether a request counts as HTTPS and with it whether the session cookie carries
-  `Secure`. Without them the connection's own address and scheme are used.
+  `Secure`. Without them, or when they are not applied, the connection's own address and scheme are used.
 - Implemented in `src/PlexToJellyfinSync/Security/DashboardStartup.cs`.
 
 ### Live log buffer and secret masking
