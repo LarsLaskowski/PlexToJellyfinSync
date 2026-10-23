@@ -195,3 +195,7 @@ Security's plan review returned `CHANGES_REQUIRED`; each finding and its resolut
 Non-blocking notes, all applied to spec AC5 and the outline: masking scope and level (fact 17), public paths and
 unauthenticated `/health` (fact 18), sessions in memory, non-sliding, lost on restart, revoked by logout,
 locked-out attempts not checked and not extending the lockout (fact 19).
+
+## Security notes
+
+Plan row 12 of *Verified facts* still lists "1024 clients" among the throttle values. Fact 15 and AC5 bind the area document, so this can stay. Writing it as "1024-key pruning threshold" would make row 12 harder to misread when the document is written.
