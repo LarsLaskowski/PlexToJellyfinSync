@@ -43,11 +43,24 @@ not the exception.
 8. **Count IPv6 clients per /64 prefix** — narrows key variation within one IPv6 allocation, but option 7 already
    caps it, and it adds a key derivation that the forwarded and the direct address would both need.
 
+For the upgrade, which otherwise changes silently:
+
+9. **A once-per-process warning when forwarded headers arrive and are not applied** (chosen) — names the setting
+   at the moment it matters, logs only the sender's address, and one line per process gives an attacker no log
+   volume. A **startup warning while the list is empty** lost: every home deployment without a proxy, the default
+   case, would see it. **No warning** lost: an upgrader behind a proxy loses `Secure` and the per-client throttle
+   without any sign.
+
+For the entries: the framework's `IPAddress.TryParse` reads short, integer, hex and octal IPv4 text
+(`010.0.0.1` is `8.0.0.1`, `10/8` is `0.0.0.0/8`), so the setting accepts IPv4 only in canonical dotted-decimal
+form; otherwise a typo would silently trust a network the operator never wrote.
+
 ## Decision
 
 Options 1 and 7: `Dashboard:TrustedProxies` lists the addresses and CIDR networks whose forwarded headers are
 applied, in addition to the framework's loopback defaults, and the login throttle holds at most 1024 per-client
-records, counting every further client on one shared record that a successful login does not clear. The rules are
+records, counting every further client on one shared record that a successful login does not clear. Forwarded
+headers that arrive and are not applied cause one warning per process. The rules are
 in [Dashboard and auth](../areas/dashboard-and-auth.md) (*Forwarded headers*, *Login throttle*) and the setting in
 [Configuration](../areas/configuration.md).
 
@@ -57,5 +70,10 @@ in [Dashboard and auth](../areas/dashboard-and-auth.md) (*Forwarded headers*, *L
   without it the login throttle counts all clients under the proxy's address and the cookie is issued without
   `Secure` behind a TLS-terminating proxy. The pull request description names this step.
 - An operator who wants the old behavior lists `0.0.0.0/0` and `::/0`, accepting the bypass knowingly.
-- While more than 1024 clients with recent failures are tracked, a new client can be locked out by others' failures.
+- While 1024 clients with recent failures are tracked, a new client can be locked out by others' failures.
+- Accepted residual rate: a client with many real source addresses (an IPv6 /64, for example) can hold up to 1024
+  records and in steady state guess about 200 times per minute, plus the shared record's attempts; a long, random
+  `Dashboard:Token` remains the defense against that.
+- The prune scans at most 1024 records under the throttle's single lock, only when a new client meets a full
+  set; cheap at that size. Raising the bound means revisiting this cost.
 - The forwarded-header trust becomes part of the dashboard's security area (`.squad/project.md`).
