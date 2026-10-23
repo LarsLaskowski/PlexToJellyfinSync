@@ -77,7 +77,8 @@ of the media volume the application may write.
 ### Updating an existing file
 
 - An existing file changes only in the elements `watched`, `playcount` and `lastplayed` directly below its root
-  element; every other element, attribute, comment and text is kept and is never refreshed from Plex.
+  element (the first element of each name); every other element, attribute, comment and text is kept and is
+  never refreshed from Plex.
 - `watched` is written as `true` or `false`, `playcount` as a decimal integer, and `lastplayed` as the local time
   of the application process in the format `Nfo:DateTimeFormat` (default `yyyy-MM-dd HH:mm:ss`). A missing
   element is appended as the last child of the root element.
@@ -124,8 +125,8 @@ of the media volume the application may write.
   that name is overwritten) and then moved over the target in one rename, so a reader sees either the old or
   the new file, never a partial one.
 - On a Unix file system the new file takes the file mode of the file it replaces; a newly created file gets the
-  default mode of the application's user. Owner and group of a replaced file become those of the application's
-  user, since the rename installs a new file.
+  default mode of the application's user. Owner and group of a replaced file are not carried over: the rename
+  installs a new file created by the application's user.
 - The rename replaces the directory entry: a hard link to the old file keeps the old content, and a target that
   is a symbolic link is replaced by a regular file.
 
@@ -133,7 +134,7 @@ of the media volume the application may write.
 
 - Writes to one target are serialized within the application: the read, the comparison and the replace of one
   writer finish before the next writer to the same normalized target path (compared case-sensitively) starts.
-  Writes to different targets run in parallel.
+  Writes to different targets may run in parallel.
 - There is no coordination with other processes: a tool that edits the same file at the same moment, or a
   second instance of the application on the same volume, can have its change overwritten or overwrite this one.
 - The application keeps one lock per distinct target path written since it started; the number grows with the
@@ -150,12 +151,13 @@ of the media volume the application may write.
 - A failure to read, create a folder, write the temporary file or replace the target (a read-only volume, a
   missing permission, a full disk) leaves the target unchanged and is reported as an error of that item; it
   does not stop the run ([Sync pipeline](sync-pipeline.md)). A temporary file whose serialization failed is
-  deleted when possible; one left by a failed rename stays next to the target and is overwritten by the next
-  write.
-- Log lines name the Plex path and the local target path in full; they never contain file content.
+  deleted when possible; one left by a failure after its serialization (copying the file mode, the rename)
+  stays next to the target and is overwritten by the next write to that target.
+- The log lines of this area name the Plex path and the local target path in full. The malformed-file warning
+  carries the XML parser's message, which can quote a name or character from the file and its line and
+  position; no line carries the file's content beyond that.
 - Containment is lexical and case-sensitive and does not follow symbolic links (see *Root containment*): it is
-  no protection against links inside a root, and on a case-insensitive file system a target spelled with
-  another case than the root is refused.
+  no protection against links inside a root.
 - The kept content of an updated file is its XML content, not its bytes (see *Updating an existing file*).
 
 ## Related decisions

@@ -24,8 +24,8 @@ with this document.
 
 ### Settings
 
-Defaults are those of the shipped `appsettings.json`, which equal the built-in ones. "Not validated" means the
-startup check does not look at the setting.
+Defaults are those of the shipped `appsettings.json`; they equal the built-in ones except for `PathMappings`, which
+is empty without that file. "Not validated" means the startup check does not look at the setting.
 
 | Key | Environment variable | Default | Allowed values |
 | --- | -------------------- | ------- | -------------- |
