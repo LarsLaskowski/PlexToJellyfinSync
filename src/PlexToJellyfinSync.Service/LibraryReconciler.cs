@@ -113,11 +113,11 @@ public sealed class LibraryReconciler : ILibraryReconciler
 
             try
             {
-                await ReconcileShowEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
+                var episodes = await ReconcileShowEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
 
                 if (_syncOptions.WriteSeriesSeasonAggregates)
                 {
-                    await _aggregateWriter.WriteAggregatesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
+                    await _aggregateWriter.WriteAggregatesAsync(show.RatingKey, episodes, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
