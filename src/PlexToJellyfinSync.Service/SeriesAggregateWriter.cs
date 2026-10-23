@@ -107,5 +107,11 @@ public sealed class SeriesAggregateWriter : ISeriesAggregateWriter
         await _itemWriter.WriteAggregateAsync(seriesItem, showDirectory, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public Task WriteAggregatesAsync(string showRatingKey, IReadOnlyList<MediaItem> episodes, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+
     #endregion // ISeriesAggregateWriter
 }
