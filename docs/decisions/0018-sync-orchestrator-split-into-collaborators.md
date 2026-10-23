@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-03
-- **Source:** Issue #56 (review finding F-407)
+- **Source:** Issue #56 (review finding F-407), Issue #199 (episode listing reused)
 - **Supersedes:** —
 
 ## Context
@@ -45,9 +45,12 @@ Option 3.
   matching path mapping (with the existing warnings), otherwise writes it through `INfoWriter` at the mapped
   local path; `WriteAggregateAsync` writes a season or series item to an already-local directory. Both count
   `NfoCreated` / `NfoUpdated`. This is now the single place where the 0004 skip happens for movies and episodes.
-- `ISeriesAggregateWriter` / `SeriesAggregateWriter`: `WriteAggregatesAsync` re-fetches a show's episodes,
-  keeps only mapped ones, aggregates per season and for the series through `WatchAggregator`, and writes
-  `season.nfo` / `tvshow.nfo` through `IMediaItemWriter`, with the directory derivation unchanged.
+- `ISeriesAggregateWriter` / `SeriesAggregateWriter`: `WriteAggregatesAsync` keeps only a show's mapped
+  episodes, aggregates per season and for the series through `WatchAggregator`, and writes
+  `season.nfo` / `tvshow.nfo` through `IMediaItemWriter`, with the directory derivation unchanged. It has two
+  entry points (issue #199): one takes the episodes the full reconcile already listed for its episode writes,
+  so the reconcile lists a show's episodes once; the other, for the history path, which holds no episode
+  list, requests the listing itself. Both run the same path-mapping filter on every episode.
 - `ILibraryReconciler` / `LibraryReconciler`: `ReconcileLibraryAsync` dispatches by library kind, reconciles
   movies one by one and a series library show by show with the episode groups written concurrently (bounded
   by `Sync:EpisodeReconcileParallelism`, clamped to at least 1), calls the aggregate writer when
@@ -70,7 +73,13 @@ All three types are stateless singletons, so the concurrent library reconcile sh
   `LibraryReconciler`; its purpose (defense-in-depth behind startup validation) is unchanged.
 - The private reconcile helpers leave `#region ISyncOrchestrator`, which resolves review finding F-410
   (issue #59) as a side effect.
-- Not changed here: a series reconcile still requests a show's episodes twice (once for the episode writes,
-  once for the aggregates), and the season/series directory derivation still assumes a show/season folder
-  layout (issue #58). Both remain behavior that a later change can address in one place,
-  `SeriesAggregateWriter`.
+- Issue #199 removed the second episode listing of a series reconcile by handing the listed episodes to the
+  aggregate writer. Rejected there: caching listings in `PlexClient` (it would make a stateless singleton
+  stateful and need an invalidation rule), computing the aggregates in `LibraryReconciler` (it would duplicate
+  the aggregation and the path-mapping filter that this record places in `SeriesAggregateWriter`), and an
+  optional, nullable episode parameter on the one method (two meanings behind one signature, and a `null`
+  would silently fall back to a second request). Accepted consequence: in a reconcile the aggregates follow
+  the listing that the episode writes used, so a watch change on Plex between the episode writes and the
+  aggregates is picked up by the next history poll or reconcile, like any change after a listing was read.
+- Not changed here: the season/series directory derivation still assumes a show/season folder layout (issue
+  #58), a behavior that a later change can address in one place, `SeriesAggregateWriter`.

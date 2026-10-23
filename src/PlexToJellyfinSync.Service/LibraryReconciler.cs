@@ -113,11 +113,11 @@ public sealed class LibraryReconciler : ILibraryReconciler
 
             try
             {
-                await ReconcileShowEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
+                var episodes = await ReconcileShowEpisodesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
 
                 if (_syncOptions.WriteSeriesSeasonAggregates)
                 {
-                    await _aggregateWriter.WriteAggregatesAsync(show.RatingKey, cancellationToken).ConfigureAwait(false);
+                    await _aggregateWriter.WriteAggregatesAsync(show.RatingKey, episodes, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -138,8 +138,8 @@ public sealed class LibraryReconciler : ILibraryReconciler
     /// </summary>
     /// <param name="showRatingKey">Rating key of the show</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task</returns>
-    private async Task ReconcileShowEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
+    /// <returns>The episodes of the show</returns>
+    private async Task<IReadOnlyList<MediaItem>> ReconcileShowEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
     {
         var episodes = await _plexClient.GetEpisodesAsync(showRatingKey, cancellationToken).ToListAsync(cancellationToken).ConfigureAwait(false);
         var episodeGroups = episodes.GroupBy(episode => episode.FilePath, StringComparer.Ordinal).ToList();
@@ -151,6 +151,8 @@ public sealed class LibraryReconciler : ILibraryReconciler
                               };
 
         await Parallel.ForEachAsync(episodeGroups, parallelOptions, WriteEpisodeGroupAsync).ConfigureAwait(false);
+
+        return episodes;
     }
 
     /// <summary>
