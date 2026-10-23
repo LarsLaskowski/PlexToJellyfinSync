@@ -6,3 +6,4 @@ are quoted in full.
 | Date | Step | Member | Result |
 | ---- | ---- | ------ | ------ |
 | 2026-10-23 17:35 | Intake | Orchestrator | issue read, feature routed to squad-spec, branch and work folder created |
+| 2026-10-23 17:37 | 2a Spec | squad-lead | spec.md written, plan-check passes (opus/medium · usage pending) |
