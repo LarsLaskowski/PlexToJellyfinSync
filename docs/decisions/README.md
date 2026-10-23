@@ -74,5 +74,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0019](0019-squad-maintained-in-the-template-repository.md) | Product PRs never change the squad; squad lessons go to the template repository | Accepted | 2026-10-03 |
 | [0020](0020-squad-member-who-changed-files-runs-the-formatter.md) | In the squad, the member that changed the files runs the formatter | Accepted | 2026-10-17 |
 | [0021](0021-area-documents-and-area-assignment.md) | Four area documents; released records get their area from this record | Accepted | 2026-10-23 |
-| [0022](0022-forwarded-headers-from-configured-proxies-only.md) | Forwarded headers are trusted only from configured proxies; the login throttle is bounded | Proposed | 2026-10-23 |
+| [0022](0022-forwarded-headers-from-configured-proxies-only.md) | Forwarded headers are trusted only from configured proxies; the login throttle is bounded | Accepted | 2026-10-23 |
 <!-- project:end index -->

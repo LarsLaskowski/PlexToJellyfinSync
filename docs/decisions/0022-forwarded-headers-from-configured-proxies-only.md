@@ -1,6 +1,6 @@
 # 0022: Forwarded headers are trusted only from configured proxies; the login throttle is bounded
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-23
 - **Area:** Dashboard and auth
 - **Source:** Issue #231
