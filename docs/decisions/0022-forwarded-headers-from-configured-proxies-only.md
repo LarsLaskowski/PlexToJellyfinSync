@@ -77,3 +77,9 @@ in [Dashboard and auth](../areas/dashboard-and-auth.md) (*Forwarded headers*, *L
 - The prune scans at most 1024 records under the throttle's single lock, only when a new client meets a full
   set; cheap at that size. Raising the bound means revisiting this cost.
 - The forwarded-header trust becomes part of the dashboard's security area (`.squad/project.md`).
+- Touching `Program.cs` brought its security-header lines under the analyzer gate: they now use the typed
+  `IHeaderDictionary` properties (ASP0015), and Sonar S7039 is disabled for the `Content-Security-Policy`
+  assignment only, because its `'unsafe-inline'` and `ws:` / `wss:` sources are the ones Blazor Server needs
+  ([*Security headers*](../areas/dashboard-and-auth.md#security-headers)) — the policy itself is unchanged.
+  Setting the header through an API the rule does not inspect was rejected: it hides the finding instead of
+  stating why it is accepted.
