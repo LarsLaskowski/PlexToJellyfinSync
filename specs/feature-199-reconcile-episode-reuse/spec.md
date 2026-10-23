@@ -166,3 +166,10 @@ reconcile, what each writes and requests from Plex), which would state:
 Besides the area document, `docs/ARCHITECTURE.md` point 2 ("it re-fetches all episodes of that show") and
 decision record 0018 (*Decision*, `ISeriesAggregateWriter`, and *Consequences*, "Not changed here") describe
 today's double request and change with this feature; their owners are set in the plan.
+
+## Challenge notes
+
+Devil's Advocate, mode `spec`: RESULT: OBJECTIONS (0 major, 2 minor).
+
+1. minor: AC2 would pass a wrong build as tested today. `FakePlexClient.GetEpisodesAsync` (`tests/PlexToJellyfinSync.Tests/FakePlexClient.cs:194-213`) returns the same `MediaItem` instances on every call, so a build that still fetches twice computes the same aggregates and passes AC2. Instruction for the plan: prove AC2 with a test that fails if the aggregates come from a second listing. Either have the fake return different watch states on its second call for the same show, or assert `Assert.HasCount(1, _plexClient.EpisodeRequests, ...)` in the same reconcile test that checks the aggregate content. The history test `SyncOrchestratorProcessHistoryAggregatesEachSeriesOnlyOnce` (`tests/PlexToJellyfinSync.Tests/SyncOrchestratorTests.cs:327-341`) uses that same count for the history path.
+2. minor: The paging part of AC1 and E7 cannot be checked at the reconciler level. `FakePlexClient` has no pages; paging lives inside `PlexClient.GetEpisodesAsync` (`src/PlexToJellyfinSync.Service/PlexClient.cs:615-618`) and is covered by the existing `PlexClientTests` (around lines 899-1000). Instruction for the plan: at the reconciler, state "every page once" as "`GetEpisodesAsync` enumerated once per show". Prove "aggregates include episodes of all pages" with a reconciler test whose listing holds more than one fake page's worth of episodes (e.g. 201) and whose `tvshow.nfo` reflects all of them. Do not add a new paging test to `PlexClient`.
