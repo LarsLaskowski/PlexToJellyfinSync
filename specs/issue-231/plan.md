@@ -289,3 +289,10 @@ Devil's Advocate, three minor objections; all accepted.
   real addresses plus the shared record) and in 0022 *Consequences* as the accepted trade-off.
 - **N5, scan cost under the lock.** Taken: *Security considerations* and 0022 *Consequences*; a comment on
   `MaxTrackedClients` says so.
+
+## Security notes
+
+Non-blocking findings of Security's `APPROVED` plan review (round 2), verbatim:
+
+- **N6, warning wording.** The text names `{Sender}` and then says "List the reverse proxy in Dashboard:TrustedProxies". The first untrusted sender to claim the one warning may be an attacker reaching the port directly, and an operator may copy that address into the list. Suggestion: make the text say that `{Sender}` should be listed only if it is the operator's reverse proxy (e.g. "If {Sender} is your reverse proxy, list it in …"). Because only the first sender claims the line, an attacker's request can also take the slot before the real proxy's; worth one sentence in the *Forwarded headers* section of `docs/areas/dashboard-and-auth.md`.
+- **N7, IPv6 with a port.** An unbracketed `2001:db8::1:80` is a valid IPv6 address and is accepted as that address, not as host `2001:db8::1` port 80. This is inherent to IPv6 text, and brackets are rightly rejected. One sentence in the `configuration.md` row ("no port") would head off the mistake.
