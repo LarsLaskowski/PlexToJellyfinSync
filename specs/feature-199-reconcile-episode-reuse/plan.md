@@ -1,7 +1,7 @@
 # Plan: Series reconcile requests each show's episodes once
 
 Source: Issue #199 | [spec.md](spec.md)
-Status: Draft
+Status: Revised (1)
 Tier: standard — a behavior change in the sync pipeline (one Plex request fewer per show) that creates, changes or removes no security control: the path-mapping skip of every aggregated episode stays the same code path.
 Security areas touched: Path mapping and file writes (`SeriesAggregateWriter`; the aggregate NFO writes through `MediaItemWriter`/`NfoWriter` are unchanged)
 
@@ -45,7 +45,7 @@ Assertions on the series aggregate of one show use the written item (`Item.Ratin
 | AC3 | `SeriesAggregateWriterWithoutEpisodesRequestsListingOnce` (rating-key overload: one `EpisodeRequests` entry, aggregates written); existing `SyncOrchestratorProcessHistoryAggregatesEachSeriesOnlyOnce` and the existing `SeriesAggregateWriterTests` on the rating-key overload | `tests/PlexToJellyfinSync.Tests/SeriesAggregateWriterTests.cs`, `tests/PlexToJellyfinSync.Tests/SyncOrchestratorTests.cs` |
 | AC4 | `LibraryReconcilerAggregatesDisabledRequestsEpisodesOnce` (one `EpisodeRequests` entry, no season or series write); existing `LibraryReconcilerSeriesLibraryAggregatesDisabledWritesEpisodesOnly` | `tests/PlexToJellyfinSync.Tests/LibraryReconcilerTests.cs` |
 | AC5 | `LibraryReconcilerShowWithoutEpisodesWritesNothingAndCountsNoError`; `LibraryReconcilerPartlyMappedShowAggregatesOnlyMappedEpisodes` (one unwatched episode unmapped via `StubPathMapper.Unmapped`, one unwatched without a file path, the rest watched: series item watched, `Errors` 0, one `EpisodeRequests` entry); `SeriesAggregateWriterGivenEpisodesLeavesOutUnmappedEpisodes` (passed list with a mapped, an unmapped and a file-less episode: only the mapped one counts); `SeriesAggregateWriterGivenOnlyUnmappedEpisodesWritesNothing` | `tests/PlexToJellyfinSync.Tests/LibraryReconcilerTests.cs`, `tests/PlexToJellyfinSync.Tests/SeriesAggregateWriterTests.cs` |
-| AC6 | `LibraryReconcilerFailingEpisodeListingWritesNoAggregateAndIsNotRequestedAgain` (aggregates on, `EpisodesExceptions["s1"]`: `EpisodeRequests` equals `["s1", "s2"]`, `Errors` 1, `PlexConnected` unchanged, series writes only for s2); existing `LibraryReconcilerFailingShowIsIsolated` | `tests/PlexToJellyfinSync.Tests/LibraryReconcilerTests.cs` |
+| AC6 | `LibraryReconcilerFailingEpisodeListingWritesNoAggregateAndIsNotRequestedAgain` (aggregates on, `EpisodesExceptions["s1"]`: `EpisodeRequests` equals `["s1", "s2"]`, `Errors` 1, `PlexConnected` unchanged, series writes only for s2) — a regression guard that passes on today's build too, not one of the failing tests first (*Challenge* 2); existing `LibraryReconcilerFailingShowIsIsolated` | `tests/PlexToJellyfinSync.Tests/LibraryReconcilerTests.cs` |
 | AC7 | `LibraryReconcilerFailingEpisodeWriteStillAggregatesItsWatchState` (aggregates on, e2 unwatched and failing: `Errors` 1, series item unwatched); `LibraryReconcilerFailingAggregateWriteKeepsEpisodesAndCountsOneError` (`FailuresByRatingKey["s1"]`: all episodes written, `Errors` 1) | `tests/PlexToJellyfinSync.Tests/LibraryReconcilerTests.cs` |
 | AC8 | `LibraryReconcilerSharedFileEpisodesCountInAggregates` (two watched episodes on one file plus one unwatched: both shared-file episodes written, series item unwatched; with all watched: watched); existing `LibraryReconcilerSharedFileEpisodesNeverOverlap` | `tests/PlexToJellyfinSync.Tests/LibraryReconcilerTests.cs` |
 | AC9 | `LibraryReconcilerCancellationWithAggregatesPropagatesWithoutError` (the existing cancellation setup with aggregates on); existing `LibraryReconcilerCancellationPropagatesWithoutError` | `tests/PlexToJellyfinSync.Tests/LibraryReconcilerTests.cs` |
@@ -54,13 +54,20 @@ Assertions on the series aggregate of one show use the written item (`Item.Ratin
 
 1. `ISeriesAggregateWriter` gains a second `WriteAggregatesAsync` overload that takes the show's episodes as
    an already listed `IReadOnlyList<MediaItem>`. The existing rating-key overload keeps its signature and
-   meaning for the history path: it lists the episodes (`GetEpisodesAsync(...).ToListAsync(...)`) and
-   delegates to the new overload.
-2. `SeriesAggregateWriter`'s current body moves into the new overload unchanged, except that the
-   `await foreach` over `GetEpisodesAsync` becomes a `foreach` over the passed list. The file-path check and
-   `_pathMapper.MapToLocal` stay applied to **every** passed episode (the security property of this change:
-   the caller passes the raw listing, never a pre-filtered or pre-mapped one, so the 0004 skip is decided in
-   one place). The show metadata request, the grouping and the directory derivation stay as they are.
+   meaning for the history path and keeps **streaming** the listing: it never collects the full listing.
+2. `SeriesAggregateWriter` is split into two private members that both overloads share:
+   - `MapEpisodePath` holds the path filter exactly as today (`SeriesAggregateWriter.cs:52-62`): `null` for an
+     episode without a file path (`string.IsNullOrWhiteSpace`) or without a matching mapping
+     (`_pathMapper.MapToLocal` returns `null`), otherwise the mapped local path. It is the only place the 0004
+     skip happens for aggregates.
+   - `WriteMappedAggregatesAsync` holds the rest of today's body unchanged (`SeriesAggregateWriter.cs:65-107`:
+     the empty check, the season grouping and writes, the show directory derivation, the show metadata request
+     and the series write) and takes the mapped (episode, local path) pairs.
+   - The rating-key overload enumerates `GetEpisodesAsync` with `await foreach` and adds each episode for which
+     `MapEpisodePath` returns a path to the mapped list while enumerating, as today; the list overload runs
+     the same `MapEpisodePath` over every passed episode. Both then call `WriteMappedAggregatesAsync`.
+   The caller passes the raw listing, never a pre-filtered or pre-mapped one (the security property of this
+   change, *Security considerations*).
 3. `LibraryReconciler.ReconcileShowEpisodesAsync` returns the list it collected; `ReconcileSeriesLibraryAsync`
    passes it to the new overload. The `try`/`catch` around both calls, the `WriteSeriesSeasonAggregates`
    condition and the order (all episode groups awaited before the aggregates) stay unchanged.
@@ -101,12 +108,20 @@ and implemented in `SeriesAggregateWriter` inside its ISeriesAggregateWriter reg
 
 Unchanged signature, changed body and docs: `Task WriteAggregatesAsync(string showRatingKey, CancellationToken cancellationToken);`
 
+New private members of `SeriesAggregateWriter` (in a Methods region before its ISeriesAggregateWriter region,
+XML docs on both):
+
+- `private string? MapEpisodePath(MediaItem episode)` — the mapped local path, or null when the episode has
+  no file path or no matching mapping.
+- `private async Task WriteMappedAggregatesAsync(string showRatingKey, List<(MediaItem Episode, string Local)> mapped, CancellationToken cancellationToken)`
+
 Changed private member in `LibraryReconciler` (in its Methods region):
 
 - `private async Task<IReadOnlyList<MediaItem>> ReconcileShowEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)`
 
 The skeleton rewrites `ISeriesAggregateWriter.cs` and `SeriesAggregateWriter.cs` (the new overload throws
-`NotImplementedException` until step 6); `LibraryReconciler.cs` keeps calling the rating-key overload until
+`NotImplementedException` until step 6; the two private members come with the implementation, task 4, since
+the rating-key overload keeps today's body until then); `LibraryReconciler.cs` keeps calling the rating-key overload until
 step 6, so the existing tests stay green after the skeleton.
 
 ## Test files
@@ -148,8 +163,10 @@ The guarantees of `.squad/project.md` are preserved: NFO files are still written
 the show-level `try`/`catch` in `LibraryReconciler` and the history loop's isolation are untouched (0006);
 the history/reconcile split is unchanged (0005). All three collaborators stay stateless singletons; the list
 lives only in one call of `ReconcileSeriesLibraryAsync`, so concurrent libraries never share it (E10).
-Memory is unchanged for the reconcile; the history path now holds a show's full listing instead of its mapped
-part, bounded by one show as in the reconcile.
+Memory does not increase on either path (spec, *Non-functional requirements*): the reconcile reuses the list
+it already holds for the episode grouping, and the history path keeps streaming the listing and holds only the
+mapped (episode, local path) pairs, as today. The 0004 skip for aggregates is still decided in one place,
+`MapEpisodePath`, used by both overloads.
 
 ## Security considerations
 
@@ -159,7 +176,8 @@ part, bounded by one show as in the reconcile.
   listing or write reaches `LastError` through the existing `HandleItemError` as today.
 
 The one security-relevant property: the new overload must not trust its input more than the old path did.
-It receives unfiltered episodes and applies the same file-path and mapping skip to each
+It receives unfiltered episodes and applies the same file-path and mapping skip to each, through the
+same `MapEpisodePath` the rating-key overload uses
 (`SeriesAggregateWriterGivenEpisodesLeavesOutUnmappedEpisodes`, `SeriesAggregateWriterGivenOnlyUnmappedEpisodesWritesNothing`).
 
 ## Decision records
@@ -184,9 +202,15 @@ Proposed follow-up issues (created by the orchestrator):
    exemption in the check) and then move the behavior from `docs/ARCHITECTURE.md` into area documents. Found
    while working on #199."
 
-## Plan challenge notes
+## Challenge
 
-Devil's Advocate, mode `plan`: RESULT: OBJECTIONS (0 major, 2 minor).
+Devil's Advocate, mode `plan`: 0 major, 2 minor. Both accepted.
 
-1. minor: The history path now holds more memory, which goes against the spec's "Memory: no increase" requirement. The plan has the rating-key overload collect the full listing with `ToListAsync` and hand it on, and its own *Architecture check* admits that "the history path now holds a show's full listing instead of its mapped part". Today `SeriesAggregateWriter.cs:50-63` streams the listing and keeps only the mapped (episode, local) pairs. Instruction for the Dev: keep the history path streaming. Move the path filter (the file-path check plus `_pathMapper.MapToLocal`) into one private helper that both overloads use. The rating-key overload filters while it enumerates `GetEpisodesAsync`, the list overload filters the passed list, and both hand the mapped pairs to one shared private aggregation-and-write method. The 0004 skip is then still decided in one place and the memory requirement holds for both paths. If the Lead prefers the plan as written, the spec's memory requirement should say "no increase for the reconcile" instead.
-2. minor: `LibraryReconcilerFailingEpisodeListingWritesNoAggregateAndIsNotRequestedAgain` (AC6) also passes on today's build. When the listing fails today, the exception skips the aggregate call, so `EpisodeRequests` is already `["s1","s2"]`. Instruction for the Tester: keep the test as a regression guard, but do not count it as one of the failing tests written first. AC1 and AC2 are the tests that prove the change.
+1. minor — the rating-key overload collected the full listing with `ToListAsync`, so the history path would
+   hold more memory than today, against the spec's "Memory: no increase". Accepted: the history path keeps
+   streaming; the path filter moves into `MapEpisodePath` and the aggregation and writes into
+   `WriteMappedAggregatesAsync`, both shared by the two overloads (*Approach* 2, *Signatures*, *Architecture
+   check*, task 4). The spec's memory requirement stays as written.
+2. minor — `LibraryReconcilerFailingEpisodeListingWritesNoAggregateAndIsNotRequestedAgain` passes on today's
+   build. Accepted: it stays as a regression guard for AC6 and does not count among the tests that must fail
+   first; AC1 and AC2 prove the change (*Tests per criterion*, task 3).

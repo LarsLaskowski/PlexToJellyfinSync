@@ -11,3 +11,4 @@ are quoted in full.
 | 2026-10-23 17:43 | 2b Plan | squad-lead | plan.md and tasks.md written, tier standard, plan-check passes (opus/medium · 112,879 tokens · 20 tool uses · 250 s) |
 | 2026-10-23 17:43 | 2b Plan challenge | squad-devils-advocate | launched (opus/medium · usage pending) |
 | 2026-10-23 17:43 | 3 Plan security review | squad-security | launched (opus/medium · 46,537 tokens · 7 tool uses · 45 s) |
+| 2026-10-23 17:45 | 2b Plan revise | squad-lead | history path streams; plan-check passes (opus/medium · usage pending) |
