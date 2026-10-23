@@ -139,15 +139,16 @@ unnecessary breaking changes, performance or functional regressions, or negative
 usability. In particular:
 
 - Preserve the "existing `.nfo` files are only ever touched in their watch fields" guarantee (see
-  [`ARCHITECTURE.md`](ARCHITECTURE.md#sync-pipeline)) unless a change explicitly intends to alter
-  it.
-- `PathMapper` must keep rejecting path-traversal sequences and keep requiring an explicit
-  mapping match — never fall back to passing an unmapped path through unchanged.
-- `NfoWriter` must keep independently verifying that a resolved write target stays under a
-  configured `PathMappings:N:Local` root before creating or modifying any file, rather than
-  relying solely on `PathMapper`'s own traversal guard.
+  [Path mapping and NFO](areas/path-mapping-and-nfo.md#updating-an-existing-file)) unless a change
+  explicitly intends to alter it.
+- Path mapping must keep rejecting path-traversal sequences and keep requiring an explicit
+  mapping match — never fall back to passing an unmapped path through unchanged (see
+  [Path mapping and NFO](areas/path-mapping-and-nfo.md#path-mapping)).
+- Every write target must keep being verified independently to stay under a configured
+  `PathMappings:N:Local` root before any file is created or modified, rather than relying solely on
+  the traversal rejection (see [Path mapping and NFO](areas/path-mapping-and-nfo.md#root-containment)).
 - Keep the dashboard optional and unauthenticated-by-default behavior intact; do not silently
-  add a hard authentication requirement.
+  add a hard authentication requirement (see [Dashboard and auth](areas/dashboard-and-auth.md)).
 <!-- project:end stability -->
 
 ## Reporting security issues

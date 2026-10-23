@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-02
+- **Area:** Configuration
 - **Source:** Issue #31
 - **Supersedes:** —
 
@@ -26,6 +27,7 @@ required.
 
 Option 2. `PlexOptions.Token` has no validation attribute. Startup validation rejects only settings without which
 the application can never work (`Plex:BaseUrl`), not settings that some valid installations leave empty.
+How an empty token behaves is in the [Configuration area](../areas/configuration.md).
 
 ## Consequences
 

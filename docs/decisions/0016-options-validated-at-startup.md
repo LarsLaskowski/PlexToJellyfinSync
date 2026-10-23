@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-02
+- **Area:** Configuration
 - **Source:** Issue #31 (with #69)
 - **Supersedes:** —
 
@@ -52,9 +53,8 @@ Option 2. `PlexOptions`, `SyncOptions`, `StateOptions` and `DashboardOptions` ar
 `OptionsValidationException` and stops the application at startup before `Worker` or Kestrel start (which call
 raises it first depends on which service reads the options first and is not part of this decision). The rules:
 
-- `Plex:BaseUrl` required, absolute `http`/`https` URI; `Plex:OwnerAccountId` null or at least 1.
-- `Sync:PollIntervalSeconds` 5–86400; `Sync:FullReconcileIntervalHours` 1–8760; both parallelism settings at least 1.
-- `Dashboard:LogBufferSize` at least 1; `State:Directory` required.
+- The required settings, their allowed ranges and the validation messages are in the
+  [Configuration area](../areas/configuration.md).
 - Lower bounds equal the existing runtime floors; upper bounds exist only where a larger value breaks the runtime
   (`Task.Delay`, `TimeSpan`) and are set generously (one day, one year).
 - The runtime clamps in `Worker`, `SyncOrchestrator` and `InMemoryLogStore` stay as defense-in-depth for options

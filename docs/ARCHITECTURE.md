@@ -8,6 +8,12 @@ recoverable from the code or existing docs, *why* it looks the way it does. It c
 The reasoning behind individual decisions — the options considered and the trade-offs accepted — is
 recorded in [`decisions/`](decisions/README.md).
 
+What the software guarantees — formats, limits, error behavior — is stated once per area in
+[`areas/`](areas/README.md): [Sync pipeline](areas/sync-pipeline.md),
+[Path mapping and NFO](areas/path-mapping-and-nfo.md), [Dashboard and auth](areas/dashboard-and-auth.md) and
+[Configuration](areas/configuration.md). This document describes the components that implement that behavior
+and how they fit together, and links the area that owns a rule instead of restating it.
+
 ---
 
 ## High-level shape
@@ -52,18 +58,24 @@ Studio standard for solution files, not a migration artifact.
 
 ## Sync pipeline
 
-1. **`Worker`** (`src/PlexToJellyfinSync/Worker.cs`) is the only `BackgroundService`. On startup
-   it runs one reconcile immediately (`SafeReconcileAsync`), then loops: wait
-   `Sync:PollIntervalSeconds` (validated range 5–86400s; the `Math.Max` floor remains as defense-in-depth), call `ISyncOrchestrator.ProcessHistoryAsync` through
-   `SafeProcessHistoryAsync`, and — once `Sync:FullReconcileIntervalHours` (validated range 1–8760h, same floor) has elapsed
-   since the last reconcile — call `ISyncOrchestrator.ReconcileAsync` again through
-   `SafeReconcileAsync`. Both guards log and swallow every error except a cancellation of the
-   worker's own stopping token, as defense-in-depth on top of the orchestrator's own error handling,
-   so neither call can crash the host; the cancellation still propagates so host shutdown is not
-   reported as a failure (see
-   [0013](decisions/0013-worker-guards-both-orchestrator-calls.md)). The loop is a plain `while` with `Task.Delay`, not a
-   `PeriodicTimer`; overlapping runs cannot occur because each iteration awaits the previous sync
-   call to finish before scheduling the next delay.
+What the pipeline does — the schedule, the incremental history run and its high-water mark, the full reconcile,
+the owner resolution, the requests made to Plex, the parallelism, the season and series aggregation rule, the
+isolation of failures and the run status — is stated in the [Sync pipeline](areas/sync-pipeline.md) area; how a
+Plex path becomes a local path and what a write changes in an `.nfo` file is stated in
+[Path mapping and NFO](areas/path-mapping-and-nfo.md). This section describes the components that implement it.
+
+1. **`Worker`** (`src/PlexToJellyfinSync/Worker.cs`) is the only `BackgroundService`. It runs the
+   [schedule](areas/sync-pipeline.md#polling-and-schedule): one reconcile on startup through
+   `SafeReconcileAsync`, then a loop that waits `Sync:PollIntervalSeconds`, calls
+   `ISyncOrchestrator.ProcessHistoryAsync` through `SafeProcessHistoryAsync` and, once
+   `Sync:FullReconcileIntervalHours` has elapsed, `ISyncOrchestrator.ReconcileAsync` through
+   `SafeReconcileAsync`. Both guards log and swallow every error except a cancellation of the worker's own
+   stopping token, as defense-in-depth on top of the orchestrator's own error handling, so neither call can
+   crash the host; the cancellation still propagates so host shutdown is not reported as a failure (see
+   [0013](decisions/0013-worker-guards-both-orchestrator-calls.md)). A `Math.Max` floor on both intervals
+   remains as defense-in-depth behind the startup validation. The loop is a plain `while` with `Task.Delay`,
+   not a `PeriodicTimer`; each iteration awaits the previous sync call before scheduling the next delay, which
+   is what keeps runs from overlapping.
 2. **`SyncOrchestrator`** (`src/PlexToJellyfinSync.Service/SyncOrchestrator.cs`) implements both
    sync strategies and delegates to three collaborators (see
    [0018](decisions/0018-sync-orchestrator-split-into-collaborators.md)): the orchestrator owns the
@@ -72,65 +84,41 @@ Studio standard for solution files, not a migration artifact.
    episode parallelism; `SeriesAggregateWriter` owns the season and series aggregates;
    `MediaItemWriter` owns the path-mapping skip and the NFO write with its created/updated counters.
    All three are stateless singletons:
-   - **`ProcessHistoryAsync`** (incremental, cheap, runs every poll) reads the persisted
-     high-water mark from `IStateStore`, calls `IPlexClient.GetHistorySinceAsync` for entries
-     newer than that mark for the configured owner account, writes/updates the NFO for each
-     affected item via `MediaItemWriter.WriteItemAsync`, then advances the high-water mark to the latest
-     `ViewedAt` seen. On the very first run (no persisted high-water mark yet), it seeds the mark
-     to "now" and returns without processing anything — this deliberately avoids replaying the
-     owner's entire watch history as a flood of NFO writes on first startup.
-   - **`ReconcileAsync`** (full, expensive, runs on startup and periodically) walks every
-     configured Plex library (filtered by `Plex:Libraries` if set) and writes/updates the NFO for
-     every movie or episode found, regardless of watch state. This is the catch-up path for
-     changes `ProcessHistoryAsync` cannot see — for example items marked watched through means
-     that do not produce a Plex history entry. The filtered libraries themselves are reconciled
-     concurrently, bounded by `Sync:LibraryReconcileParallelism` (`Parallel.ForEachAsync` in `SyncOrchestrator`, minimum 1
-     — a configured value below that is rejected at startup; the clamp remains as defense-in-depth), so wall-clock reconcile time
-     scales with the slowest library instead of the number of libraries. Within a series library, a
-     show's episode writes run concurrently, bounded by `Sync:EpisodeReconcileParallelism`
-     (`Parallel.ForEachAsync` in `LibraryReconciler`, minimum 1, rejected at startup and clamped the same way); shows themselves are still
-     reconciled one at a time within their library. Episodes that share a file (a multi-episode file
-     such as `S01E01-E02.mkv` maps to one NFO target) are grouped and written sequentially within
-     that group so two concurrent writers never race on the same target's temp file. A library's
-     items are streamed from Plex page by page (`IAsyncEnumerable<MediaItem>`, see point 4) rather
-     than being materialized up front, so peak memory is bounded by a single page instead of the
-     whole library; the trade-off is that a later page is only requested once every item from the
-     pages already streamed has been reconciled, so a library change during a long-running
-     reconcile can be seen by one page and missed by another until the next scheduled reconcile,
-     and a failure fetching a later page still leaves the items already streamed from earlier pages
-     written. A show's episodes are still collected in full (`ToListAsync`) before being grouped by
-     file, since that grouping needs every episode at once; peak memory there is bounded by one
-     show's episode count rather than the whole library.
-   - Both paths funnel through `MediaItemWriter.WriteItemAsync`, which resolves the local path via `IPathMapper`
-     and skips the item (with a log warning) if no mapping matches or the item has no file path.
-   - When `Sync:WriteSeriesSeasonAggregates` is enabled, both paths additionally call
-     `SeriesAggregateWriter.WriteAggregatesAsync` for every show touched by the run: it keeps the show's episodes
-     that have a file path and a matching path mapping, aggregates their `WatchInfo` per season and for the whole
-     series via `WatchAggregator`, and writes `season.nfo` / `tvshow.nfo` next to the episode files. The episodes
-     come from one listing per show and run: `ReconcileAsync` passes the episodes it already listed for the
-     episode writes, so a reconcile lists each show's episodes once and its aggregates follow that same listing;
-     `ProcessHistoryAsync` holds no episode list, so the aggregate writer lists the episodes of each touched show
-     once itself, streaming them and keeping only the mapped ones (see
-     [0018](decisions/0018-sync-orchestrator-split-into-collaborators.md)).
-   - Both entry points catch and log unexpected exceptions (`HandleError`) rather than letting
-     the `Worker` loop die, and always reset `SyncStatusViewData.IsRunning` in a `finally` block.
-     `OperationCanceledException` is re-thrown only when the run's `CancellationToken` was actually
-     cancelled, so host shutdown is not swallowed as an error, while an `OperationCanceledException`
-     raised by an HttpClient timeout on an upfront Plex request (history, libraries) is recorded
-     through `HandleError` like any other failure.
-   - Within a run, every per-item call (writing a history entry's item, a reconciled movie or
-     episode, or a show's season/series aggregates) is additionally wrapped in its own try/catch
-     (`HandleItemError`) so one poisoned item — a read-only media directory, an I/O error, a
-     transient Plex timeout — does not abort the rest of the loop. Such a failure is counted in
-     `SyncStatusViewData.Errors` without clearing `PlexConnected`, and in `ProcessHistoryAsync` the
-     high-water mark still advances past the failing entry; the item's watch state is only
-     recovered on the next `ReconcileAsync` run.
-3. **`WatchAggregator`** (`src/PlexToJellyfinSync.Service/WatchAggregator.cs`) has one job:
-   given a collection of `WatchInfo`, return `Watched = true` only if every child is watched, and
-   `LastPlayed` as the maximum across children — but only when every child is watched; a partially
-   watched aggregate always reports `LastPlayed = null`, so the two fields never contradict each
-   other. It is the single source of truth for how season- and series-level watch state is derived
-   from episodes.
+   - **`ProcessHistoryAsync`** (incremental, every poll) reads the high-water mark from `IStateStore`, calls
+     `IPlexClient.GetHistorySinceAsync` for the owner's entries after it, hands each affected item to
+     `MediaItemWriter.WriteItemAsync` and advances the mark. Its rules — the first run without a mark,
+     paging, the order of the entries — are in the
+     [incremental history run](areas/sync-pipeline.md#incremental-history-run).
+   - **`ReconcileAsync`** (full, on startup and periodically) walks the configured Plex libraries and hands
+     every movie or episode to `MediaItemWriter`, regardless of watch state (the
+     [full reconcile](areas/sync-pipeline.md#full-reconcile)). The libraries run concurrently through
+     `Parallel.ForEachAsync` in `SyncOrchestrator`, a show's episode writes through `Parallel.ForEachAsync`
+     in `LibraryReconciler`; both clamp the configured degree to at least 1 as defense-in-depth behind the
+     startup validation, and episodes that share a file are grouped and written sequentially within their
+     group ([parallelism](areas/sync-pipeline.md#parallelism)). A library's items are streamed from Plex
+     page by page (`IAsyncEnumerable<MediaItem>`, see point 4) rather than materialized up front, so peak
+     memory is bounded by a single page instead of the whole library; a show's episodes are still collected
+     in full (`ToListAsync`) before being grouped by file, since that grouping needs every episode at once,
+     so peak memory there is bounded by one show's episode count.
+   - Both paths funnel through `MediaItemWriter.WriteItemAsync`, which resolves the local path via
+     `IPathMapper` and skips an item without a mapping or without a file path.
+   - `SeriesAggregateWriter.WriteAggregatesAsync` writes the season and series aggregates for every show
+     touched by a run, through `WatchAggregator` and `MediaItemWriter`. The episodes come from one listing per
+     show and run: `ReconcileAsync` passes the episodes it already listed for the episode writes, while
+     `ProcessHistoryAsync` holds no episode list, so the aggregate writer lists the episodes of each touched
+     show once itself, streaming them and keeping only the mapped ones (see
+     [0018](decisions/0018-sync-orchestrator-split-into-collaborators.md)). When aggregates are written and
+     how they are derived is in [season and series aggregates](areas/sync-pipeline.md#season-and-series-aggregates).
+   - Both entry points catch and log unexpected exceptions (`HandleError`) rather than letting the `Worker`
+     loop die, always reset `SyncStatusViewData.IsRunning` in a `finally` block, and re-throw
+     `OperationCanceledException` only when the run's own `CancellationToken` was cancelled. Every per-item
+     call (a history entry's item, a reconciled movie or episode, a show's aggregates) is additionally wrapped
+     in its own try/catch (`HandleItemError`). What counts as a failed run or a failed item, and what each does
+     to the status and the high-water mark, is stated under
+     [*Limits and errors*](areas/sync-pipeline.md#limits-and-errors) of the area.
+3. **`WatchAggregator`** (`src/PlexToJellyfinSync.Service/WatchAggregator.cs`) has one job: deriving a
+   season's or series' watch state from its episodes' `WatchInfo`. It is the single implementation of the
+   [aggregation rule](areas/sync-pipeline.md#season-and-series-aggregates).
 4. **`PlexClient`** (`src/PlexToJellyfinSync.Service/PlexClient.cs`) is the only component that
    talks to the Plex HTTP API (`GET /accounts`, `/library/sections`,
    `/status/sessions/history/all`, `/library/metadata/{key}`, `/library/metadata/{key}/allLeaves`,
@@ -139,136 +127,78 @@ Studio standard for solution files, not a migration artifact.
    `PlexHistoryEntry`, `WatchInfo`) used by the rest of the app, so Plex's JSON shape never leaks
    past this class. `GetEpisodesAsync` and `GetLibraryItemsAsync` return `IAsyncEnumerable<MediaItem>`
    and request each further page of `X-Plex-Container-Start`/`-Size` lazily, only once the caller has
-   consumed the previous page's items, instead of fetching and buffering every page before returning
-   (see the reconcile trade-off in point 2). `GetOwnerAccountIdAsync` prefers the configured
-   `Plex:OwnerAccountId`; only when that is unset does it query `/accounts`. An unreachable server
-   or a malformed response still falls back to account id `1`, so a flaky Plex server never blocks
-   startup — `SyncOrchestrator.ResolveOwnerAsync` caches that fallback the same as a successfully
-   resolved id, and only resolves it at all once `ProcessHistoryAsync` has a persisted high-water
-   mark to poll with, so the very first cycle (which only seeds that mark) never resolves or caches
-   an owner id in the first place. If a cycle that did resolve one then fails for any reason
-   (`SyncStatusViewData.PlexConnected = false`), `SyncOrchestrator.HandleError` clears the cache so
-   the next poll re-resolves the owner instead of pinning a possibly wrong guess for the life of the
-   process; a fallback resolved during a cycle that goes on to succeed anyway is still cached until
-   the next failed cycle. A `401`/`403` (a misconfigured token) and any cancellation — the caller's
-   own token as well as an `HttpClient`-internal per-request timeout — propagate instead of being
-   masked as that same fallback, so the id is never cached on failure and resolution is retried on
-   the next poll. `ProcessHistoryAsync` records a propagated `401`/`403` or timeout as a normal sync
-   failure (`SyncStatusViewData.Errors` and `PlexConnected = false`); a genuine cancellation of the
-   caller's own token is instead rethrown unrecorded, since the run itself is being torn down.
-5. **`PathMapper`** (`src/PlexToJellyfinSync.Service/PathMapper.cs`) rewrites the Plex-reported
-   file path prefix into this container's local mount point using the longest matching
-   `PathMappings` entry. It explicitly rejects paths containing `/../`, ending in `/..`, starting
-   with `../`, or consisting of a bare `..` before matching — the file path is one part of the
-   Plex response that flows fairly directly into a filesystem write path (via `NfoWriter`), so
-   this check exists to prevent a crafted or corrupted Plex path from mapping outside the
-   intended media root. **A matching mapping is mandatory**: unmapped paths return `null` and are
-   skipped rather than passed through unchanged, even when the container's mount point happens to
-   equal the Plex-reported path (see the identity-mapping note in `README.md`).
+   consumed the previous page's items (see point 2). `GetOwnerAccountIdAsync` resolves the owner's account
+   id; `SyncOrchestrator.ResolveOwnerAsync` caches it and `SyncOrchestrator.HandleError` clears the cache
+   after a failed cycle. The resolution order, the fallback id, which failures propagate instead of falling
+   back and when the id is resolved again are stated under [*Owner only*](areas/sync-pipeline.md#owner-only);
+   what is read from Plex and the limits applied to it under
+   [*What is read from Plex*](areas/sync-pipeline.md#what-is-read-from-plex).
+5. **`PathMapper`** (`src/PlexToJellyfinSync.Service/PathMapper.cs`) rewrites the Plex-reported file path
+   prefix into this container's local mount point and rejects path-traversal forms before matching — the
+   file path is the part of the Plex response that flows into a filesystem write path (via `NfoWriter`). The
+   matching rules, the rejected forms and the mandatory mapping are stated under
+   [*Path mapping*](areas/path-mapping-and-nfo.md#path-mapping) and
+   [*Traversal rejection*](areas/path-mapping-and-nfo.md#traversal-rejection).
 6. **`NfoWriter`** (`src/PlexToJellyfinSync.Service/NfoWriter.cs`) is the only component that
-   touches `.nfo` files on disk:
-   - Before any file is created or modified, the resolved target path is canonicalized
-     (`Path.GetFullPath`) and independently checked against every configured
-     `PathMappings:N:Local` root. This does not depend on `PathMapper`'s own traversal guard: even
-     if a crafted or corrupted Plex path slipped past it, a resolved target that does not fall
-     under a configured local root is refused (`NfoWriteOutcome.Skipped`, logged as a warning)
-     rather than written. A `PathMappings` entry whose `Local` prefix points below a series or
-     season directory will cause that item's `tvshow.nfo` / `season.nfo` write to be refused the
-     same way, since those targets are derived by climbing to the containing directory.
-   - Target path resolution depends on `MediaKind`: `movie.nfo` or `<video>.nfo` for movies
-     (per `Nfo:MovieFilenameStrategy` — `PreferExistingMovieNfo` checks for an existing
-     `movie.nfo` on disk and falls back to the video's own name), `<video>.nfo` for episodes,
-     `season.nfo` for seasons, `tvshow.nfo` for series.
-   - If the target file exists, it is parsed with `XDocument` (`LoadOptions.PreserveWhitespace`).
-     An existing file that fails to parse (broken or non-XML content) is logged as a warning,
-     reported as `NfoWriteOutcome.Skipped`, and left untouched on disk rather than rebuilt or
-     retried. Otherwise only the `watched` / `playcount` / `lastplayed` elements are updated in
-     place —
-     `SetChild` compares the existing value first so a write is skipped entirely
-     (`NfoWriteOutcome.Skipped`) when nothing actually changed. When the incoming `WatchInfo` has
-     no `LastPlayed` value, an existing `lastplayed` element is removed rather than left in place,
-     so a season or series that goes from fully watched back to partially watched never keeps a
-     stale timestamp alongside `watched=false`. This is why the README can promise that "existing
-     `.nfo` files are left untouched except for the watch fields": every other element is only
-     ever written once, at file-creation time in `BuildDocument`, and never touched again on an
-     update pass.
-   - If the file does not exist and `Sync:CreateMissingNfo` is `true`, a full `BuildDocument` is
-     built from the `MediaItem` (title, plot, genres, unique ids with a Plex-native `type`
-     attribute, `premiered`/`aired`, `dateadded` for movies, …) and written with indentation; an
-     existing file being merely updated is saved *without* re-indenting, so `XDocument`'s
-     `PreserveWhitespace` load/save round-trip does not reformat content a human or another tool
-     may have hand-edited.
-   - A newly created file is written as UTF-8 without a byte-order mark (`_utf8NoBom`), matching
-     what Jellyfin's NFO reader expects. An existing file being updated keeps whatever encoding
-     `StreamReader`'s byte-order-mark sniffing detects when the file is read — UTF-8 with or without
-     a BOM, or UTF-16/UTF-32 identified by their BOM — reused as `SaveAsync`'s `Encoding` when it is
-     written back, so a UTF-8-with-BOM or UTF-16 file produced by Kodi or a Windows tool is not
-     silently converted to UTF-8 without a BOM on the next watch-state update, and a BOM-less UTF-8
-     file stays that way. Only the byte-order mark is consulted, not the file's own `<?xml
-     encoding="...">` declaration: a BOM-less file naming another encoding there is still decoded and
-     re-written as UTF-8, normalizing non-ASCII bytes to `U+FFFD` in the process, exactly as it was
-     before this change; a BOM-less UTF-16/UTF-32 file fails to parse as XML at all and is skipped as
-     malformed, same as today.
-   - Every write (create or watch-state update) is serialized to a sibling `<name>.tmp`
-     file first and only replaces the target via an atomic `File.Move(overwrite: true)` once the
-     write has fully succeeded, preserving the target's existing Unix file mode so a shared media
-     volume keeps its permissions; a failed write deletes the temp file and leaves the original
-     `.nfo` untouched instead of truncating it.
+   touches `.nfo` files on disk. It checks every target against the configured local roots independently of
+   `PathMapper`'s own guard, resolves the target per `MediaKind`, updates an existing file through
+   `XDocument` (`LoadOptions.PreserveWhitespace`) with `SetChild` comparing each value first, builds a new
+   file in `BuildDocument`, and saves every write to a sibling temporary file that replaces the target with
+   `File.Move(overwrite: true)`. The rules are stated in [Path mapping and NFO](areas/path-mapping-and-nfo.md):
+   [root containment](areas/path-mapping-and-nfo.md#root-containment),
+   [targets](areas/path-mapping-and-nfo.md#targets),
+   [updating an existing file](areas/path-mapping-and-nfo.md#updating-an-existing-file) (what backs the
+   README's promise that in existing `.nfo` files only the watch fields change and every other element keeps
+   its content),
+   [creating a new file](areas/path-mapping-and-nfo.md#creating-a-new-file),
+   [atomic replace](areas/path-mapping-and-nfo.md#atomic-replace) and malformed files under
+   [*Limits and errors*](areas/path-mapping-and-nfo.md#limits-and-errors).
    - `WriteAsync` holds a `SemaphoreSlim` keyed by the resolved target path (kept in an
      instance-lifetime `ConcurrentDictionary`, since `NfoWriter` is registered as a singleton) for
      the whole read-modify-write body, not just the temp-file save. This is what makes two writers
-     resolving to the same NFO target — a multi-episode file's episodes, or two Plex libraries that
-     happen to share a folder — safe to run concurrently, whether that concurrency comes from
-     `LibraryReconciler`'s per-episode `Parallel.ForEachAsync` or from `SyncOrchestrator`'s per-library one; without
-     it, the second writer's `.tmp` file would collide with the first's mid-write. The dictionary
-     holds one semaphore per distinct target path ever written and never evicts an entry, so it
-     grows with the number of movies/episodes/seasons/series reconciled over the process lifetime —
-     acceptable for a media library's item count, but worth remembering before repurposing this
+     resolving to the same NFO target safe to run concurrently, whether that concurrency comes from
+     `LibraryReconciler`'s per-episode `Parallel.ForEachAsync` or from `SyncOrchestrator`'s per-library one
+     ([concurrent writers](areas/path-mapping-and-nfo.md#concurrent-writers)). The dictionary never evicts an
+     entry — acceptable for a media library's item count, but worth remembering before repurposing this
      pattern for a workload with a much larger or unbounded key space.
-7. **`StateStore`** (`src/PlexToJellyfinSync.Service/State/StateStore.cs`) persists exactly one
-   value — the incremental high-water mark — to `state.json` under `State:Directory` (`/config`
-   in the container). Reads and writes both go through a `SemaphoreSlim(1, 1)` gate so concurrent
-   calls (there should only ever be one, from `Worker`, but the guard is cheap insurance) cannot
-   interleave a read-modify-write. Every write is serialized to a sibling `state.json.tmp` file
-   first and only replaces `state.json` via an atomic `File.Move(overwrite: true)` once the write
-   has fully succeeded, preserving the target's existing Unix file mode the same way `NfoWriter`
-   does, so a crash or cancellation mid-write cannot truncate the existing file — a failed write
-   deletes the temp file and leaves `state.json` untouched instead. A missing state
-   file is treated as "no high-water mark yet" rather than a fatal error; a state file that still
-   fails to parse (for example hand-edited or corrupted by something outside this atomic write
-   path) is moved aside to `state.json.corrupt` and logged as an error before falling back to "no
-   high-water mark yet", so the failure is diagnosable instead of silent.
+7. **`StateStore`** (`src/PlexToJellyfinSync.Service/State/StateStore.cs`) persists the high-water mark.
+   Reads and writes both go through a `SemaphoreSlim(1, 1)` gate so concurrent calls (there should only ever
+   be one, from `Worker`, but the guard is cheap insurance) cannot interleave a read-modify-write, and a write
+   replaces the file through a temporary sibling and `File.Move(overwrite: true)` the same way `NfoWriter`
+   does. The file, its atomic replace and the handling of a missing or unreadable file are stated under
+   [*State file*](areas/sync-pipeline.md#state-file).
 8. **`SyncStatusService`** (`src/PlexToJellyfinSync.Service/SyncStatusService.cs`) holds one
    mutable `SyncStatusViewData` behind a `Lock`, exposes immutable snapshots via `GetSnapshot()`,
    and raises a `Changed` event on every `Update()` so the Blazor dashboard can re-render without
    polling; each subscriber is invoked in isolation, so a throwing handler is logged and skipped instead of
-   reaching the sync cycle. `/health` and `Dashboard.razor` both read through this same snapshot.
+   reaching the sync cycle. `/health` and `Dashboard.razor` both read through this same snapshot; the
+   values are described under [*Run status*](areas/sync-pipeline.md#run-status).
 
 ---
 
 ## Web host & dashboard
 
+The web surface — routes, the `Dashboard:Enabled` switch, the token login with its sessions, cookie and
+throttle, the security headers, the forwarded-header trust, the live log buffer and its secret masking — is
+stated in the [Dashboard and auth](areas/dashboard-and-auth.md) area. This section describes the components
+that implement it.
+
 - **`Program.cs`** (`src/PlexToJellyfinSync/Program.cs`) is the composition root: it adds
-  environment variables under the `PLEXSYNC__` prefix (double underscore = configuration section
-  nesting, the standard ASP.NET Core convention), registers `Worker` as a hosted service,
-  registers `InMemoryLogProvider` as an `ILoggerProvider` so every `ILogger<T>` call in the app
-  also lands in the dashboard's log buffer, and always maps `GET /health` (unauthenticated,
-  reports `plexConnected`/`isRunning`/`lastPollAt`/`lastReconcileAt`/`errors` from the status
-  snapshot) regardless of whether the dashboard itself is enabled. `InMemoryLogger` runs every
-  captured message and exception through `ILogRedactor`/`SecretLogRedactor` first, which masks the
-  configured `Plex:Token`/`Dashboard:Token` values before an entry reaches the store, since that
-  buffer feeds a dashboard that is reachable without authentication whenever `Dashboard:Token` is
-  empty. It also logs a startup warning
-  when `Dashboard:Enabled` is `true` and `Dashboard:Token` is empty, since that combination leaves
-  the dashboard reachable by anyone who can reach the host, and calls `UseForwardedHeaders` (with
-  `KnownIPNetworks`/`KnownProxies` cleared, since no reverse proxy address is known upfront in this
-  single-container deployment) so `Request.Scheme`/`IsHttps` reflect a TLS-terminating reverse
-  proxy's `X-Forwarded-Proto` header.
-- Every response gets a small fixed set of security headers (`X-Content-Type-Options`,
-  `X-Frame-Options: DENY`, HSTS, and a `Content-Security-Policy`). The CSP allows
-  `'unsafe-inline'` for script/style and `wss:`/`ws:` for `connect-src` — both are required for
-  Blazor Server's SignalR circuit and inline bootstrap script, not a relaxed default; every other
-  source is restricted to `'self'`.
+  environment variables under the `PLEXSYNC__` prefix ([Configuration](areas/configuration.md#sources)),
+  registers `Worker` as a hosted service, registers `InMemoryLogProvider` as an `ILoggerProvider` so every
+  `ILogger<T>` call in the app also lands in the dashboard's log buffer, maps the
+  [routes](areas/dashboard-and-auth.md#routes) — `GET /health` always, regardless of whether the dashboard
+  itself is enabled — and adds the [security headers](areas/dashboard-and-auth.md#security-headers) to every
+  response. `InMemoryLogger` runs every captured message and exception through
+  `ILogRedactor`/`SecretLogRedactor` before an entry reaches the store. `Program.cs` also logs the startup
+  warning for a dashboard without a token and calls `UseForwardedHeaders` with the options of
+  `Security/DashboardStartup.cs`, which clear `KnownIPNetworks`/`KnownProxies` since no reverse proxy address
+  is known upfront in this single-container deployment; which headers that trusts, from whom, and what follows
+  for the login throttle and the cookie is stated under
+  [*Forwarded headers*](areas/dashboard-and-auth.md#forwarded-headers) and the area's
+  [*Limits and errors*](areas/dashboard-and-auth.md#limits-and-errors).
+- The CSP's `'unsafe-inline'` for script/style and `wss:`/`ws:` for `connect-src` are required for Blazor
+  Server's SignalR circuit and inline bootstrap script, not a relaxed default.
 - **`Dashboard:Enabled`** gates the entire interactive surface: when `false`, only `/health` is
   mapped and nothing else (no Razor components, no login endpoints, no antiforgery/status-code
   middleware) — there is no dashboard to secure in that mode. When `true`, the pipeline adds
@@ -277,52 +207,50 @@ Studio standard for solution files, not a migration artifact.
 - **`TokenAuthMiddleware`** (`src/PlexToJellyfinSync/Security/TokenAuthMiddleware.cs`) is a
   no-op pass-through when `Dashboard:Token` is unset — the dashboard is unauthenticated by
   default, consistent with `SECURITY.md`'s framing of this as a home-network tool. When a token
-  is configured, every request except `/health`, `/login`, an explicit allowlist of known public
-  prefixes (`/_framework/`, `/_content/`, and Blazor's `/_blazor` SignalR hub — the hub is
-  deliberately included since it only serves negotiate/connect for a circuit whose initial page
-  render already passed authentication) and requests for a known static-asset extension (`.css`,
-  `.js`, `.map`, image and font formats — not just any path segment containing a `.`) must carry a
-  session cookie (`pjf_auth`) that resolves to a live entry in `IMemoryCache`. Sessions are
-  therefore server-side and revocable by cache eviction, not self-contained bearer tokens.
+  is configured, every request outside the [public paths](areas/dashboard-and-auth.md#with-a-dashboard-token)
+  must carry a session cookie that resolves to a live entry in `IMemoryCache`. Blazor's `/_blazor` SignalR
+  hub is deliberately public, since it only serves negotiate/connect for a circuit whose initial page render
+  already passed authentication. Sessions are therefore server-side and revocable by cache eviction, not
+  self-contained bearer tokens.
 - **`DashboardLoginService`** (`src/PlexToJellyfinSync.Service/Security/DashboardLoginService.cs`)
   compares the submitted token to the configured one via `TokenComparer.FixedTimeEquals` — both
   inputs are SHA-256-hashed first (removing any length side-channel) before a constant-time
-  `CryptographicOperations.FixedTimeEquals` on the hashes — and, on success, mints a 256-bit
-  random session id (`RandomNumberGenerator`). Failed attempts go through `LoginThrottle`
-  (`src/PlexToJellyfinSync.Service/Security/LoginThrottle.cs`): the first 5 failures per client
-  key (remote IP) are free, after which each further failure doubles an exponential-backoff
-  lockout (1s base, capped at 5 minutes). Entries idle longer than 15 minutes reset their failure
-  count on the next attempt, and the tracked-client map is pruned once it exceeds 1024 entries —
-  bounding memory use without a background sweep timer. **`LoginEndpoints.HandleLoginAsync`**
-  (`src/PlexToJellyfinSync/Security/LoginEndpoints.cs`) is the HTTP glue: on `LockedOut` it
-  returns `429` with a `Retry-After` header; on `Succeeded` it stores the session id in
-  `IMemoryCache` under `pjf_session:<id>` with a fixed 8-hour (absolute) lifetime and sets the
-  `pjf_auth` cookie as `HttpOnly, SameSite=Strict`, and `Secure` only when the request itself
-  arrived over HTTPS (`Request.IsHttps`) — a hardcoded `Secure` flag would make the cookie silently
-  dropped, and the dashboard therefore unusable, behind the project's own documented plain-HTTP
-  quick start; on `Failed` it redirects back to `/login?error=1`, which the login page renders as
-  a visible error message. **`LoginEndpoints.HandleLogout`** clears the cache entry and the
-  `pjf_auth` cookie and redirects to `/login`; `MainLayout.razor` renders a logout link (posting to
-  `/logout` with an antiforgery token via the `<AntiforgeryToken />` component) whenever a
-  dashboard token is configured. The `GET /login` endpoint no longer serves static HTML: it also
-  mints an antiforgery token pair (`IAntiforgery.GetAndStoreTokens`) and embeds a hidden field for
-  it in the rendered page, and the `POST /login`/`POST /logout` endpoints validate that token like
-  every other endpoint — neither is exempted via `DisableAntiforgery` any more.
+  `CryptographicOperations.FixedTimeEquals` on the hashes — and, on success, mints a random session id
+  (`RandomNumberGenerator`). Failed attempts go through `LoginThrottle`
+  (`src/PlexToJellyfinSync.Service/Security/LoginThrottle.cs`), which keeps its records in memory and prunes
+  them on a recorded failure instead of with a background sweep timer; its counting, backoff and pruning
+  rules are stated under [*Login throttle*](areas/dashboard-and-auth.md#login-throttle).
+  **`LoginEndpoints.HandleLoginAsync`** (`src/PlexToJellyfinSync/Security/LoginEndpoints.cs`) is the HTTP
+  glue: it turns `LockedOut` into `429` with `Retry-After`, stores a `Succeeded` login's session id in
+  `IMemoryCache` under `pjf_session:<id>` and sets the `pjf_auth` cookie, and redirects a `Failed` one back to
+  `/login?error=1`. The cookie carries `Secure` only when the request itself counts as HTTPS
+  (`Request.IsHttps`), because a hardcoded `Secure` flag would make the cookie silently dropped, and the
+  dashboard therefore unusable, behind the project's own documented plain-HTTP quick start; lifetime and flags
+  are stated under [*Sessions and cookie*](areas/dashboard-and-auth.md#sessions-and-cookie).
+  **`LoginEndpoints.HandleLogout`** clears the cache entry and the `pjf_auth` cookie and redirects to
+  `/login`; `MainLayout.razor` renders a logout link (posting to `/logout` with an antiforgery token via the
+  `<AntiforgeryToken />` component) whenever a dashboard token is configured. The `GET /login` endpoint
+  mints an antiforgery token pair (`IAntiforgery.GetAndStoreTokens`) and embeds a hidden field for it in the
+  rendered page, and the `POST /login`/`POST /logout` endpoints validate that token like every other
+  endpoint — neither is exempted via `DisableAntiforgery`.
 - **`Dashboard.razor`** subscribes to `ISyncStatusProvider.Changed` in `OnInitialized` and
   unsubscribes in `Dispose`, re-reading the snapshot and re-rendering inside `InvokeAsync` whenever
   the orchestrator updates the status (`Changed` is raised on the sync worker's thread, so component
   state is only mutated on the renderer's dispatcher) — the dashboard is push-updated, not polling. **`Logs.razor`**
-  follows the same pattern against `ILogStore`/`InMemoryLogStore`, which is a fixed-capacity
-  (`Dashboard:LogBufferSize`) ring buffer (`Queue<LogEntry>` behind a `Lock`) rather than
-  unbounded storage — log history is intentionally ephemeral and capped, not a substitute for an
-  external log sink. Known secrets (the configured Plex and dashboard tokens) are already masked
-  out of every entry by `InMemoryLogger` before it reaches this buffer, so `Logs.razor` never
-  renders them, but the buffer is otherwise unfiltered — any other value a future log statement
-  writes is displayed verbatim.
+  follows the same pattern against `ILogStore`/`InMemoryLogStore`, a fixed-capacity ring buffer
+  (`Queue<LogEntry>` behind a `Lock`) rather than unbounded storage — log history is intentionally ephemeral
+  and capped, not a substitute for an external log sink. Its capacity, what enters it and what the masking
+  covers are stated under
+  [*Live log buffer and secret masking*](areas/dashboard-and-auth.md#live-log-buffer-and-secret-masking).
 
 ---
 
 ## Configuration & dependency injection
+
+The settings an operator sets — sources, keys, environment variables, defaults, allowed values and the startup
+check — are stated in the [Configuration](areas/configuration.md) area; the configuration table in
+[`README.md`](../README.md#configuration) is the users' setup reference and agrees with it. This section
+describes how the settings reach the code.
 
 - **`ServiceCollectionExtensions.AddPlexToJellyfinSync`**
   (`src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs`) is the single DI registration
@@ -330,7 +258,8 @@ Studio standard for solution files, not a migration artifact.
   configuration section, registers every service as a singleton (the whole pipeline is one
   sequential background worker — there is no per-request or per-scope service in the sync path),
   and configures the Plex `HttpClient` (base address, `X-Plex-Token` header, `Accept:
-  application/json`, 30s timeout) via `AddHttpClient(nameof(IPlexClient), …)`. This is a *named*
+  application/json` and the request timeout of [*What is read from Plex*](areas/sync-pipeline.md#what-is-read-from-plex))
+  via `AddHttpClient(nameof(IPlexClient), …)`. This is a *named*
   client rather than a typed client (`AddHttpClient<IPlexClient, PlexClient>`) on purpose:
   `PlexClient` is itself a singleton, so a typed client's single `HttpClient` instance would be
   captured for the process's lifetime and `IHttpClientFactory`'s handler rotation would never take
@@ -340,12 +269,11 @@ Studio standard for solution files, not a migration artifact.
   matching their configuration key (`Plex`, `Sync`, `Nfo`, `State`, `Dashboard`); `PathMappings`
   binds directly to `List<PathMapping>` at the configuration root rather than through a named
   options section, which is why it appears as `PathMappings:N:Plex`/`:Local` rather than nested
-  under another key. See `README.md` for the full configuration key/env-var/default table.
+  under another key.
 - `PlexOptions`, `SyncOptions`, `StateOptions` and `DashboardOptions` are registered with
   `ValidateDataAnnotations().ValidateOnStart()`; required settings and ranges are declared as
-  attributes on the options classes. A misconfiguration stops the application at startup before
-  `Worker` or Kestrel start. Validation is purely syntactic and does no network I/O, so an
-  unreachable Plex server still never blocks startup. See
+  attributes on the options classes. What is checked, and how a violation stops the start, is stated under
+  [*Startup check*](areas/configuration.md#startup-check). See
   [0016](decisions/0016-options-validated-at-startup.md) and
   [0017](decisions/0017-plex-token-stays-optional.md).
 
@@ -353,15 +281,15 @@ Studio standard for solution files, not a migration artifact.
 
 ## Deployment
 
+The container contract an operator relies on — image coordinates, port, volumes and the non-root user — is
+stated under [*Container*](areas/configuration.md#container) in the Configuration area. This section describes
+how the image is built and released.
+
 - Single multi-stage `Dockerfile` at the repo root: `dotnet/sdk:10.0-alpine` build stage restores
   and publishes `src/PlexToJellyfinSync`, then copies the publish output onto
   `dotnet/aspnet:10.0-alpine` (pinned by digest, with the tag kept alongside for readability).
-  `ASPNETCORE_URLS` is fixed to `http://+:8080` inside the container; the host maps that internal
-  port to whatever external port it chooses. The final stage runs as the base image's predefined
-  non-root user (`USER $APP_UID`) rather than root.
-- The image expects two volumes: a **writable** media volume (so `NfoWriter` can create/update
-  `.nfo` files next to the media) and a `/config` volume for `StateStore`'s `state.json`; both must
-  be writable by the container's non-root UID.
+  `ASPNETCORE_URLS` fixes the listening address inside the container, and the final stage runs as the base
+  image's predefined non-root user (`USER $APP_UID`) rather than root.
 - **CI** (`.github/workflows/ci.yml`) restores, builds, runs tests with coverage
   (`XPlat Code Coverage`, OpenCover format), and — when `SONAR_TOKEN` is available (not exposed to
   Dependabot or fork PRs) — feeds the coverage into SonarQube Cloud analysis
