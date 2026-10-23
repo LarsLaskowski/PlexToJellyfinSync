@@ -1,7 +1,7 @@
 # Spec: Introduce area documents
 
 Source: Issue #224
-Status: Draft
+Status: Approved by Lead
 
 ## Problem
 
@@ -138,7 +138,7 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
   remote address (`src/PlexToJellyfinSync/Security/LoginEndpoints.cs`). A client that reaches the port directly
   can therefore choose the address it is counted under. The area document states this behavior as it is and
   makes no claim that the throttle limits a single client; whether it is acceptable is Security's call, outside
-  this documentation change (follow-up issue proposed under *Out of scope*).
+  this documentation change (follow-up proposed under *Out of scope*).
 
 ## Non-functional requirements
 
@@ -146,7 +146,8 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
 - No squad or instruction file changes (`.squad/` except `project.md`, `.claude/`, `AGENTS.md`, `CLAUDE.md`,
   `.github/copilot-instructions.md`), no template-managed file (`docs/areas/_template.md`,
   `docs/decisions/_template.md`, the PR template outside its project block).
-- Every new or changed file is UTF-8, CRLF line endings, no final newline (`.editorconfig`), and English.
+- Every new or changed file is UTF-8 with CRLF line endings (`.editorconfig`) and English; a new file has no
+  final newline, a changed file keeps its final-line state so the diff shows only the content change.
 - Area documents are normative and stable: they state what must hold, not how .NET does it; a class or
   function name appears only as a pointer to where a rule is implemented, never as the rule.
 - Each area document follows `docs/areas/_template.md` (*Scope*, *Behavior*, *Limits and errors*, *Related
@@ -217,7 +218,8 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
   `docs/CONTRIBUTING.md` lies inside a `<!-- project:… -->` block; `python3 .squad/tools/scope-check.py` reports
   no file; the diff outside `specs/` touches only `docs/areas/`, `docs/decisions/`, `docs/ARCHITECTURE.md`,
   `docs/CONTRIBUTING.md`, `README.md` and `.squad/project.md`. (E10)
-- [ ] AC12: Every new or changed file is UTF-8 with CRLF line endings and no final newline. (non-functional)
+- [ ] AC12: Every new or changed file is UTF-8 with CRLF line endings; a new file has no final newline, a
+  changed file keeps the final-line state it had (most marked files end with one). (non-functional)
 
 ## Out of scope
 
@@ -229,8 +231,9 @@ Areas, slugs and scopes (Lead proposal; confirmed as a Lead decision in `plan.md
   there go through a `squad` issue or the template repository.
 - E8: correcting the "Jellyfin API key" wording of `SECURITY.md` — proposed as a follow-up issue,
   "[Docs] SECURITY.md mentions a Jellyfin API key the application does not have".
-- E12: changing the forwarded-headers trust or the throttle key — proposed as a follow-up issue for Security,
-  "[Security] Login throttle can be bypassed through a spoofed X-Forwarded-For header", body: "The forwarded
+- E12: changing the forwarded-headers trust or the throttle key — proposed as a follow-up for Security,
+  reported privately (a GitHub security advisory, as `SECURITY.md` asks for vulnerabilities) unless the
+  Product Manager chooses a public issue; title "[Security] Login throttle can be bypassed through a spoofed X-Forwarded-For header", body: "The forwarded
   headers options (`DashboardStartup.CreateForwardedHeadersOptions`) honour `X-Forwarded-For` from any sender
   because `KnownIPNetworks` and `KnownProxies` are cleared, and `LoginEndpoints.HandleLoginAsync` keys the
   login throttle on `Connection.RemoteIpAddress`. A client that reaches the port directly can send a new
