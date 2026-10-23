@@ -47,6 +47,15 @@ public sealed class LoginThrottle : ILoginThrottle
 
     #endregion // Constructors
 
+    #region Properties
+
+    /// <summary>
+    /// Number of per-client records currently held
+    /// </summary>
+    public int TrackedClientCount => throw new NotImplementedException();
+
+    #endregion // Properties
+
     #region Methods
 
     /// <summary>

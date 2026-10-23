@@ -70,7 +70,7 @@ public sealed class DashboardStartupTests
     [TestMethod]
     public void DashboardStartupCreateForwardedHeadersOptionsHonorsForwardedForAndProto()
     {
-        var options = DashboardStartup.CreateForwardedHeadersOptions();
+        var options = DashboardStartup.CreateForwardedHeadersOptions(new DashboardOptions());
 
         Assert.IsTrue(options.ForwardedHeaders.HasFlag(ForwardedHeaders.XForwardedFor), "X-Forwarded-For should be honored!");
         Assert.IsTrue(options.ForwardedHeaders.HasFlag(ForwardedHeaders.XForwardedProto), "X-Forwarded-Proto should be honored so Request.IsHttps reflects the proxy!");

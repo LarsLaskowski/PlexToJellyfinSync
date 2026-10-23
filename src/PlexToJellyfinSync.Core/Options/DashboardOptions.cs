@@ -5,7 +5,7 @@ namespace PlexToJellyfinSync.Core.Options;
 /// <summary>
 /// Configuration for the web dashboard (status and logs)
 /// </summary>
-public sealed class DashboardOptions
+public sealed class DashboardOptions : IValidatableObject
 {
     #region Constants
 
@@ -34,5 +34,21 @@ public sealed class DashboardOptions
     [Range(1, int.MaxValue, ErrorMessage = "Dashboard:LogBufferSize must be at least 1 (environment variable PLEXSYNC__Dashboard__LogBufferSize).")]
     public int LogBufferSize { get; set; } = 1000;
 
+    /// <summary>
+    /// IP addresses or CIDR networks of reverse proxies whose forwarded headers are trusted, in addition to loopback
+    /// </summary>
+    public string[] TrustedProxies { get; set; } = [];
+
     #endregion // Properties
+
+    #region IValidatableObject
+
+    /// <inheritdoc/>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        // Skeleton stub: a zero-value result keeps the existing options tests green until the implementation
+        yield break;
+    }
+
+    #endregion // IValidatableObject
 }
