@@ -16,6 +16,9 @@ public sealed class LibraryReconcilerTests
 {
     #region Fields
 
+    private static readonly DateTimeOffset _firstPlayed = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _lastPlayed = new(2026, 1, 5, 0, 0, 0, TimeSpan.Zero);
+
     private readonly string _seasonDirectory = "/data/Shows/Breaking Bad/Season 01".Replace('/', Path.DirectorySeparatorChar);
     private readonly TestContext _testContext;
 
@@ -380,6 +383,333 @@ public sealed class LibraryReconcilerTests
     }
 
     /// <summary>
+    /// A series reconcile with aggregates lists the episodes of each show exactly once
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerSeriesReconcileRequestsEpisodesOncePerShow()
+    {
+        AddShow("s1", "e", 3);
+        AddShow("s2", "f", 2);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"], _plexClient.Items["s2"]];
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new List<string>
+                                  {
+                                      "s1",
+                                      "s2"
+                                  },
+                                  _plexClient.EpisodeRequests,
+                                  "Each show's episodes should be listed exactly once!");
+        Assert.HasCount(5, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should be written!");
+        Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Season), "One season per show should be written!");
+        Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Series), "One series item per show should be written!");
+    }
+
+    /// <summary>
+    /// A show with more episodes than one Plex page is listed once and aggregated over all of its episodes
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerShowWithMoreThanOnePageAggregatesAllEpisodes()
+    {
+        AddShow("s1", "e", 201);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        var episodes = _plexClient.Episodes["s1"];
+
+        for (var index = 0; index < 200; index++)
+        {
+            SetWatched(episodes[index], true);
+        }
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        Assert.HasCount(1, _plexClient.EpisodeRequests, "The episodes should be listed exactly once!");
+        Assert.HasCount(201, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should be written!");
+        Assert.IsFalse(_nfoWriter.WritesOf(MediaKind.Season).Single().Item.Watch.Watched, "The 201st episode is unwatched, so the season should be unwatched!");
+        Assert.IsFalse(_nfoWriter.WritesOf(MediaKind.Series).Single().Item.Watch.Watched, "The 201st episode is unwatched, so the series should be unwatched!");
+    }
+
+    /// <summary>
+    /// The aggregates of each show follow the episodes listed for that show in the same run
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerSeriesAggregatesFollowEachShowsOwnListing()
+    {
+        AddShow("s1", "e", 2);
+        AddShow("s2", "f", 3);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"], _plexClient.Items["s2"]];
+
+        var newest = _lastPlayed;
+
+        SetWatched(_plexClient.Episodes["s1"][0], true, _firstPlayed);
+        SetWatched(_plexClient.Episodes["s1"][1], true, newest);
+        SetWatched(_plexClient.Episodes["s2"][0], true);
+        SetWatched(_plexClient.Episodes["s2"][1], true);
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        var first = SeriesWriteOf("s1");
+        var second = SeriesWriteOf("s2");
+
+        CollectionAssert.AreEqual(new List<string>
+                                  {
+                                      "s1",
+                                      "s2"
+                                  },
+                                  _plexClient.EpisodeRequests,
+                                  "Each show's episodes should be listed exactly once!");
+        Assert.IsTrue(first.Item.Watch.Watched, "The fully watched show should be watched!");
+        Assert.AreEqual(newest, first.Item.Watch.LastPlayed, "The fully watched show should carry its newest play date!");
+        Assert.IsFalse(second.Item.Watch.Watched, "The show with an unwatched episode should be unwatched!");
+    }
+
+    /// <summary>
+    /// Without the aggregate option the episodes are still listed exactly once and no aggregate is written
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerAggregatesDisabledRequestsEpisodesOnce()
+    {
+        AddShow("s1", "e", 2);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = false
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new List<string>
+                                  {
+                                      "s1"
+                                  },
+                                  _plexClient.EpisodeRequests,
+                                  "The episodes should be listed exactly once!");
+        Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Episode), "Every episode should be written!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Season), "No season item should be written!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Series), "No series item should be written!");
+    }
+
+    /// <summary>
+    /// A show without episodes writes nothing and is not counted as an error
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerShowWithoutEpisodesWritesNothingAndCountsNoError()
+    {
+        AddShow("s1", "e", 0);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        Assert.IsEmpty(_nfoWriter.Writes, "Nothing should be written for a show without episodes!");
+        Assert.AreEqual(0L, _status.GetSnapshot().Errors, "A show without episodes should not be counted as an error!");
+    }
+
+    /// <summary>
+    /// Episodes without a mapping or a file path are left out of the aggregates of a series reconcile
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerPartlyMappedShowAggregatesOnlyMappedEpisodes()
+    {
+        AddShow("s1", "e", 4);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        var episodes = _plexClient.Episodes["s1"];
+
+        _pathMapper.Unmapped.Add(episodes[0].FilePath!);
+        episodes[1].FilePath = null;
+        SetWatched(episodes[2], true);
+        SetWatched(episodes[3], true);
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        Assert.HasCount(1, _plexClient.EpisodeRequests, "The episodes should be listed exactly once!");
+        Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Episode), "Only the mapped episodes should be written!");
+        Assert.IsTrue(_nfoWriter.WritesOf(MediaKind.Season).Single().Item.Watch.Watched, "Only the mapped, watched episodes should count for the season!");
+        Assert.IsTrue(SeriesWriteOf("s1").Item.Watch.Watched, "Only the mapped, watched episodes should count for the series!");
+        Assert.AreEqual(0L, _status.GetSnapshot().Errors, "Unmapped episodes should not be counted as errors!");
+    }
+
+    /// <summary>
+    /// A show whose episode listing fails writes no aggregate, is not listed again and the other show is unaffected
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerFailingEpisodeListingWritesNoAggregateAndIsNotRequestedAgain()
+    {
+        AddShow("s1", "e", 2);
+        AddShow("s2", "f", 2);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"], _plexClient.Items["s2"]];
+        _plexClient.EpisodesExceptions["s1"] = new HttpRequestException("plex down");
+        _status.Update(s => s.PlexConnected = true);
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        var snapshot = _status.GetSnapshot();
+        var series = _nfoWriter.WritesOf(MediaKind.Series);
+
+        CollectionAssert.AreEqual(new List<string>
+                                  {
+                                      "s1",
+                                      "s2"
+                                  },
+                                  _plexClient.EpisodeRequests,
+                                  "The failing listing should not be requested again!");
+        Assert.AreEqual(1L, snapshot.Errors, "The failing show should be counted once!");
+        Assert.IsTrue(snapshot.PlexConnected, "A failing show should not change the connection state!");
+        Assert.HasCount(1, series, "Only the healthy show should get a series item!");
+        Assert.AreEqual("s2", series[0].Item.RatingKey, "The series item should belong to the healthy show!");
+    }
+
+    /// <summary>
+    /// A failing episode write is counted once and the episode still counts in the aggregates
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerFailingEpisodeWriteStillAggregatesItsWatchState()
+    {
+        AddShow("s1", "e", 3);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+        SetWatched(_plexClient.Episodes["s1"][0], true);
+        SetWatched(_plexClient.Episodes["s1"][2], true);
+        _nfoWriter.FailuresByRatingKey["e2"] = new IOException("disk full");
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        Assert.AreEqual(1L, _status.GetSnapshot().Errors, "The failing episode should be counted once!");
+        Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Episode), "The remaining episodes should still be written!");
+        Assert.IsFalse(SeriesWriteOf("s1").Item.Watch.Watched, "The unwatched episode with the failing write should still count for the series!");
+    }
+
+    /// <summary>
+    /// A failing aggregate write is counted once and keeps the episodes that were written
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerFailingAggregateWriteKeepsEpisodesAndCountsOneError()
+    {
+        AddShow("s1", "e", 3);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+        _nfoWriter.FailuresByRatingKey["s1"] = new IOException("disk full");
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        Assert.HasCount(3, _nfoWriter.WritesOf(MediaKind.Episode), "All episodes should be written!");
+        Assert.AreEqual(1L, _status.GetSnapshot().Errors, "The failing aggregate write should be counted once!");
+    }
+
+    /// <summary>
+    /// Episodes sharing one file are all written and all count in the aggregates
+    /// </summary>
+    /// <param name="allWatched">Whether the episode on a separate file is watched as well</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task LibraryReconcilerSharedFileEpisodesCountInAggregates(bool allWatched)
+    {
+        AddShow("s1", "e", 3);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+
+        var episodes = _plexClient.Episodes["s1"];
+
+        episodes[1].FilePath = episodes[0].FilePath;
+        SetWatched(episodes[0], true);
+        SetWatched(episodes[1], true);
+        SetWatched(episodes[2], allWatched);
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        await reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), _testContext.CancellationToken);
+
+        Assert.HasCount(3, _nfoWriter.WritesOf(MediaKind.Episode), "Both shared-file episodes and the separate one should be written!");
+        Assert.AreEqual(allWatched, SeriesWriteOf("s1").Item.Watch.Watched, "Every episode, shared-file ones included, should count for the series!");
+    }
+
+    /// <summary>
+    /// Cancelling the caller's token with aggregates enabled propagates and is not counted as an error
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task LibraryReconcilerCancellationWithAggregatesPropagatesWithoutError()
+    {
+        AddShow("s1", "e", 4);
+        _plexClient.LibraryItems["2"] = [_plexClient.Items["s1"]];
+        _nfoWriter.ConcurrencyGate = 3;
+        _nfoWriter.ConcurrencyGateTimeout = TimeSpan.FromSeconds(5);
+        _nfoWriter.NotifyAtConcurrency = 2;
+
+        var reconciler = CreateReconciler(new SyncOptions
+                                          {
+                                              EpisodeReconcileParallelism = 2,
+                                              WriteSeriesSeasonAggregates = true
+                                          });
+
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_testContext.CancellationToken);
+
+        var reconcileTask = reconciler.ReconcileLibraryAsync(CreateLibrary("2", MediaKind.Series), cancellation.Token).AsTask();
+
+        await _nfoWriter.ConcurrencyReached.WaitAsync(TimeSpan.FromSeconds(5), _testContext.CancellationToken);
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await reconcileTask,
+                                                             "Cancellation should propagate to the caller!");
+
+        Assert.AreEqual(0L, _status.GetSnapshot().Errors, "Cancellation should not be counted as an error!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Series), "No series item should be written after the cancellation!");
+    }
+
+    /// <summary>
     /// Create a library
     /// </summary>
     /// <param name="key">Section key</param>
@@ -393,6 +723,32 @@ public sealed class LibraryReconcilerTests
                    Title = "Library " + key,
                    Kind = kind
                };
+    }
+
+    /// <summary>
+    /// Set the watch state of an episode
+    /// </summary>
+    /// <param name="episode">Episode</param>
+    /// <param name="watched">Whether the episode is watched</param>
+    /// <param name="lastPlayed">Last play date of a watched episode, or <c>null</c> for the default</param>
+    private static void SetWatched(MediaItem episode, bool watched, DateTimeOffset? lastPlayed = null)
+    {
+        episode.Watch = new WatchInfo
+                        {
+                            Watched = watched,
+                            PlayCount = watched ? 1 : 0,
+                            LastPlayed = watched ? lastPlayed ?? _firstPlayed : null
+                        };
+    }
+
+    /// <summary>
+    /// Get the written series item of a show
+    /// </summary>
+    /// <param name="showRatingKey">Rating key of the show</param>
+    /// <returns>The write of the series item of the show</returns>
+    private NfoWriteRecord SeriesWriteOf(string showRatingKey)
+    {
+        return _nfoWriter.WritesOf(MediaKind.Series).Single(write => write.Item.RatingKey == showRatingKey);
     }
 
     /// <summary>

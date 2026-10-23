@@ -337,6 +337,129 @@ public sealed class SeriesAggregateWriterTests
     }
 
     /// <summary>
+    /// Episodes passed by the caller are aggregated as they are, without listing them again
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SeriesAggregateWriterGivenEpisodesAggregatesThemWithoutRequest()
+    {
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
+        _plexClient.Episodes["s1"] = [
+                                         CreateEpisode("e1", 1, _seasonOneDirectory, watched: false),
+                                         CreateEpisode("e2", 1, _seasonOneDirectory, watched: false)
+                                     ];
+
+        IReadOnlyList<MediaItem> given = [
+                                             CreateEpisode("e1", 1, _seasonOneDirectory, watched: true, lastPlayed: _firstPlayed),
+                                             CreateEpisode("e2", 1, _seasonOneDirectory, watched: true, lastPlayed: _lastPlayed)
+                                         ];
+
+        var writer = CreateWriter();
+
+        await writer.WriteAggregatesAsync("s1", given, _testContext.CancellationToken);
+
+        var season = _nfoWriter.WritesOf(MediaKind.Season).Single();
+        var series = _nfoWriter.WritesOf(MediaKind.Series).Single();
+
+        Assert.IsEmpty(_plexClient.EpisodeRequests, "The passed episodes should not be listed again!");
+        Assert.IsTrue(season.Item.Watch.Watched, "The season should follow the passed episodes!");
+        Assert.AreEqual(_lastPlayed, season.Item.Watch.LastPlayed, "The season should carry the latest play date of the passed episodes!");
+        Assert.AreEqual(_seasonOneDirectory, season.LocalPath, "The season should be written to the episodes' directory!");
+        Assert.IsTrue(series.Item.Watch.Watched, "The series should follow the passed episodes!");
+        Assert.AreEqual(_lastPlayed, series.Item.Watch.LastPlayed, "The series should carry the latest play date of the passed episodes!");
+        Assert.AreEqual(_showDirectory, series.LocalPath, "The series should be written to the parent of the season directory!");
+    }
+
+    /// <summary>
+    /// Without passed episodes the rating-key overload lists the episodes exactly once
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SeriesAggregateWriterWithoutEpisodesRequestsListingOnce()
+    {
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
+        _plexClient.Episodes["s1"] = [
+                                         CreateEpisode("e1", 1, _seasonOneDirectory, watched: true),
+                                         CreateEpisode("e2", 2, _seasonTwoDirectory, watched: true)
+                                     ];
+
+        var writer = CreateWriter();
+
+        await writer.WriteAggregatesAsync("s1", _testContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new List<string>
+                                  {
+                                      "s1"
+                                  },
+                                  _plexClient.EpisodeRequests,
+                                  "The episodes should be listed exactly once!");
+        Assert.HasCount(2, _nfoWriter.WritesOf(MediaKind.Season), "One season item per season should be written!");
+        Assert.HasCount(1, _nfoWriter.WritesOf(MediaKind.Series), "One series item should be written!");
+    }
+
+    /// <summary>
+    /// Passed episodes without a file path or without a mapping are left out of the aggregates
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SeriesAggregateWriterGivenEpisodesLeavesOutUnmappedEpisodes()
+    {
+        _plexClient.Items["s1"] = new MediaItem
+                                  {
+                                      RatingKey = "s1",
+                                      Kind = MediaKind.Series,
+                                      Title = "Breaking Bad"
+                                  };
+
+        var noPath = CreateEpisode("e1", 1, _seasonOneDirectory, watched: false);
+        var unmapped = CreateEpisode("e2", 1, _seasonOneDirectory, watched: false);
+        var mapped = CreateEpisode("e3", 1, _seasonOneDirectory, watched: true);
+
+        noPath.FilePath = null;
+        _pathMapper.Unmapped.Add(unmapped.FilePath!);
+
+        var writer = CreateWriter();
+
+        await writer.WriteAggregatesAsync("s1", [noPath, unmapped, mapped], _testContext.CancellationToken);
+
+        Assert.IsEmpty(_plexClient.EpisodeRequests, "The passed episodes should not be listed again!");
+        Assert.IsTrue(_nfoWriter.WritesOf(MediaKind.Season).Single().Item.Watch.Watched, "Only the mapped, watched episode should count!");
+        Assert.IsTrue(_nfoWriter.WritesOf(MediaKind.Series).Single().Item.Watch.Watched, "Only the mapped, watched episode should count!");
+    }
+
+    /// <summary>
+    /// Passed episodes that are all without a file path or without a mapping write nothing
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SeriesAggregateWriterGivenOnlyUnmappedEpisodesWritesNothing()
+    {
+        var noPath = CreateEpisode("e1", 1, _seasonOneDirectory, watched: true);
+        var unmapped = CreateEpisode("e2", 1, _seasonOneDirectory, watched: true);
+
+        noPath.FilePath = null;
+        _pathMapper.Unmapped.Add(unmapped.FilePath!);
+
+        var writer = CreateWriter();
+
+        await writer.WriteAggregatesAsync("s1", [noPath, unmapped], _testContext.CancellationToken);
+
+        Assert.IsEmpty(_nfoWriter.Writes, "Nothing should be written without a mapped episode!");
+        Assert.IsEmpty(_plexClient.MediaItemRequests, "The show metadata should not be requested!");
+        Assert.IsEmpty(_plexClient.EpisodeRequests, "The passed episodes should not be listed!");
+    }
+
+    /// <summary>
     /// Create an episode
     /// </summary>
     /// <param name="ratingKey">Rating key</param>
