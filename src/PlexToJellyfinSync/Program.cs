@@ -66,13 +66,13 @@ public static partial class Program
                 {
                     var headers = context.Response.Headers;
 
-                    headers["X-Content-Type-Options"] = "nosniff";
-                    headers["X-Frame-Options"] = "DENY";
-                    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+                    headers.XContentTypeOptions = "nosniff";
+                    headers.XFrameOptions = "DENY";
+                    headers.StrictTransportSecurity = "max-age=31536000; includeSubDomains";
 
                     // Blazor Server requires 'unsafe-inline' for its SignalR bootstrap script and
                     // wss:/ws: for WebSocket connections; all other sources are restricted to 'self'.
-                    headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:; img-src 'self' data:";
+                    headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:; img-src 'self' data:";
 
                     await next(context).ConfigureAwait(false);
                 });
