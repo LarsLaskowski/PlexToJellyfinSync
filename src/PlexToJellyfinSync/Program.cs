@@ -72,7 +72,10 @@ public static partial class Program
 
                     // Blazor Server requires 'unsafe-inline' for its SignalR bootstrap script and
                     // wss:/ws: for WebSocket connections; all other sources are restricted to 'self'.
+                    // Sonar's static S7039 check cannot see that these sources are required, so it is disabled for this header only.
+#pragma warning disable S7039
                     headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:; img-src 'self' data:";
+#pragma warning restore S7039
 
                     await next(context).ConfigureAwait(false);
                 });
