@@ -1,7 +1,7 @@
 # Spec: Series reconcile requests each show's episodes once
 
 Source: Issue #199
-Status: Draft
+Status: Approved by Lead
 
 ## Problem
 
@@ -69,8 +69,9 @@ Verified against the code (branch base `6709364`):
 - E6: Episodes sharing one file (a multi-episode file such as `S01E01-E02.mkv`): the episode writes stay
   grouped and sequential per file, and each of these episodes still counts in the season and series aggregate,
   as today.
-- E7: A show with more episodes than one listing page (more than 200): every page is requested once and
-  the aggregates include the episodes of all pages.
+- E7: A show with more episodes than one listing page (more than 200): the listing is enumerated once, so
+  each of its pages is requested once (the paging itself is the Plex client's, unchanged), and the aggregates
+  include the episodes of all pages.
 - E8: The watch state of an episode changes on Plex while the show is being reconciled: the aggregates
   reflect the state the pass read and wrote into the episode NFOs (today a later second listing could pick up
   the change for the aggregates only); the next history poll or reconcile writes the new state, as for any
@@ -98,11 +99,13 @@ Verified against the code (branch base `6709364`):
 
 ## Acceptance criteria
 
-- [ ] AC1: a full reconcile of a series library with aggregates enabled requests the episode listing of each
-  show exactly once, and writes the same episode, `season.nfo` and `tvshow.nfo` files (target, watch state,
-  outcome counters) as before the change (S1, S5, E7).
+- [ ] AC1: a full reconcile of a series library with aggregates enabled enumerates each show's episode
+  listing exactly once, and writes the same episode, `season.nfo` and `tvshow.nfo` files (target, watch state,
+  outcome counters) as before the change; a show with more than 200 episodes gets aggregates that include all
+  of them (S1, S5, E7).
 - [ ] AC2: during a full reconcile, the season and series aggregates of a show are computed from the
-  episodes and watch state of the single listing that the episode writes used (S2, E8, E10).
+  episodes and watch state of the single listing that the episode writes used, never from a second listing
+  (S2, E8, E10).
 - [ ] AC3: an incremental history poll with aggregates enabled still requests the episode listing once for
   each show touched by an episode, and writes the same aggregates as before (S3).
 - [ ] AC4: a full reconcile with aggregates disabled requests each show's episode listing once and writes no
@@ -153,9 +156,11 @@ Verified against the code (branch base `6709364`):
 
 ## Area documents
 
-No area document exists yet (`docs/areas/README.md` has an empty index). The plan decides the area; the
-proposed one is a new `docs/areas/sync-pipeline.md` ("Sync pipeline": the history poll and the full
-reconcile, what each writes and requests from Plex), which would state:
+None in this change. The repository defines no area yet (`docs/areas/README.md` has an empty index), and
+listing the first one makes `decision-check.py` (`check_areas`) require an `Area:` field in every decision
+record, including the released ones (0001 and the others contained in `v1.5.0`), which are append-only.
+Introducing areas is therefore a change of its own (proposed follow-up issue). Until then the behavior stays
+where it is documented today, `docs/ARCHITECTURE.md` point 2, which this change updates to say:
 
 - a full reconcile reads each show's episode listing once per run and derives the episode NFOs and the season
   and series aggregates from that one listing;
@@ -163,13 +168,20 @@ reconcile, what each writes and requests from Plex), which would state:
 - the aggregates include only episodes with a mapped file path, and are written only when
   `Sync:WriteSeriesSeasonAggregates` is `true`.
 
-Besides the area document, `docs/ARCHITECTURE.md` point 2 ("it re-fetches all episodes of that show") and
-decision record 0018 (*Decision*, `ISeriesAggregateWriter`, and *Consequences*, "Not changed here") describe
-today's double request and change with this feature; their owners are set in the plan.
+Decision record 0018 (*Decision*, `ISeriesAggregateWriter`, and *Consequences*, "Not changed here") describes
+today's double request and is extended in place (it is unreleased).
 
-## Challenge notes
+## Challenge
 
-Devil's Advocate, mode `spec`: RESULT: OBJECTIONS (0 major, 2 minor).
+Devil's Advocate, mode `spec`: 0 major, 2 minor. Both accepted.
 
-1. minor: AC2 would pass a wrong build as tested today. `FakePlexClient.GetEpisodesAsync` (`tests/PlexToJellyfinSync.Tests/FakePlexClient.cs:194-213`) returns the same `MediaItem` instances on every call, so a build that still fetches twice computes the same aggregates and passes AC2. Instruction for the plan: prove AC2 with a test that fails if the aggregates come from a second listing. Either have the fake return different watch states on its second call for the same show, or assert `Assert.HasCount(1, _plexClient.EpisodeRequests, ...)` in the same reconcile test that checks the aggregate content. The history test `SyncOrchestratorProcessHistoryAggregatesEachSeriesOnlyOnce` (`tests/PlexToJellyfinSync.Tests/SyncOrchestratorTests.cs:327-341`) uses that same count for the history path.
-2. minor: The paging part of AC1 and E7 cannot be checked at the reconciler level. `FakePlexClient` has no pages; paging lives inside `PlexClient.GetEpisodesAsync` (`src/PlexToJellyfinSync.Service/PlexClient.cs:615-618`) and is covered by the existing `PlexClientTests` (around lines 899-1000). Instruction for the plan: at the reconciler, state "every page once" as "`GetEpisodesAsync` enumerated once per show". Prove "aggregates include episodes of all pages" with a reconciler test whose listing holds more than one fake page's worth of episodes (e.g. 201) and whose `tvshow.nfo` reflects all of them. Do not add a new paging test to `PlexClient`.
+1. minor — AC2 would pass a build that still lists twice, because `FakePlexClient.GetEpisodesAsync` returns
+   the same instances on every call. Accepted: AC2 now says "never from a second listing", and the plan proves
+   it with two tests that fail on a second listing: a reconciler test that checks the aggregate content and
+   asserts one entry in `EpisodeRequests` in the same run, and an aggregate-writer test that passes episodes
+   whose watch state differs from the ones the fake would list and asserts that the aggregates follow the
+   passed ones and that no listing is requested.
+2. minor — paging cannot be checked at the reconciler level. Accepted: E7 and AC1 now state "enumerated
+   once" instead of "every page once"; the paging stays covered by the existing `PlexClientTests`, no new
+   paging test is added there, and the plan adds a reconciler test with 201 episodes whose `tvshow.nfo`
+   reflects all of them.
