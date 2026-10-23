@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-02
+- **Area:** Configuration
 - **Source:** Issue #92 (Product Manager decision)
 - **Supersedes:** —
 
@@ -28,6 +29,8 @@ Option 2, decided by the Product Manager. Release images are published only to D
 `networlddev/plextojellyfinsync` (`<version>` and `latest`), the name held in `IMAGE_NAME` in
 `.github/workflows/release.yml`. Every user-facing reference — `README.md`, `docs/ARCHITECTURE.md` and the
 GitHub issue templates — uses these coordinates; no usage reference to `ghcr.io` remains.
+The resulting container contract (image coordinates, port, volumes, user) is in the
+[Configuration area](../areas/configuration.md).
 
 ## Consequences
 

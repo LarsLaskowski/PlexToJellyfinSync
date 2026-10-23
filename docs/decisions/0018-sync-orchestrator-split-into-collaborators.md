@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-03
+- **Area:** Sync pipeline
 - **Source:** Issue #56 (review finding F-407), Issue #199 (episode listing reused)
 - **Supersedes:** —
 
@@ -62,6 +63,8 @@ Option 3.
   `WatchAggregator`.
 
 All three types are stateless singletons, so the concurrent library reconcile shares them safely.
+The behavior the split keeps — run phases, parallelism, aggregation and error isolation — is in the
+[Sync pipeline area](../areas/sync-pipeline.md).
 
 ## Consequences
 
