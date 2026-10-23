@@ -1,6 +1,6 @@
 # 0021: Four area documents; released records get their area from this record
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-23
 - **Area:** —
 - **Source:** Issue #224 (Product Manager decision on the areas)
