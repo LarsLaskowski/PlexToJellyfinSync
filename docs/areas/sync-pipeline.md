@@ -194,8 +194,9 @@ The application keeps one in-memory status, reset when the process starts. Its v
   cancelled this way does not advance the mark, so its entries are processed again after the restart.
 - **Plex paging that does not advance.** When Plex returns the same first entry for two pages in a row, paging
   stops with the warning `Plex server returned a non-advancing page …` (`… non-advancing history page …` for
-  history); the items of the pages read so far are processed. For library contents and a show's episodes, a first
-  entry without a rating key (or a `null` one) is never taken as a repeat, so such pages do not stop paging.
+  history); the items of the pages read so far are processed. A first entry without a rating key, or a `null` one,
+  counts as the same first entry as another such entry, so a repeated page that starts with one stops paging too
+  — and so does a different page that starts with one right after a page that also did.
 - **A history entry without a library, a non-numeric library id.** While `Plex:Libraries` is set, a history
   entry without a `librarySectionID` is skipped (see *Incremental history run*). A `librarySectionID` that is not
   a number fails whatever Plex response carries it: a history page fails the history run (the mark stays), a page of

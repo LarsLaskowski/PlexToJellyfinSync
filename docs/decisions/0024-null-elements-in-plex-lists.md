@@ -42,5 +42,9 @@ element exactly like an element of that list without any field. The resulting be
 - A new list in a Plex DTO is declared with a nullable element type, so its consumer has to decide what a `null`
   element means; the rule above is the default.
 - A `null` element still counts as an entry of its page for the paging rules (page length, first entry of a page),
-  like an entry without rating key and viewed-at time.
+  like an entry without rating key and viewed-at time. Two consecutive pages that both start with such an entry
+  therefore count as a page that does not advance, for library contents and a show's episodes as for history
+  (issue #248), so two genuinely different pages that both start with one end paging early. Comparing the rating
+  keys of the whole page would tell them apart, but costs a key list per page, still sees two pages without any
+  keyed entry as equal, and would split the rule from history paging; it was not taken.
 - No real Plex response with a `null` element is known; the tests use hand-written answers for this variant.

@@ -414,6 +414,7 @@ public sealed class PlexClient : IPlexClient
     private async IAsyncEnumerable<MediaItem> GetPagedMediaItemsAsync(string baseUrl, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var start = 0;
+        var hasPreviousPage = false;
         string? previousFirstRatingKey = null;
 
         while (true)
@@ -429,13 +430,14 @@ public sealed class PlexClient : IPlexClient
 
             var firstRatingKey = FirstRatingKeyOf(entries);
 
-            if (firstRatingKey is not null && firstRatingKey == previousFirstRatingKey)
+            if (hasPreviousPage && firstRatingKey == previousFirstRatingKey)
             {
                 _logger.LogWarning("Plex server returned a non-advancing page for {BaseUrl}, stopping pagination", baseUrl);
 
                 yield break;
             }
 
+            hasPreviousPage = true;
             previousFirstRatingKey = firstRatingKey;
 
             foreach (var item in entries.Select(MapMediaItem).OfType<MediaItem>())
