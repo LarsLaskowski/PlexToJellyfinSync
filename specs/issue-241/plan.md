@@ -77,6 +77,11 @@ set to `true` immediately before `ResolveOwnerAsync`, set back to `false` immedi
 owner-cache reset stay unconditional (fact 10). No other line changes; the summary of `HandleError` names the
 new condition.
 
+Deviation accepted in step 9: the Dev built the flag as two write-once locals (`plexRequestStarted` set before
+`ResolveOwnerAsync`, `plexAnswered` set after `GetHistorySinceAsync`) and passes
+`plexRequestStarted && plexAnswered == false`, because resetting a single bool is a useless assignment to Sonar
+(S1854). Both forms yield `true` exactly while the owner resolution or the history request is in flight.
+
 No new user-visible output: the dashboard card and `/health` show the existing flag.
 
 ## Options considered
