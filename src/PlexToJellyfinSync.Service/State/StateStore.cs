@@ -76,6 +76,20 @@ public sealed class StateStore : IStateStore
     }
 
     /// <summary>
+    /// Write the state to the temp file
+    /// </summary>
+    /// <param name="tempPath">Temp file path</param>
+    /// <param name="state">State to write</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private static async Task WriteTempFileAsync(string tempPath, SyncStateFile state, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+
+        await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Read the persisted state file
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
@@ -178,9 +192,11 @@ public sealed class StateStore : IStateStore
 
             try
             {
-                await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                await WriteTempFileAsync(tempPath, state, cancellationToken).ConfigureAwait(false);
 
-                await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
+                PreserveFileMode(tempPath, _filePath);
+
+                File.Move(tempPath, _filePath, overwrite: true);
             }
             catch
             {
@@ -188,10 +204,6 @@ public sealed class StateStore : IStateStore
 
                 throw;
             }
-
-            PreserveFileMode(tempPath, _filePath);
-
-            File.Move(tempPath, _filePath, overwrite: true);
         }
         finally
         {

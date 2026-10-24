@@ -153,8 +153,9 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   `HighWaterMark`, in the file `state.json` in the directory `State:Directory`; the directory is created when it
   is missing.
 - The file is replaced atomically: the new content is written to `state.json.tmp` in the same directory and
-  then moved over `state.json`, keeping the existing file's Unix file mode. A failed write deletes the temporary
-  file and leaves `state.json` unchanged.
+  then moved over `state.json`, keeping the existing file's Unix file mode. A failed write — creating or serializing the
+  temporary file, copying the file mode or the move — deletes the temporary file when possible and leaves
+  `state.json` unchanged.
 - Reads and writes of the file are serialized within the process.
 - A missing file, or a file without a mark, means "no mark".
 - A file that cannot be parsed is moved to `state.json.corrupt` (replacing an earlier one) when that move
