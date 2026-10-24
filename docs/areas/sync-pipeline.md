@@ -155,7 +155,7 @@ The application keeps one in-memory status, reset when the process starts. Its v
 
 | Value | Meaning |
 | ----- | ------- |
-| `plexConnected` | `true` once a reconcile's library list or a history run's history request succeeded, and after a run that only set a missing mark; `false` at start and after a failed run. A failing item does not change it. |
+| `plexConnected` | `true` once a reconcile's library list or a history run's history request succeeded; `false` at start and after a failed run. A run that only sets a missing mark makes no request to Plex and leaves it unchanged, as does a failing item. |
 | `isRunning` | `true` while a history run or a reconcile is in progress. |
 | `lastPollAt` | End of the last history run that completed without failing, including a run that only set the mark. |
 | `lastReconcileAt` | End of the last reconcile that completed without failing. |

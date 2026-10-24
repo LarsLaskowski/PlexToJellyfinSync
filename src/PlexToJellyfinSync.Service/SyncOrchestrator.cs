@@ -279,7 +279,6 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
                                {
                                    s.HighWaterMark = now;
                                    s.LastPollAt = now;
-                                   s.PlexConnected = true;
                                });
 
                 return;

@@ -79,9 +79,43 @@ public sealed class SyncOrchestratorTests
         Assert.IsNull(_plexClient.LastHistorySince, "The first run should not read the watch history!");
         Assert.AreEqual(0, _plexClient.OwnerAccountIdCalls, "The seeding-only first run should not resolve or cache the owner account id!");
         Assert.IsEmpty(_nfoWriter.Writes, "The first run should not write any NFO file!");
-        Assert.IsTrue(snapshot.PlexConnected, "The first run should mark Plex as connected!");
+        Assert.AreEqual(_stateStore.HighWaterMark, snapshot.HighWaterMark, "The first run should report the seeded high-water mark!");
         Assert.IsNotNull(snapshot.LastPollAt, "The first run should record the poll timestamp!");
         Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared afterwards!");
+    }
+
+    /// <summary>
+    /// The first run only seeds the high-water mark and makes no request to Plex, so it does not report Plex as
+    /// connected
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorFirstRunKeepsPlexDisconnected()
+    {
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsFalse(snapshot.PlexConnected, "A run that makes no request to Plex should not mark it as connected!");
+        Assert.AreEqual(0, _plexClient.OwnerAccountIdCalls, "The seeding-only first run should not resolve the owner account id!");
+    }
+
+    /// <summary>
+    /// The first run makes no request to Plex, so it leaves an already reported connection untouched
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorFirstRunKeepsPlexConnected()
+    {
+        _status.Update(s => s.PlexConnected = true);
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        Assert.IsTrue(_status.GetSnapshot().PlexConnected, "A run that makes no request to Plex should keep the connected flag!");
     }
 
     /// <summary>
