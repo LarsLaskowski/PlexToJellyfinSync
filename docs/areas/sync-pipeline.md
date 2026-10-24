@@ -74,10 +74,10 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   and an entry of another account is dropped.
 - The owner's account id is `Plex:OwnerAccountId` when it is set. Otherwise it is resolved from the Plex account
   list as the lowest positive account id. When that request fails (except with `401` or `403`) or its answer
-  cannot be read, a warning is logged and the id `1` is used; an answer that holds no account with a positive id (a `null` element counts
-  as an account without one) also
-  yields `1`, with the warning `Could not auto-detect the Plex owner account id: the account list contains no account
-  with a positive id, defaulting to 1 (set Plex:OwnerAccountId to choose the owner)`.
+  cannot be read, a warning is logged and the id `1` is used; an answer that holds no account with a positive id
+  (a `null` element counts as an account without one) also yields `1`, with the warning `Could not auto-detect the
+  Plex owner account id: the account list contains no account with a positive id, defaulting to 1 (set
+  Plex:OwnerAccountId to choose the owner)`.
 - A `401` or `403` answer or a timeout while resolving the owner is not replaced by the fallback: the run fails
   (see *Limits and errors*) and the owner is resolved again on the next run.
 - The resolved id is kept for the following runs until a run fails; after a failed run it is resolved again,
@@ -194,7 +194,8 @@ The application keeps one in-memory status, reset when the process starts. Its v
   cancelled this way does not advance the mark, so its entries are processed again after the restart.
 - **Plex paging that does not advance.** When Plex returns the same first entry for two pages in a row, paging
   stops with the warning `Plex server returned a non-advancing page …` (`… non-advancing history page …` for
-  history); the items of the pages read so far are processed.
+  history); the items of the pages read so far are processed. For library contents and a show's episodes, a first
+  entry without a rating key (or a `null` one) is never taken as a repeat, so such pages do not stop paging.
 - **A history entry without a library, a non-numeric library id.** While `Plex:Libraries` is set, a history
   entry without a `librarySectionID` is skipped (see *Incremental history run*). A `librarySectionID` that is not
   a number fails whatever Plex response carries it: a history page fails the history run (the mark stays), a page of
