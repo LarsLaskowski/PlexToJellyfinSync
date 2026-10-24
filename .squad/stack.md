@@ -111,8 +111,8 @@ ls "$scratch"/publish/wwwroot/_framework/blazor.web.js
 ```
 
 Keep the first copy equal to the `COPY` lines before `RUN dotnet restore` in the Dockerfile. A publish that
-fails, or an output that is missing, is the defect the tag-triggered release build
-(`.github/workflows/release.yml`) would report only after the merge; no pull request check builds the image.
+fails, or an output that is missing, is the defect the release build
+(`.github/workflows/release.yml`, started by publishing a release) would report only after the merge; no pull request check builds the image.
 
 ## Coverage exclusions
 

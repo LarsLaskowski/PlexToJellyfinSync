@@ -130,7 +130,9 @@ Releases are triggered manually, never by merging a PR (see
 with the new tag `v<major>.<minor>.<patch>` (for example `v1.5.1`) on target `main`, use the tag as the title, write
 the release text, check **Set as a pre-release** and publish it. Publishing starts the release workflow: it checks
 the tag, builds and pushes the Docker image, and only then turns the pre-release into the latest full release. If it
-fails, the release stays a pre-release: delete the release and its tag, fix `main` and create the release again.
+fails before the promotion, the release stays a pre-release: delete the release and its tag, fix `main` and create
+the release again; if only the *Notify website* job fails, the release is already the latest full release, so re-run
+that job instead.
 Merging a PR into `main` by itself never publishes an image or a release.
 <!-- project:end releases -->
 

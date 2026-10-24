@@ -315,8 +315,9 @@ how the image is built and released.
   (`linux/amd64,linux/arm64`) image to Docker Hub (`networlddev/plextojellyfinsync:<version>` and `:latest`), the
   only registry the project publishes to ([decision 0015](decisions/0015-container-images-on-docker-hub-only.md));
   the version comes from the tag name. A second job, the only one with `contents: write`, then turns the
-  pre-release into the latest full release, and a third job notifies the website. If a job fails, the release stays
-  a pre-release.
+  pre-release into the latest full release, and a third job notifies the website. If the check, image or promotion
+  job fails, the release stays a pre-release; if only the website notification fails, the release is already the
+  latest full release.
 
 ## Undocumented decisions
 

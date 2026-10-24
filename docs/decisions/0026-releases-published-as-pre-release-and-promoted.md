@@ -22,7 +22,7 @@ Seluna project solves this with a pre-release that its release workflow promotes
 3. **Promote with a personal access token so that a `released` trigger can notify the website** — the token
    would hold write access to repository contents. Lost: the notification is a job of the same workflow instead.
 4. **Set `latest` on the image only in the promotion job** — a failed build could never move `latest`, but the
-   promotion job would need the registry login and would no longer run no project code. Lost: the tags `X.Y.Z`
+   promotion job which holds `contents: write`, would also need the Docker Hub credentials. Lost: the tags `X.Y.Z`
    and `latest` are two names for one manifest, pushed together by one build.
 
 ## Decision
@@ -34,8 +34,9 @@ turns the pre-release into the latest full release. A third job notifies the web
 
 ## Consequences
 
-If the workflow fails, the release stays a pre-release; the maintainer deletes the release and its tag, fixes
-`main` and creates the release again. An image that was already pushed under that version is overwritten by the
+If the workflow fails before the promotion, the release stays a pre-release; the maintainer deletes the release and
+its tag, fixes `main` and creates the release again. If only the `notify` job fails, the release is already promoted
+and the maintainer re-runs that job. An image that was already pushed under that version is overwritten by the
 next run. The tests and the analyzer gate are not repeated in the release workflow: they have already passed on
 `main`. A release published without *Set as a pre-release* is built too but is public before the image exists; the
 workflow warns about it. The separate workflow `notify-website.yml` is replaced by the `notify` job, which uses the
