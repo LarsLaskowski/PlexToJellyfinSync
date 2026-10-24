@@ -133,5 +133,5 @@ No mocking library; hand-written fakes and stubs in `tests/PlexToJellyfinSync.Te
 - `TestTimeProvider` — controllable clock for `LoginThrottleTests`
 - `FakeSyncOrchestrator` — configurable failures; signals when a history sync or reconcile was requested
 - `FakeSyncStatusProvider` — settable status snapshot that raises `Changed` on demand
-- `RecordingWorkerLogger`, `RecordingSyncStatusLogger` — record log entries of `Worker` / `SyncStatusService`
+- `RecordingWorkerLogger`, `RecordingSyncStatusLogger`, `RecordingStateStoreLogger` — record log entries of `Worker` / `SyncStatusService` / `StateStore`
 - `StubAntiforgery` — antiforgery validation that always passes or always fails
