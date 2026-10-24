@@ -6,3 +6,4 @@ are quoted in full.
 | Date | Step | Member | Result |
 | ---- | ---- | ------ | ------ |
 | 2026-10-24 15:34 | 1 Intake | Orchestrator | Bug (cleanup behavior); branch claude/funny-turing-thpiwj off main 7273c58 |
+| 2026-10-24 15:37 | 2 Plan | squad-lead | DONE: tier standard, security areas: path mapping/file writes, nfo/XML; delete .tmp on every save failure (opus/medium · usage pending) |
