@@ -77,4 +77,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0022](0022-forwarded-headers-from-configured-proxies-only.md) | Forwarded headers are trusted only from configured proxies; the login throttle is bounded | Accepted | 2026-10-23 |
 | [0023](0023-history-run-filters-by-library-and-kind.md) | The history run filters by library on the history entry and by kind on the item | Accepted | 2026-10-24 |
 | [0024](0024-null-elements-in-plex-lists.md) | Plex list elements are declared nullable; a null element is handled like an empty one | Accepted | 2026-10-24 |
+| [0025](0025-plex-keys-allow-listed-before-request-paths.md) | Plex keys are checked against an allow-list before they reach a request path | Proposed | 2026-10-24 |
 <!-- project:end index -->
