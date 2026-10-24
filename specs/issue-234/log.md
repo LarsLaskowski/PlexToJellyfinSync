@@ -11,3 +11,5 @@ are quoted in full.
 | 2026-10-24 14:34 | 3 Plan security review | squad-security | APPROVED; 2 non-blocking (log line PlexClient.cs:434 also closed; one-char '-'/'_' keys harmless) -> Security notes (opus/medium · 36,005 tokens · 6 tool uses · 83 s) |
 | 2026-10-24 14:34 | 2 Plan challenge routing | Orchestrator | only minor objection + Security non-blocking notes (no choice left) appended verbatim as Challenge notes / Security notes; no Lead revise |
 | 2026-10-24 14:34 | 4 Skeleton | Orchestrator | skipped: no public API change (plan, Signatures) |
+| 2026-10-24 14:37 | 5 Tests first | squad-tester | 8 new tests (AC1-AC5); fail on current code; deferred: InvalidRatingKeyAtSinceStopsPaging, other-account 1/2 test (challenge note), GetMediaItemWithAllowListedRatingKeyMapsItem (passes today, guard) (sonnet/medium · 108,749 tokens · 11 tool uses · 175 s) |
+| 2026-10-24 14:37 | 5 Tests first check | Orchestrator | Build OK; Test (project): 123 failed (exactly the new rows), 453 passed |

@@ -409,10 +409,12 @@ public sealed class PlexClientTests
 
         using var httpClient = CreateHttpClient(handler);
 
-        var client = CreateClient(httpClient);
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
 
         var libraries = await client.GetLibrariesAsync(CancellationToken.None);
 
+        Assert.IsEmpty(logger.Warnings, "A section without a key should be dropped silently!");
         Assert.HasCount(3, libraries, "Only sections carrying a key should be reported!");
         Assert.AreEqual(MediaKind.Movie, libraries[0].Kind, "A movie section should be mapped to the movie kind!");
         Assert.AreEqual("Movies", libraries[0].Title, "The section title should be mapped!");
@@ -474,11 +476,13 @@ public sealed class PlexClientTests
 
         using var httpClient = CreateHttpClient(handler);
 
-        var client = CreateClient(httpClient);
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
         var since = DateTimeOffset.FromUnixTimeSeconds(1767139200);
 
         var entries = await client.GetHistorySinceAsync(since, 4, CancellationToken.None);
 
+        Assert.IsEmpty(logger.Warnings, "An entry without a rating key should be ignored silently!");
         Assert.HasCount(2, entries, "Only newer entries of the requested account should be reported!");
         Assert.AreEqual("10", entries[0].RatingKey, "Entries should be ordered ascending by viewed-at!");
         Assert.AreEqual("13", entries[1].RatingKey, "An entry without account id should be attributed to the requested account!");
@@ -1619,6 +1623,297 @@ public sealed class PlexClientTests
         Assert.IsNotNull(item, "The sample should have been mapped to an item!");
         Assert.AreEqual(expectedKind, item.Kind, "The media kind of the sample should be mapped!");
         Assert.IsFalse(string.IsNullOrEmpty(item.FilePath), "The file path of the sample should be mapped!");
+    }
+
+    /// <summary>
+    /// A history entry whose rating key fails the key rule is dropped with a warning that carries no Plex value,
+    /// the entries around it are still returned
+    /// </summary>
+    /// <param name="key">Hostile rating key</param>
+    /// <param name="intended">Part of the key the case is about</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DynamicData(nameof(HostileKeys))]
+    public async Task PlexClientGetHistorySinceSkipsEntryWithInvalidRatingKey(string key, string intended)
+    {
+        Assert.Contains(intended, key, "The hostile key should still contain the character the case is about!");
+
+        using var handler = new StubHttpMessageHandler();
+
+        var json = $$"""
+                     { "MediaContainer": { "Metadata": [
+                       { "ratingKey": "10", "viewedAt": 1767225600, "accountID": 4 },
+                       { "ratingKey": {{JsonSerializer.Serialize(key)}}, "viewedAt": 1767225700, "accountID": 4 },
+                       { "ratingKey": "11", "viewedAt": 1767225800, "accountID": 4 }
+                     ] } }
+                     """;
+
+        handler.Responses["/status/sessions/history/all"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.FromUnixTimeSeconds(1767139200), 4, CancellationToken.None);
+
+        Assert.HasCount(2, entries, "Only the entries with a valid rating key should be reported!");
+        Assert.AreEqual("10", entries[0].RatingKey, "The valid entry before the hostile one should be reported!");
+        Assert.AreEqual("11", entries[1].RatingKey, "The valid entry after the hostile one should be reported!");
+        Assert.HasCount(1, logger.Warnings, "Exactly one warning should be logged for the dropped entry!");
+        Assert.AreEqual("Skipping a Plex history entry with an invalid rating key", logger.Warnings[0].Message, "The warning should carry the exact text without the key!");
+    }
+
+    /// <summary>
+    /// A library whose key fails the key rule is dropped with a warning that carries no Plex value
+    /// </summary>
+    /// <param name="key">Hostile library key</param>
+    /// <param name="intended">Part of the key the case is about</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DynamicData(nameof(HostileKeys))]
+    public async Task PlexClientGetLibrariesSkipsLibraryWithInvalidKey(string key, string intended)
+    {
+        Assert.Contains(intended, key, "The hostile key should still contain the character the case is about!");
+
+        using var handler = new StubHttpMessageHandler();
+
+        var json = $$"""
+                     { "MediaContainer": { "Directory": [
+                       { "key": {{JsonSerializer.Serialize(key)}}, "title": "Hostile", "type": "movie" },
+                       { "key": "1", "title": "Movies", "type": "movie" }
+                     ] } }
+                     """;
+
+        handler.Responses["/library/sections"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var libraries = await client.GetLibrariesAsync(CancellationToken.None);
+
+        Assert.HasCount(1, libraries, "Only the library with a valid key should be reported!");
+        Assert.AreEqual("1", libraries[0].Key, "The valid library should be reported!");
+        Assert.HasCount(1, logger.Warnings, "Exactly one warning should be logged for the dropped library!");
+        Assert.AreEqual("Skipping a Plex library with an invalid key", logger.Warnings[0].Message, "The warning should carry the exact text without the key!");
+    }
+
+    /// <summary>
+    /// A library item whose rating key fails the key rule is skipped with the existing warning
+    /// </summary>
+    /// <param name="key">Hostile rating key</param>
+    /// <param name="intended">Part of the key the case is about</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DynamicData(nameof(HostileKeys))]
+    public async Task PlexClientGetLibraryItemsSkipsItemsWithRatingKeyOutsideAllowList(string key, string intended)
+    {
+        Assert.Contains(intended, key, "The hostile key should still contain the character the case is about!");
+
+        using var handler = new StubHttpMessageHandler();
+
+        var json = $$"""
+                     { "MediaContainer": { "Metadata": [
+                       { "ratingKey": "12345", "type": "movie", "title": "Heat" },
+                       { "ratingKey": {{JsonSerializer.Serialize(key)}}, "type": "movie", "title": "Broken" }
+                     ] } }
+                     """;
+
+        handler.Responses["/library/sections/1/all"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
+
+        Assert.HasCount(1, items, "Only the item with an allow-listed rating key should be reported!");
+        Assert.AreEqual("Heat", items[0].Title, "The valid item should have been mapped!");
+        Assert.HasCount(1, logger.Warnings, "Exactly one warning should be logged for the skipped item!");
+        Assert.AreEqual("Skipping a Plex item with a missing or invalid rating key", logger.Warnings[0].Message, "The existing rating-key warning should be logged!");
+    }
+
+    /// <summary>
+    /// An episode whose show rating key fails the key rule keeps its data but loses the show rating key
+    /// </summary>
+    /// <param name="key">Hostile show rating key</param>
+    /// <param name="intended">Part of the key the case is about</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DynamicData(nameof(HostileKeys))]
+    public async Task PlexClientGetEpisodesWithShowRatingKeyOutsideAllowListClearsShowRatingKey(string key, string intended)
+    {
+        Assert.Contains(intended, key, "The hostile key should still contain the character the case is about!");
+
+        using var handler = new StubHttpMessageHandler();
+
+        var json = $$"""
+                     { "MediaContainer": { "Metadata": [
+                       { "ratingKey": "501", "type": "episode", "title": "Pilot", "grandparentTitle": "Breaking Bad", "grandparentRatingKey": {{JsonSerializer.Serialize(key)}} }
+                     ] } }
+                     """;
+
+        handler.Responses["/library/metadata/500/allLeaves"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None).ToListAsync(CancellationToken.None);
+
+        Assert.HasCount(1, episodes, "The episode should still have been mapped!");
+        Assert.IsNull(episodes[0].ShowRatingKey, "A show rating key outside the allow-list should be dropped!");
+        Assert.HasCount(1, logger.Warnings, "Exactly one warning should be logged for the dropped show rating key!");
+    }
+
+    /// <summary>
+    /// Keys of the allowed alphabet and the maximum length are accepted as item rating keys
+    /// </summary>
+    /// <param name="key">Allow-listed rating key</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("aZ09-_")]
+    [DataRow("1111111111111111111111111111111111111111111111111111111111111111")]
+    public async Task PlexClientGetMediaItemWithAllowListedRatingKeyMapsItem(string key)
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses[$"/library/metadata/{key}"] = $$"""{ "MediaContainer": { "Metadata": [ { "ratingKey": {{JsonSerializer.Serialize(key)}}, "type": "movie", "title": "Heat" } ] } }""";
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync(key, CancellationToken.None);
+
+        Assert.IsNotNull(item, "An item with an allow-listed rating key should be mapped!");
+        Assert.AreEqual(key, item.RatingKey, "The rating key should be mapped unchanged!");
+    }
+
+    /// <summary>
+    /// A rating key that fails the key rule is refused by <see cref="PlexClient.GetMediaItemAsync"/> before any request
+    /// </summary>
+    /// <param name="key">Invalid rating key</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DynamicData(nameof(HostileKeysAndEmpty))]
+    public async Task PlexClientGetMediaItemWithInvalidKeyThrowsWithoutRequest(string key)
+    {
+        using var handler = new StubHttpMessageHandler();
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var exception = await Assert.ThrowsExactlyAsync<ArgumentException>(() => client.GetMediaItemAsync(key, CancellationToken.None), "An invalid key should be refused!");
+
+        AssertKeyRefusal(exception, "ratingKey", key);
+        Assert.IsEmpty(handler.Requests, "No request should be sent for an invalid key!");
+    }
+
+    /// <summary>
+    /// A show rating key that fails the key rule is refused by <see cref="PlexClient.GetEpisodesAsync"/> before any request
+    /// </summary>
+    /// <param name="key">Invalid show rating key</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DynamicData(nameof(HostileKeysAndEmpty))]
+    public async Task PlexClientGetEpisodesWithInvalidKeyThrowsWithoutRequest(string key)
+    {
+        using var handler = new StubHttpMessageHandler();
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var exception = await Assert.ThrowsExactlyAsync<ArgumentException>(async () => await client.GetEpisodesAsync(key, CancellationToken.None).ToListAsync(CancellationToken.None), "An invalid key should be refused!");
+
+        AssertKeyRefusal(exception, "showRatingKey", key);
+        Assert.IsEmpty(handler.Requests, "No request should be sent for an invalid key!");
+    }
+
+    /// <summary>
+    /// A library key that fails the key rule is refused by <see cref="PlexClient.GetLibraryItemsAsync"/> before any request
+    /// </summary>
+    /// <param name="key">Invalid library key</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DynamicData(nameof(HostileKeysAndEmpty))]
+    public async Task PlexClientGetLibraryItemsWithInvalidKeyThrowsWithoutRequest(string key)
+    {
+        using var handler = new StubHttpMessageHandler();
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var exception = await Assert.ThrowsExactlyAsync<ArgumentException>(async () => await client.GetLibraryItemsAsync(key, CancellationToken.None).ToListAsync(CancellationToken.None), "An invalid key should be refused!");
+
+        AssertKeyRefusal(exception, "libraryKey", key);
+        Assert.IsEmpty(handler.Requests, "No request should be sent for an invalid key!");
+    }
+
+    /// <summary>
+    /// Hostile key forms with the part each one is about; characters that an escape could lose are built at run time
+    /// </summary>
+    /// <returns>The test rows</returns>
+    private static IEnumerable<object[]> HostileKeys()
+    {
+        var backslash = char.ConvertFromUtf32(0x5C);
+        var lineFeed = char.ConvertFromUtf32(0x0A);
+        var arabicDigit = char.ConvertFromUtf32(0x0661);
+        var fullWidthDigit = char.ConvertFromUtf32(0xFF11);
+        var accentedLetter = char.ConvertFromUtf32(0xE9);
+        var overlong = new string('1', 65);
+
+        return
+        [
+            ["1/2", "/"],
+            ["1/../../accounts", "/../"],
+            [".", "."],
+            ["..", ".."],
+            [$"1{backslash}2", backslash],
+            ["1?X-Plex-Container-Size=100000", "?"],
+            ["1#", "#"],
+            ["1%2F2", "%"],
+            ["1&a=b", "&"],
+            ["1;a", ";"],
+            ["1:2", ":"],
+            ["1.2", "."],
+            ["1 2", " "],
+            [$"1{lineFeed}2", lineFeed],
+            [$"1{arabicDigit}", arabicDigit],
+            [$"1{fullWidthDigit}", fullWidthDigit],
+            [accentedLetter, accentedLetter],
+            [overlong, overlong]
+        ];
+    }
+
+    /// <summary>
+    /// Hostile key forms and the empty key
+    /// </summary>
+    /// <returns>The test rows</returns>
+    private static IEnumerable<object[]> HostileKeysAndEmpty()
+    {
+        return HostileKeys().Select(row => new[] { row[0] }).Append([string.Empty]);
+    }
+
+    /// <summary>
+    /// Assert that the exception is the refusal of an invalid key and does not carry the key
+    /// </summary>
+    /// <param name="exception">Thrown exception</param>
+    /// <param name="paramName">Expected parameter name</param>
+    /// <param name="key">Refused key</param>
+    private static void AssertKeyRefusal(ArgumentException exception, string paramName, string key)
+    {
+        Assert.AreEqual(paramName, exception.ParamName, "The parameter name should be reported!");
+        Assert.StartsWith("The key is not a valid Plex key", exception.Message, "The message should be the fixed text!");
+
+        if (key.Length > 0)
+        {
+            Assert.DoesNotContain(key, exception.Message, "The message should not carry the key!");
+        }
     }
 
     /// <summary>
