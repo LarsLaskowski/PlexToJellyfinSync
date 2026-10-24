@@ -42,33 +42,18 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <summary>
     /// Constructor
     /// </summary>
-    /// <param name="plexClient">Plex client</param>
-    /// <param name="itemWriter">Media item writer</param>
-    /// <param name="aggregateWriter">Series aggregate writer</param>
-    /// <param name="libraryReconciler">Library reconciler</param>
-    /// <param name="stateStore">State store</param>
-    /// <param name="status">Status provider</param>
-    /// <param name="plexOptions">Plex options</param>
-    /// <param name="syncOptions">Sync options</param>
+    /// <param name="dependencies">Collaborators and options</param>
     /// <param name="logger">Logging interface</param>
-    public SyncOrchestrator(IPlexClient plexClient,
-                            IMediaItemWriter itemWriter,
-                            ISeriesAggregateWriter aggregateWriter,
-                            ILibraryReconciler libraryReconciler,
-                            IStateStore stateStore,
-                            ISyncStatusProvider status,
-                            IOptions<PlexOptions> plexOptions,
-                            IOptions<SyncOptions> syncOptions,
-                            ILogger<SyncOrchestrator> logger)
+    public SyncOrchestrator(SyncOrchestratorDependencies dependencies, ILogger<SyncOrchestrator> logger)
     {
-        _plexClient = plexClient;
-        _itemWriter = itemWriter;
-        _aggregateWriter = aggregateWriter;
-        _libraryReconciler = libraryReconciler;
-        _stateStore = stateStore;
-        _status = status;
-        _plexOptions = plexOptions.Value;
-        _syncOptions = syncOptions.Value;
+        _plexClient = dependencies.PlexClient;
+        _itemWriter = dependencies.ItemWriter;
+        _aggregateWriter = dependencies.AggregateWriter;
+        _libraryReconciler = dependencies.LibraryReconciler;
+        _stateStore = dependencies.StateStore;
+        _status = dependencies.Status;
+        _plexOptions = dependencies.PlexOptions.Value;
+        _syncOptions = dependencies.SyncOptions.Value;
         _logger = logger;
     }
 
