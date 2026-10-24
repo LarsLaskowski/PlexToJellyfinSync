@@ -1487,6 +1487,43 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// A different library page led by an unkeyed entry is not taken as a repeat of the previous page
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetLibraryItemsWithUnkeyedFirstEntryOnNextPageKeepsPaging()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var firstPageEntries = Enumerable.Range(0, 200)
+                                         .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "type": "movie" }""");
+        var firstPageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", firstPageEntries)}} ] } }""";
+
+        var secondPageEntries = Enumerable.Range(0, 199)
+                                          .Select(i => $$"""{ "ratingKey": "{{2000 + i}}", "type": "movie" }""")
+                                          .Prepend("""{ "type": "movie" }""");
+        var secondPageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", secondPageEntries)}} ] } }""";
+
+        const string thirdPageJson = """
+                                     { "MediaContainer": { "Metadata": [
+                                         { "ratingKey": "3000", "type": "movie" },
+                                         { "ratingKey": "3001", "type": "movie" }
+                                     ] } }
+                                     """;
+
+        handler.ResponseSequences["/library/sections/1/all"] = new Queue<string>([firstPageJson, secondPageJson, thirdPageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
+
+        Assert.HasCount(3, handler.Requests, "A different page led by an unkeyed entry should not stop pagination!");
+        Assert.HasCount(401, items, "All keyed items of the three pages should be reported!");
+    }
+
+    /// <summary>
     /// The real history sample maps the string-typed <c>librarySectionID</c> of each entry to its section key
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
