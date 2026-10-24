@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -17,6 +18,8 @@ namespace PlexToJellyfinSync.Tests;
 public sealed class PlexClientTests
 {
     #region Constants
+
+    private const string NoUsableAccountWarning = "Could not auto-detect the Plex owner account id: the account list contains no account with a positive id, defaulting to 1 (set Plex:OwnerAccountId to choose the owner)";
 
     private const string AccountsJson = """
                                         {
@@ -220,11 +223,44 @@ public sealed class PlexClientTests
 
         using var httpClient = CreateHttpClient(handler);
 
-        var client = CreateClient(httpClient);
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
 
         var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
 
         Assert.AreEqual(4, ownerId, "The lowest positive account id should be detected as owner!");
+        Assert.IsEmpty(logger.Warnings, "A detected owner account should not log a warning!");
+    }
+
+    /// <summary>
+    /// An account answer without an account of positive id falls back to the default owner account id
+    /// and logs one warning without an exception
+    /// </summary>
+    /// <param name="body">Body of the account answer</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("null", DisplayName = "null body")]
+    [DataRow("{}", DisplayName = "no MediaContainer")]
+    [DataRow("""{"MediaContainer":{}}""", DisplayName = "no Account")]
+    [DataRow("""{"MediaContainer":{"Account":[]}}""", DisplayName = "empty Account list")]
+    [DataRow("""{"MediaContainer":{"Account":[{"id":0,"name":""},{"id":-3,"name":"x"}]}}""", DisplayName = "only non-positive ids")]
+    public async Task PlexClientGetOwnerAccountIdWithoutUsableAccountLogsWarningAndFallsBackToDefaultOwner(string body)
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/accounts"] = body;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, ownerId, "An answer without a usable account should fall back to account id 1!");
+        Assert.HasCount(1, logger.Warnings, "An answer without a usable account should log exactly one warning!");
+        Assert.AreEqual(NoUsableAccountWarning, logger.Warnings[0].Message, "The warning should carry the no-usable-account text!");
+        Assert.IsNull(logger.Warnings[0].Exception, "The warning should not carry an exception!");
     }
 
     /// <summary>
@@ -237,11 +273,15 @@ public sealed class PlexClientTests
         using var handler = new StubHttpMessageHandler();
         using var httpClient = CreateHttpClient(handler);
 
-        var client = CreateClient(httpClient);
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
 
         var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
 
         Assert.AreEqual(1, ownerId, "A failing account request should fall back to account id 1!");
+        Assert.HasCount(1, logger.Warnings, "A failing account request should log exactly one warning!");
+        Assert.IsInstanceOfType<HttpRequestException>(logger.Warnings[0].Exception, "The warning should carry the request failure!");
+        Assert.AreNotEqual(NoUsableAccountWarning, logger.Warnings[0].Message, "A failing request should not log the no-usable-account text!");
     }
 
     /// <summary>
@@ -301,11 +341,15 @@ public sealed class PlexClientTests
 
         using var httpClient = CreateHttpClient(handler);
 
-        var client = CreateClient(httpClient);
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
 
         var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
 
         Assert.AreEqual(1, ownerId, "A malformed auto-detect response should fall back to account id 1!");
+        Assert.HasCount(1, logger.Warnings, "A malformed response should log exactly one warning!");
+        Assert.IsInstanceOfType<JsonException>(logger.Warnings[0].Exception, "The warning should carry the parse failure!");
+        Assert.AreNotEqual(NoUsableAccountWarning, logger.Warnings[0].Message, "A malformed response should not log the no-usable-account text!");
     }
 
     /// <summary>
@@ -1308,10 +1352,11 @@ public sealed class PlexClientTests
     /// </summary>
     /// <param name="httpClient">HTTP client</param>
     /// <param name="options">Plex options, or <c>null</c> for the defaults</param>
+    /// <param name="logger">Logger, or <c>null</c> for a logger that discards all entries</param>
     /// <returns>The Plex client under test</returns>
-    private static PlexClient CreateClient(HttpClient httpClient, PlexOptions? options = null)
+    private static PlexClient CreateClient(HttpClient httpClient, PlexOptions? options = null, ILogger<PlexClient>? logger = null)
     {
-        return new PlexClient(new FakeHttpClientFactory(httpClient), NullLogger<PlexClient>.Instance, Options.Create(options ?? new PlexOptions()));
+        return new PlexClient(new FakeHttpClientFactory(httpClient), logger ?? NullLogger<PlexClient>.Instance, Options.Create(options ?? new PlexOptions()));
     }
 
     #endregion // Methods
