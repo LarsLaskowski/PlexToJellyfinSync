@@ -244,6 +244,7 @@ public sealed class PlexClientTests
     [DataRow("""{"MediaContainer":{}}""", DisplayName = "no Account")]
     [DataRow("""{"MediaContainer":{"Account":[]}}""", DisplayName = "empty Account list")]
     [DataRow("""{"MediaContainer":{"Account":[{"id":0,"name":""},{"id":-3,"name":"x"}]}}""", DisplayName = "only non-positive ids")]
+    [DataRow("""{"MediaContainer":{"Account":[null]}}""", DisplayName = "null Account element")]
     public async Task PlexClientGetOwnerAccountIdWithoutUsableAccountLogsWarningAndFallsBackToDefaultOwner(string body)
     {
         using var handler = new StubHttpMessageHandler();
@@ -261,6 +262,28 @@ public sealed class PlexClientTests
         Assert.HasCount(1, logger.Warnings, "An answer without a usable account should log exactly one warning!");
         Assert.AreEqual(NoUsableAccountWarning, logger.Warnings[0].Message, "The warning should carry the no-usable-account text!");
         Assert.IsNull(logger.Warnings[0].Exception, "The warning should not carry an exception!");
+    }
+
+    /// <summary>
+    /// A <c>null</c> account element is skipped and the remaining account is detected as owner without a warning
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetOwnerAccountIdWithNullAccountElementDetectsRemainingOwner()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/accounts"] = """{"MediaContainer":{"Account":[null,{"id":7}]}}""";
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var ownerId = await client.GetOwnerAccountIdAsync(CancellationToken.None);
+
+        Assert.AreEqual(7, ownerId, "The account after the null element should be detected as owner!");
+        Assert.IsEmpty(logger.Warnings, "A detected owner account should not log a warning!");
     }
 
     /// <summary>
@@ -395,6 +418,27 @@ public sealed class PlexClientTests
         Assert.AreEqual("Movies", libraries[0].Title, "The section title should be mapped!");
         Assert.AreEqual(MediaKind.Series, libraries[1].Kind, "A show section should be mapped to the series kind!");
         Assert.AreEqual(MediaKind.Unknown, libraries[2].Kind, "An unsupported section type should be mapped to the unknown kind!");
+    }
+
+    /// <summary>
+    /// <c>null</c> elements of the library list are skipped
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetLibrariesSkipsNullDirectoryElements()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/library/sections"] = """{"MediaContainer":{"Directory":[null,{"key":"1","title":"Movies","type":"movie"},null]}}""";
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var libraries = await client.GetLibrariesAsync(CancellationToken.None);
+
+        Assert.HasCount(1, libraries, "Only the library element that is not null should be reported!");
+        Assert.AreEqual("1", libraries[0].Key, "The library behind the null elements should be mapped!");
     }
 
     /// <summary>
@@ -641,6 +685,82 @@ public sealed class PlexClientTests
 
         Assert.HasCount(2, handler.Requests, "A non-advancing repeat should stop pagination after one retry even without a leading rating key!");
         Assert.HasCount(499, entries, "The unkeyed leading entry should be dropped, the rest of the first page kept!");
+    }
+
+    /// <summary>
+    /// <c>null</c> entries of a history page are skipped and the valid entry is reported
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceSkipsNullEntries()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/status/sessions/history/all"] = """{"MediaContainer":{"Metadata":[null,{"ratingKey":"10","viewedAt":1767225600,"accountID":4},null]}}""";
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 4, CancellationToken.None);
+
+        Assert.HasCount(1, entries, "Only the valid history entry should be reported!");
+        Assert.AreEqual("10", entries[0].RatingKey, "The entry between the null elements should be mapped!");
+    }
+
+    /// <summary>
+    /// A server that keeps returning the same full history page whose first element is <c>null</c>
+    /// does not loop forever
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceWithNullFirstEntryStopsOnNonAdvancingPage()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var restEntries = Enumerable.Range(0, 499)
+                                    .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "viewedAt": {{1_699_999_999 - i}}, "accountID": 4 }""");
+        var pageJson = $$"""{ "MediaContainer": { "Metadata": [ null, {{string.Join(",", restEntries)}} ] } }""";
+
+        handler.Responses["/status/sessions/history/all"] = pageJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 4, CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A non-advancing repeat should stop pagination after one retry with a null leading element!");
+        Assert.HasCount(499, entries, "The null leading element should be dropped, the rest of the first page kept!");
+    }
+
+    /// <summary>
+    /// <c>null</c> elements of a genre and an external id list are skipped
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetMediaItemSkipsNullGenreAndGuidElements()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/library/metadata/12345"] = """
+                                                       {"MediaContainer":{"Metadata":[{"ratingKey":"12345","type":"movie","title":"Heat",
+                                                       "Genre":[null,{"tag":"Drama"}],"Guid":[null,{"id":"imdb://tt0113277"}]}]}}
+                                                       """;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync("12345", CancellationToken.None);
+
+        Assert.IsNotNull(item, "The movie should have been mapped!");
+        Assert.HasCount(1, item.Genres, "Only the genre that is not null should be mapped!");
+        Assert.AreEqual("Drama", item.Genres[0], "The genre behind the null element should be mapped!");
+        Assert.HasCount(1, item.UniqueIds, "Only the external id that is not null should be mapped!");
+        Assert.AreEqual("imdb", item.UniqueIds[0].Type, "The identifier type should be split off!");
+        Assert.AreEqual("tt0113277", item.UniqueIds[0].Value, "The identifier value should be split off!");
+        Assert.IsTrue(item.UniqueIds[0].IsDefault, "The only identifier should be the default one!");
     }
 
     /// <summary>
@@ -1104,6 +1224,31 @@ public sealed class PlexClientTests
 
         Assert.HasCount(1, items, "Only the item with a valid rating key should be reported!");
         Assert.AreEqual("Heat", items[0].Title, "The valid item should have been mapped!");
+    }
+
+    /// <summary>
+    /// <c>null</c> elements of a library page are skipped with the rating-key warning
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetLibraryItemsSkipsNullElements()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/library/sections/1/all"] = """{"MediaContainer":{"Metadata":[null,{"ratingKey":"12345","type":"movie","title":"Heat"},null]}}""";
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
+
+        Assert.HasCount(1, items, "Only the valid item should be reported!");
+        Assert.AreEqual("Heat", items[0].Title, "The item between the null elements should be mapped!");
+        Assert.HasCount(2, logger.Warnings, "Each null element should log one warning!");
+        Assert.AreEqual("Skipping a Plex item with a missing or invalid rating key", logger.Warnings[0].Message, "The warning should carry the rating-key text!");
+        Assert.AreEqual("Skipping a Plex item with a missing or invalid rating key", logger.Warnings[1].Message, "The second warning should carry the rating-key text!");
     }
 
     /// <summary>
