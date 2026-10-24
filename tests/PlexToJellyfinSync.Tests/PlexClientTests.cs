@@ -1421,6 +1421,72 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// A server that keeps returning the same full library page whose first entry has no rating key (or is
+    /// <c>null</c>) does not loop forever
+    /// </summary>
+    /// <param name="firstEntry">JSON of the first entry of the page</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("""{ "type": "movie" }""")]
+    [DataRow("null")]
+    public async Task PlexClientGetLibraryItemsWithUnkeyedFirstEntryStopsOnNonAdvancingPage(string firstEntry)
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var pageEntries = Enumerable.Range(0, 199)
+                                    .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "type": "movie" }""")
+                                    .Prepend(firstEntry);
+        var pageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", pageEntries)}} ] } }""";
+
+        // Three copies and no plain response: a client that keeps paging fails on the 404 of the fourth request.
+        handler.ResponseSequences["/library/sections/1/all"] = new Queue<string>([pageJson, pageJson, pageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var items = await client.GetLibraryItemsAsync("1", CancellationToken.None).ToListAsync(CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A repeated page led by an unkeyed entry should stop pagination after one retry!");
+        Assert.HasCount(199, items, "Only the keyed items of the first page should be reported, once!");
+        Assert.HasCount(2, logger.Warnings, "The unkeyed entry and the repeated page should log one warning each!");
+        Assert.AreEqual("Skipping a Plex item with a missing or invalid rating key", logger.Warnings[0].Message, "The unkeyed entry of the first page should be reported first!");
+        Assert.AreEqual("Plex server returned a non-advancing page for /library/sections/1/all, stopping pagination", logger.Warnings[1].Message, "The repeated page should be reported second!");
+    }
+
+    /// <summary>
+    /// A server that keeps returning the same full episode page whose first entry has no rating key (or is
+    /// <c>null</c>) does not loop forever
+    /// </summary>
+    /// <param name="firstEntry">JSON of the first entry of the page</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("""{ "type": "episode" }""")]
+    [DataRow("null")]
+    public async Task PlexClientGetEpisodesWithUnkeyedFirstEntryStopsOnNonAdvancingPage(string firstEntry)
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var pageEntries = Enumerable.Range(0, 199)
+                                    .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "type": "episode", "grandparentRatingKey": "500" }""")
+                                    .Prepend(firstEntry);
+        var pageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", pageEntries)}} ] } }""";
+
+        // Three copies and no plain response: a client that keeps paging fails on the 404 of the fourth request.
+        handler.ResponseSequences["/library/metadata/500/allLeaves"] = new Queue<string>([pageJson, pageJson, pageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var episodes = await client.GetEpisodesAsync("500", CancellationToken.None).ToListAsync(CancellationToken.None);
+
+        Assert.HasCount(2, handler.Requests, "A repeated episode page led by an unkeyed entry should stop pagination after one retry!");
+        Assert.HasCount(199, episodes, "Only the keyed episodes of the first page should be reported, once!");
+    }
+
+    /// <summary>
     /// The real history sample maps the string-typed <c>librarySectionID</c> of each entry to its section key
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
