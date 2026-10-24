@@ -146,6 +146,7 @@ public sealed class PlexClient : IPlexClient
         }
 
         return metadata.Guid
+                       .OfType<PlexGuid>()
                        .Select(guid => guid.Id)
                        .OfType<string>()
                        .Where(id => id.IndexOf("://", StringComparison.Ordinal) > 0)
@@ -230,13 +231,13 @@ public sealed class PlexClient : IPlexClient
     /// <param name="accountId">Account id to filter for</param>
     /// <param name="result">List to append matching entries to</param>
     /// <returns><c>true</c> if an entry at or before "since" was seen on this page</returns>
-    private static bool AppendHistoryPage(IReadOnlyList<PlexMetadata> page, DateTimeOffset since, int accountId, List<PlexHistoryEntry> result)
+    private static bool AppendHistoryPage(IReadOnlyList<PlexMetadata?> page, DateTimeOffset since, int accountId, List<PlexHistoryEntry> result)
     {
         var reachedSince = false;
 
         foreach (var entry in page)
         {
-            if (entry.ViewedAt is not > 0 || string.IsNullOrWhiteSpace(entry.RatingKey))
+            if (entry is null || entry.ViewedAt is not > 0 || string.IsNullOrWhiteSpace(entry.RatingKey))
             {
                 continue;
             }
@@ -273,9 +274,9 @@ public sealed class PlexClient : IPlexClient
     /// </summary>
     /// <param name="page">Page of metadata entries</param>
     /// <returns>The rating key of the first entry, or <c>null</c> if the page is empty or unkeyed</returns>
-    private static string? FirstRatingKeyOf(List<PlexMetadata> page)
+    private static string? FirstRatingKeyOf(List<PlexMetadata?> page)
     {
-        return page.Count > 0 ? page[0].RatingKey : null;
+        return page.Count > 0 ? page[0]?.RatingKey : null;
     }
 
     /// <summary>
@@ -287,9 +288,9 @@ public sealed class PlexClient : IPlexClient
     /// </summary>
     /// <param name="page">Page of history entries</param>
     /// <returns>The rating key and viewed-at timestamp of the first entry, or <c>null</c> if the page is empty</returns>
-    private static (string? RatingKey, long? ViewedAt)? FirstHistoryPageKeyOf(List<PlexMetadata> page)
+    private static (string? RatingKey, long? ViewedAt)? FirstHistoryPageKeyOf(List<PlexMetadata?> page)
     {
-        return page.Count > 0 ? (page[0].RatingKey, page[0].ViewedAt) : null;
+        return page.Count > 0 ? (page[0]?.RatingKey, page[0]?.ViewedAt) : null;
     }
 
     #endregion // Static methods
@@ -323,9 +324,9 @@ public sealed class PlexClient : IPlexClient
     /// </summary>
     /// <param name="metadata">Plex metadata</param>
     /// <returns>Media item, or <c>null</c> if the metadata does not carry a valid rating key</returns>
-    private MediaItem? MapMediaItem(PlexMetadata metadata)
+    private MediaItem? MapMediaItem(PlexMetadata? metadata)
     {
-        if (IsValidRatingKey(metadata.RatingKey) == false)
+        if (metadata is null || IsValidRatingKey(metadata.RatingKey) == false)
         {
             _logger.LogWarning("Skipping a Plex item with a missing or invalid rating key");
 
@@ -371,6 +372,7 @@ public sealed class PlexClient : IPlexClient
         if (metadata.Genre is not null)
         {
             item.Genres = metadata.Genre
+                                  .OfType<PlexTag>()
                                   .Where(g => string.IsNullOrWhiteSpace(g.Tag) == false)
                                   .Select(g => g.Tag!)
                                   .ToList();
@@ -492,7 +494,8 @@ public sealed class PlexClient : IPlexClient
 
             if (accounts is not null)
             {
-                var owner = accounts.Where(a => a.Id > 0)
+                var owner = accounts.OfType<PlexAccount>()
+                                    .Where(a => a.Id > 0)
                                     .OrderBy(a => a.Id)
                                     .FirstOrDefault();
 
@@ -532,7 +535,8 @@ public sealed class PlexClient : IPlexClient
             return [];
         }
 
-        return directories.Where(d => string.IsNullOrWhiteSpace(d.Key) == false)
+        return directories.OfType<PlexDirectory>()
+                          .Where(d => string.IsNullOrWhiteSpace(d.Key) == false)
                           .Select(d => new PlexLibrary
                                        {
                                            Key = d.Key!,

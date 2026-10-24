@@ -11,3 +11,4 @@ are quoted in full.
 | 2026-10-24 13:45 | 3 Plan security review | squad-security | APPROVED; 1 non-blocking note (library paging with unkeyed first entry, follow-up issue) (opus/medium · 36,673 tokens · 8 tool uses · 75 s) |
 | 2026-10-24 13:46 | 4 Skeleton | Orchestrator | skipped: plan needs no skeleton (public signatures unchanged) |
 | 2026-10-24 13:49 | 5 Tests first | squad-tester | 6 tests + 1 DataRow added, all 7 cases fail with NRE on current code (confirmed); Media/Part null test deferred (passes today) (sonnet/medium · 103,675 tokens · 25 tool uses · 167 s) |
+| 2026-10-24 13:50 | 6 Implement | squad-dev | Nullable DTO list elements + null checks in PlexClient, docs updated; 438 tests pass, coverage gate pass (reported) (sonnet/medium · 81,531 tokens · 9 tool uses · 77 s) |

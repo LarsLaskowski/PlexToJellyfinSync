@@ -13,7 +13,7 @@ public sealed class PlexMetadataContainer
     /// Metadata entries
     /// </summary>
     [JsonPropertyName("Metadata")]
-    public List<PlexMetadata>? Metadata { get; set; }
+    public List<PlexMetadata?>? Metadata { get; set; }
 
     #endregion // Properties
 }
