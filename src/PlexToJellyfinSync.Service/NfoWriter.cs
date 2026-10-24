@@ -199,11 +199,11 @@ public sealed class NfoWriter : INfoWriter
 
         try
         {
-            await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await using var writer = XmlWriter.Create(stream, settings);
+            await WriteTempFileAsync(document, tempPath, settings, cancellationToken).ConfigureAwait(false);
 
-            await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
-            await writer.FlushAsync().ConfigureAwait(false);
+            PreserveFileMode(tempPath, path);
+
+            File.Move(tempPath, path, overwrite: true);
         }
         catch
         {
@@ -211,10 +211,23 @@ public sealed class NfoWriter : INfoWriter
 
             throw;
         }
+    }
 
-        PreserveFileMode(tempPath, path);
+    /// <summary>
+    /// Serialize an NFO document to the temp file
+    /// </summary>
+    /// <param name="document">Document to serialize</param>
+    /// <param name="tempPath">Temp file path</param>
+    /// <param name="settings">XML writer settings, including encoding and indentation</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    private static async Task WriteTempFileAsync(XDocument document, string tempPath, XmlWriterSettings settings, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        await using var writer = XmlWriter.Create(stream, settings);
 
-        File.Move(tempPath, path, overwrite: true);
+        await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
+        await writer.FlushAsync().ConfigureAwait(false);
     }
 
     /// <summary>
