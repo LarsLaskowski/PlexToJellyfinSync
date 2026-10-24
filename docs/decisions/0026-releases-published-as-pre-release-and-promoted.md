@@ -22,7 +22,7 @@ Seluna project solves this with a pre-release that its release workflow promotes
 3. **Promote with a personal access token so that a `released` trigger can notify the website** — the token
    would hold write access to repository contents. Lost: the notification is a job of the same workflow instead.
 4. **Set `latest` on the image only in the promotion job** — a failed build could never move `latest`, but the
-   promotion job which holds `contents: write`, would also need the Docker Hub credentials. Lost: the tags `X.Y.Z`
+   promotion job, which holds `contents: write`, would also need the Docker Hub credentials. Lost: the tags `X.Y.Z`
    and `latest` are two names for one manifest, pushed together by one build.
 
 ## Decision
