@@ -36,7 +36,7 @@ pattern.
 ## Why unit test?
 
 - **Fast feedback.** The suite runs in seconds without a running Plex server, Jellyfin instance,
-  or filesystem fixtures beyond a temp directory.
+  or filesystem fixtures beyond a temp directory and the JSON samples under `TestData/`.
 - **Protection against regression.** The NFO writer's core promise — existing files are only ever
   touched in their watch fields — and the path mapper's traversal defenses are exactly the kind of
   behavior that silently breaks under refactoring without tests pinning it down.

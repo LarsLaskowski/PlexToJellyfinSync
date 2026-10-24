@@ -1192,6 +1192,29 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// The real history sample maps the string-typed <c>librarySectionID</c> of each entry to its section key
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceSampleMapsLibrarySectionKey()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/status/sessions/history/all"] = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "TestData", "Plex", "history.json"), _testContext.CancellationToken);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 1, CancellationToken.None);
+        var movie = entries.Single(entry => entry.RatingKey == "1001");
+        var episode = entries.Single(entry => entry.RatingKey == "2003");
+
+        Assert.AreEqual("1", movie.LibrarySectionKey, "The movie entry should carry the section key of its library!");
+        Assert.AreEqual("7", episode.LibrarySectionKey, "The episode entry should carry the section key of its library!");
+    }
+
+    /// <summary>
     /// Create an HTTP client bound to the given handler
     /// </summary>
     /// <param name="handler">Handler serving the responses</param>

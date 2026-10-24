@@ -23,6 +23,8 @@ profile and owned by this repository: keep it true when the build changes.
   `PlexToJellyfinSync` (Blazor Server host); `src/GlobalSuppressions.cs` holds the justified suppressions.
 - Tests: `tests/PlexToJellyfinSync.Tests/`, one test class per type under test in `{TypeUnderTest}Tests.cs`,
   placed flat in the test project.
+- Test data: JSON samples of real Plex responses under `tests/PlexToJellyfinSync.Tests/TestData/<source>/` (for
+  example `TestData/Plex/`), copied to the output directory and read from `AppContext.BaseDirectory`.
 
 ## Commands
 

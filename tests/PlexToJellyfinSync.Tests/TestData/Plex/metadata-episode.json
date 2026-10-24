@@ -1,0 +1,151 @@
+{
+  "MediaContainer": {
+    "size": 1000000,
+    "allowSync": true,
+    "identifier": "com.plexapp.plugins.library",
+    "librarySectionID": 7,
+    "librarySectionTitle": "Shows",
+    "librarySectionUUID": "00000000-0000-0000-0000-000000000002",
+    "mediaTagPrefix": "/system/bundle/media/flags/",
+    "mediaTagVersion": 1,
+    "Metadata": [
+      {
+        "ratingKey": "2003",
+        "key": "/library/metadata/2003",
+        "parentRatingKey": "2002",
+        "grandparentRatingKey": "2001",
+        "guid": "plex://episode/000000000000000000000003",
+        "parentGuid": "plex://season/000000000000000000000002",
+        "grandparentGuid": "plex://show/000000000000000000000001",
+        "type": "episode",
+        "title": "Example Episode",
+        "titleSort": "Example Episode",
+        "grandparentKey": "/library/metadata/2001",
+        "parentKey": "/library/metadata/2002",
+        "librarySectionTitle": "Shows",
+        "librarySectionID": 7,
+        "librarySectionKey": "/library/sections/7",
+        "grandparentTitle": "Example Show",
+        "parentTitle": "Season 1",
+        "index": 3,
+        "parentIndex": 1,
+        "viewCount": 1,
+        "lastViewedAt": 1700000000,
+        "year": 2020,
+        "thumb": "/library/metadata/2003/thumb/1",
+        "art": "/library/metadata/2001/art/1",
+        "parentThumb": "/library/metadata/2002/thumb/1",
+        "grandparentThumb": "/library/metadata/2001/thumb/1",
+        "grandparentArt": "/library/metadata/2001/art/1",
+        "duration": 3600000,
+        "originallyAvailableAt": "2020-01-01",
+        "addedAt": 1690000000,
+        "updatedAt": 1695000000,
+        "Media": [
+          {
+            "id": 9001,
+            "duration": 3600000,
+            "bitrate": 5000,
+            "width": 1920,
+            "height": 960,
+            "aspectRatio": 1.85,
+            "audioChannels": 6,
+            "audioCodec": "eac3",
+            "videoCodec": "h264",
+            "videoResolution": "1080",
+            "container": "mkv",
+            "videoFrameRate": "24p",
+            "videoProfile": "high",
+            "Part": [
+              {
+                "id": 9001,
+                "key": "/library/parts/9001/0/file.mkv",
+                "duration": 3600000,
+                "file": "/media/shows/Example Show/Season 01/Example.Show.S01E03.mkv",
+                "size": 1000000,
+                "container": "mkv",
+                "videoProfile": "high",
+                "Stream": [
+                  {
+                    "id": 9001,
+                    "streamType": 1,
+                    "default": true,
+                    "codec": "h264",
+                    "index": 0,
+                    "bitrate": 5000,
+                    "language": "Video",
+                    "languageTag": "en",
+                    "languageCode": "eng",
+                    "bitDepth": 8,
+                    "chromaLocation": "left",
+                    "chromaSubsampling": "4:2:0",
+                    "codedHeight": 960,
+                    "codedWidth": 1920,
+                    "colorPrimaries": "bt709",
+                    "colorRange": "tv",
+                    "colorSpace": "bt709",
+                    "colorTrc": "bt709",
+                    "frameRate": 23.976,
+                    "hasScalingMatrix": false,
+                    "height": 960,
+                    "level": 40,
+                    "profile": "high",
+                    "refFrames": 4,
+                    "scanType": "progressive",
+                    "width": 1920,
+                    "displayTitle": "Video",
+                    "extendedDisplayTitle": "Video"
+                  },
+                  {
+                    "id": 9002,
+                    "streamType": 2,
+                    "selected": true,
+                    "default": true,
+                    "codec": "eac3",
+                    "index": 1,
+                    "channels": 6,
+                    "bitrate": 5000,
+                    "language": "Audio",
+                    "languageTag": "en",
+                    "languageCode": "eng",
+                    "audioChannelLayout": "5.1(side)",
+                    "samplingRate": 48000,
+                    "displayTitle": "Audio",
+                    "extendedDisplayTitle": "Audio"
+                  },
+                  {
+                    "id": 9003,
+                    "streamType": 3,
+                    "selected": true,
+                    "default": true,
+                    "forced": true,
+                    "codec": "srt",
+                    "index": 3,
+                    "bitrate": 5000,
+                    "language": "Subtitle",
+                    "languageTag": "en",
+                    "languageCode": "eng",
+                    "title": "Subtitle",
+                    "displayTitle": "Subtitle",
+                    "extendedDisplayTitle": "Subtitle"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "Guid": [
+          {
+            "id": "imdb://tt0000001"
+          },
+          {
+            "id": "tmdb://1"
+          },
+          {
+            "id": "tvdb://1"
+          }
+        ]
+      }
+    ]
+  }
+}
