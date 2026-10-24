@@ -10,4 +10,4 @@ are quoted in full.
 | 2026-10-24 10:50 | 2 Plan challenge | Devil's Advocate | NO OBJECTIONS (opus/medium · 30,165 tokens · 7 tool uses · 29 s) |
 | 2026-10-24 10:50 | 3-4 Security review, skeleton | Orchestrator | skipped: no security area touched; no API change |
 | 2026-10-24 10:52 | 5 Tests first | Tester | AC1 test SyncOrchestratorFirstRunKeepsPlexDisconnected fails on current code (confirmed by orchestrator); AC3 test edited and green; AC2 SyncOrchestratorFirstRunKeepsPlexConnected deferred to step 6 (sonnet/medium · 67,414 tokens · 5 tool uses · 64 s) |
-| 2026-10-24 10:53 | 6 Implement | Dev | Removed PlexConnected=true in seed branch; sync-pipeline.md plexConnected row updated; suite 420 passed (sonnet/medium · usage pending) |
+| 2026-10-24 10:53 | 6 Implement | Dev | Removed PlexConnected=true in seed branch; sync-pipeline.md plexConnected row updated; suite 420 passed (sonnet/medium · 64,980 tokens · 9 tool uses · 70 s) |
