@@ -308,14 +308,15 @@ how the image is built and released.
 - **Dependabot** (`.github/dependabot.yml`) checks weekly for `github-actions`, `nuget`, and
   `docker` updates, each grouped into a single PR per ecosystem (capped at 10 open PRs) instead of
   one PR per dependency.
-- **Release** (`.github/workflows/release.yml`) triggers only on a manually pushed `v<major>.<minor>.<patch>`
-  tag — merging a PR into `main` never publishes a release by itself. The version comes directly
-  from the tag name; there is no automatic version computation. On such a tag push, it builds and
-  pushes a multi-arch (`linux/amd64,linux/arm64`) image to Docker Hub
-  (`networlddev/plextojellyfinsync:<version>` and `:latest`), the only registry the project publishes to
-  ([decision 0015](decisions/0015-container-images-on-docker-hub-only.md)). The GitHub release itself (with its
-  tag) is created manually via the GitHub UI, which is what triggers this workflow in the first
-  place.
+- **Release** (`.github/workflows/release.yml`) triggers when a release is published on GitHub (the tag is
+  created with it), never by merging a PR. The maintainer publishes it as a pre-release
+  ([decision 0026](decisions/0026-releases-published-as-pre-release-and-promoted.md)). The workflow checks that the
+  tag is `v<major>.<minor>.<patch>` and on `main`, then builds and pushes a multi-arch
+  (`linux/amd64,linux/arm64`) image to Docker Hub (`networlddev/plextojellyfinsync:<version>` and `:latest`), the
+  only registry the project publishes to ([decision 0015](decisions/0015-container-images-on-docker-hub-only.md));
+  the version comes from the tag name. A second job, the only one with `contents: write`, then turns the
+  pre-release into the latest full release, and a third job notifies the website. If a job fails, the release stays
+  a pre-release.
 
 ## Undocumented decisions
 

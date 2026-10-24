@@ -125,10 +125,13 @@ expected to arrive clean (see the decision record on quality gates in [`decision
 ## Versioning and releases
 
 Releases are triggered manually, never by merging a PR (see
-[`ARCHITECTURE.md`](ARCHITECTURE.md#deployment)): create a `v<major>.<minor>.<patch>` release
-(with its tag) on `main` via the GitHub UI when you want a new release; that tag push builds and
-publishes the Docker image. Merging a PR into `main` by itself never publishes an image or a
-release.
+[`ARCHITECTURE.md`](ARCHITECTURE.md#deployment) and
+[decision 0026](decisions/0026-releases-published-as-pre-release-and-promoted.md)). On GitHub, draft a new release
+with the new tag `v<major>.<minor>.<patch>` (for example `v1.5.1`) on target `main`, use the tag as the title, write
+the release text, check **Set as a pre-release** and publish it. Publishing starts the release workflow: it checks
+the tag, builds and pushes the Docker image, and only then turns the pre-release into the latest full release. If it
+fails, the release stays a pre-release: delete the release and its tag, fix `main` and create the release again.
+Merging a PR into `main` by itself never publishes an image or a release.
 <!-- project:end releases -->
 
 <!-- project:begin stability -->
