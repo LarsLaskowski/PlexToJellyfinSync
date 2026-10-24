@@ -1003,13 +1003,13 @@ public sealed class PlexClientTests
                      }
                      """;
 
-        handler.Responses[$"/library/metadata/{overlongRatingKey}"] = json;
+        handler.Responses["/library/metadata/12345"] = json;
 
         using var httpClient = CreateHttpClient(handler);
 
         var client = CreateClient(httpClient);
 
-        var item = await client.GetMediaItemAsync(overlongRatingKey, CancellationToken.None);
+        var item = await client.GetMediaItemAsync("12345", CancellationToken.None);
 
         Assert.IsNull(item, "An item with an overlong rating key should be skipped!");
     }
@@ -1662,6 +1662,64 @@ public sealed class PlexClientTests
         Assert.AreEqual("11", entries[1].RatingKey, "The valid entry after the hostile one should be reported!");
         Assert.HasCount(1, logger.Warnings, "Exactly one warning should be logged for the dropped entry!");
         Assert.AreEqual("Skipping a Plex history entry with an invalid rating key", logger.Warnings[0].Message, "The warning should carry the exact text without the key!");
+    }
+
+    /// <summary>
+    /// A full page whose last entry is at "since" and carries an invalid rating key still stops pagination
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceInvalidRatingKeyAtSinceStopsPaging()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var since = DateTimeOffset.FromUnixTimeSeconds(1_600_000_000);
+
+        var newerEntries = Enumerable.Range(0, 499)
+                                     .Select(i => $$"""{ "ratingKey": "{{1000 + i}}", "viewedAt": {{1_600_000_500 - i}}, "accountID": 4 }""");
+        var pageJson = $$"""{ "MediaContainer": { "Metadata": [ {{string.Join(",", newerEntries)}}, { "ratingKey": "1/2", "viewedAt": 1600000000, "accountID": 4 } ] } }""";
+
+        // Served only once: a second request would fail loudly instead of looping.
+        handler.ResponseSequences["/status/sessions/history/all"] = new Queue<string>([pageJson]);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var entries = await client.GetHistorySinceAsync(since, 4, CancellationToken.None);
+
+        Assert.HasCount(1, handler.Requests, "An entry at \"since\" should stop pagination even with an invalid rating key!");
+        Assert.HasCount(499, entries, "Only the entries newer than \"since\" should be reported!");
+        Assert.IsEmpty(logger.Warnings, "An entry that is not newer than \"since\" should not be validated or logged!");
+    }
+
+    /// <summary>
+    /// An entry of another account with an invalid rating key is dropped silently, without a warning
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceInvalidRatingKeyOfOtherAccountIsSkippedWithoutWarning()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/status/sessions/history/all"] = """
+                                                            { "MediaContainer": { "Metadata": [
+                                                              { "ratingKey": "1/2", "viewedAt": 1767225700, "accountID": 5 },
+                                                              { "ratingKey": "10", "viewedAt": 1767225800, "accountID": 4 }
+                                                            ] } }
+                                                            """;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var logger = new RecordingPlexClientLogger();
+        var client = CreateClient(httpClient, logger: logger);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.FromUnixTimeSeconds(1767139200), 4, CancellationToken.None);
+
+        Assert.HasCount(1, entries, "Only the entry of the requested account should be reported!");
+        Assert.AreEqual("10", entries[0].RatingKey, "The entry of the requested account should be reported!");
+        Assert.IsEmpty(logger.Warnings, "An entry of another account should not be logged!");
     }
 
     /// <summary>
