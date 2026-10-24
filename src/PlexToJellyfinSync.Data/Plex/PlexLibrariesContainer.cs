@@ -13,7 +13,7 @@ public sealed class PlexLibrariesContainer
     /// Library section directories
     /// </summary>
     [JsonPropertyName("Directory")]
-    public List<PlexDirectory>? Directory { get; set; }
+    public List<PlexDirectory?>? Directory { get; set; }
 
     #endregion // Properties
 }

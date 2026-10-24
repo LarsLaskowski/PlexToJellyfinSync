@@ -13,7 +13,7 @@ public sealed class PlexAccountsContainer
     /// Accounts
     /// </summary>
     [JsonPropertyName("Account")]
-    public List<PlexAccount>? Account { get; set; }
+    public List<PlexAccount?>? Account { get; set; }
 
     #endregion // Properties
 }

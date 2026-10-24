@@ -74,9 +74,10 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   and an entry of another account is dropped.
 - The owner's account id is `Plex:OwnerAccountId` when it is set. Otherwise it is resolved from the Plex account
   list as the lowest positive account id. When that request fails (except with `401` or `403`) or its answer
-  cannot be read, a warning is logged and the id `1` is used; an answer that holds no account with a positive id also
-  yields `1`, with the warning `Could not auto-detect the Plex owner account id: the account list contains no account
-  with a positive id, defaulting to 1 (set Plex:OwnerAccountId to choose the owner)`.
+  cannot be read, a warning is logged and the id `1` is used; an answer that holds no account with a positive id
+  (a `null` element counts as an account without one) also yields `1`, with the warning `Could not auto-detect the
+  Plex owner account id: the account list contains no account with a positive id, defaulting to 1 (set
+  Plex:OwnerAccountId to choose the owner)`.
 - A `401` or `403` answer or a timeout while resolving the owner is not replaced by the fallback: the run fails
   (see *Limits and errors*) and the owner is resolved again on the next run.
 - The resolved id is kept for the following runs until a run fails; after a failed run it is resolved again,
@@ -97,6 +98,11 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
 - An item whose rating key is missing, longer than 64 characters or contains whitespace or a control character is
   skipped with a warning. An episode's reference to its show that fails the same rule is dropped with a warning,
   so the episode contributes to no aggregate in a history run.
+- A `null` element in a list of a Plex answer — accounts, libraries, history entries, library or episode items, an
+  item's genres, external ids, media or parts — is handled like an element of that list without any field: an
+  account without a positive id, a library without a key, a history entry without viewed-at time and rating key, an
+  item without a rating key (skipped with the warning above). For the paging rules it still counts as an entry of
+  its page.
 - A file path longer than 4096 characters or containing a character that is not allowed in a path (on Linux, the
   NUL character) is treated as missing, with a warning; an item without a file path is not written (see
   [Path mapping and NFO](path-mapping-and-nfo.md)).
@@ -188,7 +194,8 @@ The application keeps one in-memory status, reset when the process starts. Its v
   cancelled this way does not advance the mark, so its entries are processed again after the restart.
 - **Plex paging that does not advance.** When Plex returns the same first entry for two pages in a row, paging
   stops with the warning `Plex server returned a non-advancing page …` (`… non-advancing history page …` for
-  history); the items of the pages read so far are processed.
+  history); the items of the pages read so far are processed. For library contents and a show's episodes, a first
+  entry without a rating key (or a `null` one) is never taken as a repeat, so such pages do not stop paging.
 - **A history entry without a library, a non-numeric library id.** While `Plex:Libraries` is set, a history
   entry without a `librarySectionID` is skipped (see *Incremental history run*). A `librarySectionID` that is not
   a number fails whatever Plex response carries it: a history page fails the history run (the mark stays), a page of
@@ -220,6 +227,8 @@ The application keeps one in-memory status, reset when the process starts. Its v
   — the worker guards both the history run and the reconcile against any error.
 - [`decisions/0018-sync-orchestrator-split-into-collaborators.md`](../decisions/0018-sync-orchestrator-split-into-collaborators.md)
   — the pipeline's split into collaborators and the single episode listing per show and run.
+- [`decisions/0024-null-elements-in-plex-lists.md`](../decisions/0024-null-elements-in-plex-lists.md) — a `null`
+  element of a Plex list is handled like an empty element.
 
 The rules above are implemented in `src/PlexToJellyfinSync/Worker.cs` and, under
 `src/PlexToJellyfinSync.Service/`, in `SyncOrchestrator.cs`, `LibraryReconciler.cs`, `SeriesAggregateWriter.cs`,

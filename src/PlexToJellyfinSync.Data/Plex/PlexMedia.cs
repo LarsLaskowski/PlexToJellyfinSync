@@ -13,7 +13,7 @@ public sealed class PlexMedia
     /// Media parts
     /// </summary>
     [JsonPropertyName("Part")]
-    public List<PlexPart>? Part { get; set; }
+    public List<PlexPart?>? Part { get; set; }
 
     #endregion // Properties
 }

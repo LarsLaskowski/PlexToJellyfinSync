@@ -133,19 +133,19 @@ public sealed class PlexMetadata
     /// Genres
     /// </summary>
     [JsonPropertyName("Genre")]
-    public List<PlexTag>? Genre { get; set; }
+    public List<PlexTag?>? Genre { get; set; }
 
     /// <summary>
     /// External identifiers
     /// </summary>
     [JsonPropertyName("Guid")]
-    public List<PlexGuid>? Guid { get; set; }
+    public List<PlexGuid?>? Guid { get; set; }
 
     /// <summary>
     /// Media elements
     /// </summary>
     [JsonPropertyName("Media")]
-    public List<PlexMedia>? Media { get; set; }
+    public List<PlexMedia?>? Media { get; set; }
 
     #endregion // Properties
 }
