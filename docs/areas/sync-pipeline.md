@@ -187,8 +187,9 @@ The application keeps one in-memory status, reset when the process starts. Its v
   history); the items of the pages read so far are processed.
 - **A history entry without a library, a non-numeric library id.** While `Plex:Libraries` is set, a history
   entry without a `librarySectionID` is skipped (see *Incremental history run*). A `librarySectionID` that is not
-  a number fails whatever Plex response carries it: a history page fails the run (the mark stays), a library page
-  fails the reconcile of that library, and a metadata response is a failed item.
+  a number fails whatever Plex response carries it: a history page fails the history run (the mark stays), a page of
+  a library's contents fails the reconcile (see *A failed run*), a page of a show's episodes is a failed show, and a
+  metadata response is a failed item.
 - **Clock and timestamp resolution.** The mark set on a run without a mark comes from the application host's
   clock, the viewed-at times from Plex's; a difference between the two clocks moves the point from which history
   is read. Viewed-at times have a resolution of one second, and an entry viewed exactly at the mark is not read

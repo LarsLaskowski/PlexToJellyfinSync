@@ -48,7 +48,8 @@ counting or writing it. Both skips still advance the high-water mark. The behavi
 - An entry without `librarySectionID` is skipped while `Plex:Libraries` is set (it cannot be shown to belong
   to a listed library); with an empty filter it is processed as before.
 - A non-numeric `librarySectionID` fails the deserialization of whatever Plex response carries it, as a
-  non-numeric `accountID` already does: a history page fails the run (the mark stays, the reconcile remains the
-  catch-up path), a library page fails the reconcile of that library, a metadata response is a failed item.
+  non-numeric `accountID` already does: a history page fails the history run (the mark stays, the reconcile remains
+  the catch-up path), a page of a library's contents fails the reconcile, a page of a show's episodes is a failed
+  show, a metadata response is a failed item.
 - NFO files that earlier versions wrote for non-video items are left untouched; no cleanup is added.
 - A non-video play still costs one item request; revisiting option 4 would remove it.
