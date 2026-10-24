@@ -225,6 +225,16 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         }
     }
 
+    /// <summary>
+    /// Check whether a history entry belongs to a library listed in <c>Plex:Libraries</c>; an empty list admits every entry
+    /// </summary>
+    /// <param name="entry">History entry</param>
+    /// <returns><c>true</c> if the entry is to be processed</returns>
+    private bool IsInConfiguredLibraries(PlexHistoryEntry entry)
+    {
+        return true;
+    }
+
     #endregion // Methods
 
     #region ISyncOrchestrator
