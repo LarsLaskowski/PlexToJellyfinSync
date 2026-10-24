@@ -59,6 +59,11 @@ internal sealed class FakePlexClient : IPlexClient
     public Exception? HistoryException { get; set; }
 
     /// <summary>
+    /// Exception thrown when the owner account id is requested (after the call is counted), if any
+    /// </summary>
+    public Exception? OwnerAccountIdException { get; set; }
+
+    /// <summary>
     /// Exception thrown when the libraries are requested, if any
     /// </summary>
     public Exception? LibrariesException { get; set; }
@@ -124,6 +129,11 @@ internal sealed class FakePlexClient : IPlexClient
     public Task<int> GetOwnerAccountIdAsync(CancellationToken cancellationToken)
     {
         OwnerAccountIdCalls++;
+
+        if (OwnerAccountIdException is not null)
+        {
+            throw OwnerAccountIdException;
+        }
 
         return Task.FromResult(OwnerAccountId);
     }

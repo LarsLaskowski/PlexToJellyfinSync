@@ -19,6 +19,11 @@ internal sealed class FakeStateStore : IStateStore
     /// </summary>
     public List<DateTimeOffset> Writes { get; } = [];
 
+    /// <summary>
+    /// Exception thrown when a high-water mark is written, if any; the stored mark stays unchanged then
+    /// </summary>
+    public Exception? SetException { get; set; }
+
     #endregion // Properties
 
     #region IStateStore
@@ -41,6 +46,11 @@ internal sealed class FakeStateStore : IStateStore
     /// <returns>Returns a task representing the asynchronous operation</returns>
     public Task SetHighWaterMarkAsync(DateTimeOffset value, CancellationToken cancellationToken)
     {
+        if (SetException is not null)
+        {
+            throw SetException;
+        }
+
         HighWaterMark = value;
         Writes.Add(value);
 

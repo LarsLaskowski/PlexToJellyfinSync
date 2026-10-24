@@ -422,6 +422,118 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// A failing mark write after Plex answered the history request keeps the connection reported as connected
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryMarkWriteFailureKeepsPlexConnected()
+    {
+        _stateStore.HighWaterMark = _since;
+        _stateStore.SetException = new IOException("read-only file system");
+
+        AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv");
+        AddHistory("m1", _since.AddMinutes(10));
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsTrue(snapshot.PlexConnected, "Plex answered, so a failing mark write should not report it as disconnected!");
+        Assert.AreEqual(1L, snapshot.Errors, "The write failure should be counted!");
+        Assert.AreEqual("read-only file system", snapshot.LastError, "The write failure message should be recorded!");
+        Assert.IsNull(snapshot.LastPollAt, "A failed run should not record a poll timestamp!");
+        Assert.IsNull(snapshot.HighWaterMark, "A failed mark write should leave the status high-water mark unset!");
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared after the failure!");
+    }
+
+    /// <summary>
+    /// A failing seeding mark write of the first run makes no Plex request and leaves the connection flag as it was
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorFirstRunMarkWriteFailureKeepsPlexConnected()
+    {
+        _status.Update(s => s.PlexConnected = true);
+        _stateStore.SetException = new UnauthorizedAccessException("access denied");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsTrue(snapshot.PlexConnected, "A failing seeding write makes no Plex request and should keep the connected flag!");
+        Assert.AreEqual(1L, snapshot.Errors, "The write failure should be counted!");
+        Assert.AreEqual("access denied", snapshot.LastError, "The write failure message should be recorded!");
+        Assert.AreEqual(0, _plexClient.OwnerAccountIdCalls, "The seeding-only first run should not resolve the owner account id!");
+    }
+
+    /// <summary>
+    /// A failing owner resolution is a failed Plex request and marks Plex as disconnected
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryOwnerFailureMarksPlexDisconnected()
+    {
+        _status.Update(s => s.PlexConnected = true);
+        _stateStore.HighWaterMark = _since;
+        _plexClient.OwnerAccountIdException = new HttpRequestException("unauthorized", null, System.Net.HttpStatusCode.Unauthorized);
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsFalse(snapshot.PlexConnected, "A failed owner resolution should mark Plex as disconnected!");
+        Assert.AreEqual(1L, snapshot.Errors, "The failure should be counted!");
+        Assert.AreEqual(1, _plexClient.OwnerAccountIdCalls, "The owner account id should have been requested!");
+    }
+
+    /// <summary>
+    /// A failing history request marks Plex as disconnected even when it was connected before the run
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryRequestFailureMarksPlexDisconnected()
+    {
+        _status.Update(s => s.PlexConnected = true);
+        _stateStore.HighWaterMark = _since;
+        _plexClient.HistoryException = new InvalidOperationException("plex is down");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsFalse(snapshot.PlexConnected, "A failed history request should mark Plex as disconnected!");
+        Assert.AreEqual(1L, snapshot.Errors, "The failure should be counted!");
+    }
+
+    /// <summary>
+    /// A failing library list marks Plex as disconnected even when it was connected before the run
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorReconcileLibrariesFailureMarksPlexDisconnected()
+    {
+        _status.Update(s => s.PlexConnected = true);
+        _plexClient.LibrariesException = new HttpRequestException("no route to host");
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ReconcileAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.IsFalse(snapshot.PlexConnected, "A failed library list should mark Plex as disconnected!");
+        Assert.AreEqual(1L, snapshot.Errors, "The failure should be counted!");
+    }
+
+    /// <summary>
     /// An HttpClient timeout on the upfront history request is treated as a normal sync failure rather than
     /// genuine cancellation, even though it also throws <see cref="OperationCanceledException"/>
     /// </summary>
