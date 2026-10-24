@@ -103,6 +103,22 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// The first run makes no request to Plex, so it leaves an already reported connection untouched
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorFirstRunKeepsPlexConnected()
+    {
+        _status.Update(s => s.PlexConnected = true);
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        Assert.IsTrue(_status.GetSnapshot().PlexConnected, "A run that makes no request to Plex should keep the connected flag!");
+    }
+
+    /// <summary>
     /// The persisted high-water mark and the resolved owner id are passed to the Plex client
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
