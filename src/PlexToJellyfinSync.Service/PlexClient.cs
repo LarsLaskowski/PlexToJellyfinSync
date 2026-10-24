@@ -140,49 +140,35 @@ public sealed class PlexClient : IPlexClient
     /// <returns>List of unique identifiers</returns>
     private static List<UniqueId> ParseUniqueIds(PlexMetadata metadata)
     {
-        var result = new List<UniqueId>();
-
         if (metadata.Guid is null)
         {
-            return result;
+            return [];
         }
 
-        var first = true;
+        return metadata.Guid
+                       .Select(guid => guid.Id)
+                       .OfType<string>()
+                       .Where(id => id.IndexOf("://", StringComparison.Ordinal) > 0)
+                       .Select((id, index) =>
+                               {
+                                   var separatorIndex = id.IndexOf("://", StringComparison.Ordinal);
+                                   var type = id.Substring(0, separatorIndex);
+                                   var value = id.Substring(separatorIndex + 3);
+                                   var queryIndex = value.IndexOf('?', StringComparison.Ordinal);
 
-        foreach (var guid in metadata.Guid)
-        {
-            if (string.IsNullOrWhiteSpace(guid.Id))
-            {
-                continue;
-            }
+                                   if (queryIndex >= 0)
+                                   {
+                                       value = value.Substring(0, queryIndex);
+                                   }
 
-            var separatorIndex = guid.Id.IndexOf("://", StringComparison.Ordinal);
-
-            if (separatorIndex <= 0)
-            {
-                continue;
-            }
-
-            var type = guid.Id.Substring(0, separatorIndex);
-            var value = guid.Id.Substring(separatorIndex + 3);
-            var queryIndex = value.IndexOf('?', StringComparison.Ordinal);
-
-            if (queryIndex >= 0)
-            {
-                value = value.Substring(0, queryIndex);
-            }
-
-            result.Add(new UniqueId
-                       {
-                           Type = type,
-                           Value = value,
-                           IsDefault = first
-                       });
-
-            first = false;
-        }
-
-        return result;
+                                   return new UniqueId
+                                          {
+                                              Type = type,
+                                              Value = value,
+                                              IsDefault = index == 0
+                                          };
+                               })
+                       .ToList();
     }
 
     /// <summary>
@@ -272,7 +258,8 @@ public sealed class PlexClient : IPlexClient
                            {
                                RatingKey = entry.RatingKey,
                                AccountId = entryAccountId,
-                               ViewedAt = viewedAt
+                               ViewedAt = viewedAt,
+                               LibrarySectionKey = entry.LibrarySectionId?.ToString(CultureInfo.InvariantCulture)
                            });
             }
         }

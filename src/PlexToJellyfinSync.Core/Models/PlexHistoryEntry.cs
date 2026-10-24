@@ -22,5 +22,10 @@ public sealed class PlexHistoryEntry
     /// </summary>
     public DateTimeOffset ViewedAt { get; set; }
 
+    /// <summary>
+    /// Key of the library section the watched item belongs to, or <c>null</c> if Plex reported none
+    /// </summary>
+    public string? LibrarySectionKey { get; set; }
+
     #endregion // Properties
 }

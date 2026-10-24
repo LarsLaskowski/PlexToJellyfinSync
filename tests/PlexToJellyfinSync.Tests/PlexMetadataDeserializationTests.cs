@@ -38,6 +38,25 @@ public sealed class PlexMetadataDeserializationTests
 
     #endregion // Constants
 
+    #region Fields
+
+    private readonly TestContext _testContext;
+
+    #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PlexMetadataDeserializationTests"/> class
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public PlexMetadataDeserializationTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
+
     #region Methods
 
     /// <summary>
@@ -60,6 +79,26 @@ public sealed class PlexMetadataDeserializationTests
         Assert.AreEqual("imdb://tt0113277", metadata.Guid[0].Id, "First identifier mismatch!");
         Assert.AreEqual(1995, metadata.Year, "Year should be parsed!");
         Assert.AreEqual("/data/Movies/Heat (1995)/Heat.mkv", metadata.Media?[0].Part?[0].File, "File path should be parsed!");
+    }
+
+    /// <summary>
+    /// The numeric <c>librarySectionID</c> of the real metadata samples is read into the DTO
+    /// </summary>
+    /// <param name="fileName">Name of the sample file</param>
+    /// <param name="expectedSectionId">Expected library section id</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("metadata-movie.json", 1)]
+    [DataRow("metadata-episode.json", 7)]
+    public async Task PlexMetadataResponseSampleReadsNumericLibrarySectionId(string fileName, int expectedSectionId)
+    {
+        var json = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "TestData", "Plex", fileName), _testContext.CancellationToken);
+
+        var response = JsonSerializer.Deserialize<PlexMetadataResponse>(json, PlexJsonOptions.Default);
+
+        Assert.IsNotNull(response?.MediaContainer?.Metadata, "The sample should deserialize to metadata!");
+        Assert.HasCount(1, response.MediaContainer.Metadata, "The sample should hold exactly one metadata entry!");
+        Assert.AreEqual(expectedSectionId, response.MediaContainer.Metadata[0].LibrarySectionId, "The numeric library section id should be read!");
     }
 
     #endregion // Methods

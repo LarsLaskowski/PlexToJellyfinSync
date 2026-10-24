@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -1189,6 +1190,104 @@ public sealed class PlexClientTests
 
         Assert.HasCount(2, handler.Requests, "A non-advancing repeat of the first page should stop pagination after one retry!");
         Assert.HasCount(200, items, "Only the items from the first page should be reported, not duplicated!");
+    }
+
+    /// <summary>
+    /// The real history sample maps the string-typed <c>librarySectionID</c> of each entry to its section key
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceSampleMapsLibrarySectionKey()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/status/sessions/history/all"] = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "TestData", "Plex", "history.json"), _testContext.CancellationToken);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 1, CancellationToken.None);
+        var movie = entries.Single(entry => entry.RatingKey == "1001");
+        var episode = entries.Single(entry => entry.RatingKey == "2003");
+
+        Assert.AreEqual("1", movie.LibrarySectionKey, "The movie entry should carry the section key of its library!");
+        Assert.AreEqual("7", episode.LibrarySectionKey, "The episode entry should carry the section key of its library!");
+    }
+
+    /// <summary>
+    /// A history entry without <c>librarySectionID</c> maps to a <c>null</c> section key
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceEntryWithoutLibrarySectionHasNullKey()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/status/sessions/history/all"] = HistoryJson;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var entries = await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 4, CancellationToken.None);
+
+        Assert.IsNotEmpty(entries, "The history entries should have been read!");
+        Assert.IsTrue(entries.All(entry => entry.LibrarySectionKey is null), "An entry without a library section should have no section key!");
+    }
+
+    /// <summary>
+    /// A non-numeric <c>librarySectionID</c> fails the history request
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task PlexClientGetHistorySinceNonNumericLibrarySectionThrowsJsonException()
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses["/status/sessions/history/all"] = """
+                                                            {
+                                                              "MediaContainer": {
+                                                                "Metadata": [
+                                                                  { "ratingKey": "10", "viewedAt": 1767225600, "accountID": 4, "librarySectionID": "x" }
+                                                                ]
+                                                              }
+                                                            }
+                                                            """;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        await Assert.ThrowsAsync<JsonException>(async () => await client.GetHistorySinceAsync(DateTimeOffset.UnixEpoch, 4, CancellationToken.None),
+                                                "A library section id that is not a number should fail the history request!");
+    }
+
+    /// <summary>
+    /// The real metadata samples, which carry a numeric <c>librarySectionID</c>, still map to the expected kind and file path
+    /// </summary>
+    /// <param name="fileName">Name of the sample file</param>
+    /// <param name="ratingKey">Rating key the sample is served for</param>
+    /// <param name="expectedKind">Expected media kind</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("metadata-movie.json", "1001", MediaKind.Movie)]
+    [DataRow("metadata-episode.json", "2003", MediaKind.Episode)]
+    public async Task PlexClientGetMediaItemSampleMapsKindAndFilePath(string fileName, string ratingKey, MediaKind expectedKind)
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        handler.Responses[$"/library/metadata/{ratingKey}"] = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "TestData", "Plex", fileName), _testContext.CancellationToken);
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync(ratingKey, CancellationToken.None);
+
+        Assert.IsNotNull(item, "The sample should have been mapped to an item!");
+        Assert.AreEqual(expectedKind, item.Kind, "The media kind of the sample should be mapped!");
+        Assert.IsFalse(string.IsNullOrEmpty(item.FilePath), "The file path of the sample should be mapped!");
     }
 
     /// <summary>

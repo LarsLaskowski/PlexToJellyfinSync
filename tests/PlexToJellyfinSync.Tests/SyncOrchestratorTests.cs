@@ -1541,6 +1541,125 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// A history entry of a library that <c>Plex:Libraries</c> does not list is neither requested, written nor
+    /// counted, while the high-water mark still advances past it
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryEntryOutsideConfiguredLibrariesIsSkipped()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv");
+        AddMovie("m2", "Alien", "/data/Movies/Alien (1979)/Alien.mkv");
+        AddHistory("m1", _since.AddMinutes(10), "1");
+        AddHistory("m2", _since.AddMinutes(30), "2");
+
+        var orchestrator = CreateOrchestrator(plexOptions: new PlexOptions
+                                                           {
+                                                               Libraries = ["1"]
+                                                           });
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.HasCount(1, _nfoWriter.Writes, "Only the movie of the listed library should be written!");
+        Assert.AreEqual("/data/Movies/Heat (1995)/Heat.mkv", _nfoWriter.Writes[0].LocalPath, "The movie of the listed library should be the one written!");
+        Assert.AreSequenceEqual(new List<string>
+                                {
+                                    "m1"
+                                },
+                                _plexClient.MediaItemRequests,
+                                "The entry of the unlisted library should not be requested from Plex!");
+        Assert.AreEqual(1L, snapshot.ItemsProcessed, "The skipped entry should not be counted as processed!");
+        Assert.AreEqual(_since.AddMinutes(30), _stateStore.HighWaterMark, "The high-water mark should advance past the skipped entry!");
+    }
+
+    /// <summary>
+    /// A history entry without a library is skipped while <c>Plex:Libraries</c> is set
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryEntryWithoutLibraryIsSkippedWhenLibrariesConfigured()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv");
+        AddHistory("m1", _since.AddMinutes(10));
+
+        var orchestrator = CreateOrchestrator(plexOptions: new PlexOptions
+                                                           {
+                                                               Libraries = ["1"]
+                                                           });
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        Assert.IsEmpty(_plexClient.MediaItemRequests, "An entry without a library should not be requested from Plex!");
+        Assert.IsEmpty(_nfoWriter.Writes, "An entry without a library should not be written!");
+        Assert.AreEqual(0L, _status.GetSnapshot().ItemsProcessed, "An entry without a library should not be counted!");
+        Assert.AreEqual(_since.AddMinutes(10), _stateStore.HighWaterMark, "The high-water mark should advance past the skipped entry!");
+    }
+
+    /// <summary>
+    /// An episode of an unlisted library writes neither its own NFO nor the aggregates of its show
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryEpisodeOutsideConfiguredLibrariesWritesNoAggregates()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddSeriesWithTwoEpisodes("s1");
+        AddHistory("e1", _since.AddMinutes(10), "7");
+
+        var orchestrator = CreateOrchestrator(plexOptions: new PlexOptions
+                                                           {
+                                                               Libraries = ["1"]
+                                                           });
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Season), "No season aggregate should be written for an unlisted library!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Series), "No series aggregate should be written for an unlisted library!");
+        Assert.IsEmpty(_nfoWriter.Writes, "Nothing should be written for an unlisted library!");
+        Assert.IsEmpty(_plexClient.EpisodeRequests, "The episodes of the show should not be requested for an unlisted library!");
+    }
+
+    /// <summary>
+    /// An item that is neither a movie nor an episode is not written and not counted, while the high-water mark
+    /// still advances past its entry
+    /// </summary>
+    /// <param name="kind">Kind of the item Plex returns</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow(MediaKind.Unknown)]
+    [DataRow(MediaKind.Season)]
+    [DataRow(MediaKind.Series)]
+    public async Task SyncOrchestratorProcessHistoryItemOfOtherKindIsSkipped(MediaKind kind)
+    {
+        _stateStore.HighWaterMark = _since;
+
+        _plexClient.Items["x1"] = new MediaItem
+                                  {
+                                      RatingKey = "x1",
+                                      Kind = kind,
+                                      Title = "Other",
+                                      FilePath = "/data/Other/Other.mkv"
+                                  };
+
+        AddHistory("x1", _since.AddMinutes(10));
+
+        var orchestrator = CreateOrchestrator();
+
+        await orchestrator.ProcessHistoryAsync(CancellationToken.None);
+
+        Assert.IsEmpty(_nfoWriter.Writes, $"An item of the kind {kind} should not be written!");
+        Assert.AreEqual(0L, _status.GetSnapshot().ItemsProcessed, $"An item of the kind {kind} should not be counted!");
+        Assert.AreEqual(_since.AddMinutes(10), _stateStore.HighWaterMark, "The high-water mark should advance past the skipped entry!");
+    }
+
+    /// <summary>
     /// Create an orchestrator wired to the current test doubles
     /// </summary>
     /// <param name="syncOptions">Sync options, or <c>null</c> for the defaults</param>
@@ -1697,13 +1816,15 @@ public sealed class SyncOrchestratorTests
     /// </summary>
     /// <param name="ratingKey">Rating key of the watched item</param>
     /// <param name="viewedAt">Timestamp at which the item was viewed</param>
-    private void AddHistory(string ratingKey, DateTimeOffset viewedAt)
+    /// <param name="librarySectionKey">Key of the library section of the item, or <c>null</c> for none</param>
+    private void AddHistory(string ratingKey, DateTimeOffset viewedAt, string? librarySectionKey = null)
     {
         _plexClient.History.Add(new PlexHistoryEntry
                                 {
                                     RatingKey = ratingKey,
                                     AccountId = _plexClient.OwnerAccountId,
-                                    ViewedAt = viewedAt
+                                    ViewedAt = viewedAt,
+                                    LibrarySectionKey = librarySectionKey
                                 });
     }
 

@@ -15,6 +15,14 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 {
     #region Fields
 
+    private static readonly Action<ILogger, string, Exception?> _logItemKindSkipped = LoggerMessage.Define<string>(LogLevel.Debug,
+                                                                                                                   new EventId(1, "ItemKindSkipped"),
+                                                                                                                   "Item {RatingKey} is neither a movie nor an episode, skipping");
+
+    private static readonly Action<ILogger, string, string?, Exception?> _logLibrarySkipped = LoggerMessage.Define<string, string?>(LogLevel.Debug,
+                                                                                                                                    new EventId(2, "LibrarySkipped"),
+                                                                                                                                    "History entry {RatingKey} belongs to library {LibrarySectionKey}, which Plex:Libraries does not list, skipping");
+
     private readonly IPlexClient _plexClient;
     private readonly IMediaItemWriter _itemWriter;
     private readonly ISeriesAggregateWriter _aggregateWriter;
@@ -131,6 +139,13 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
             return null;
         }
 
+        if (item.Kind is not (MediaKind.Movie or MediaKind.Episode))
+        {
+            _logItemKindSkipped(_logger, ratingKey, null);
+
+            return null;
+        }
+
         _status.Update(s => s.ItemsProcessed++);
 
         await _itemWriter.WriteItemAsync(item, cancellationToken).ConfigureAwait(false);
@@ -157,11 +172,18 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var item = await TryProcessRatingKeyAsync(entry.RatingKey, cancellationToken).ConfigureAwait(false);
-
-            if (item is not null && item.Kind == MediaKind.Episode && string.IsNullOrWhiteSpace(item.ShowRatingKey) == false)
+            if (IsInConfiguredLibraries(entry))
             {
-                affectedShows.Add(item.ShowRatingKey);
+                var item = await TryProcessRatingKeyAsync(entry.RatingKey, cancellationToken).ConfigureAwait(false);
+
+                if (item is not null && item.Kind == MediaKind.Episode && string.IsNullOrWhiteSpace(item.ShowRatingKey) == false)
+                {
+                    affectedShows.Add(item.ShowRatingKey);
+                }
+            }
+            else
+            {
+                _logLibrarySkipped(_logger, entry.RatingKey, entry.LibrarySectionKey, null);
             }
 
             if (entry.ViewedAt > maxViewed)
@@ -223,6 +245,16 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
                 HandleItemError(ex, show);
             }
         }
+    }
+
+    /// <summary>
+    /// Check whether a history entry belongs to a library listed in <c>Plex:Libraries</c>; an empty list admits every entry
+    /// </summary>
+    /// <param name="entry">History entry</param>
+    /// <returns><c>true</c> if the entry is to be processed</returns>
+    private bool IsInConfiguredLibraries(PlexHistoryEntry entry)
+    {
+        return _plexOptions.Libraries.Length == 0 || (entry.LibrarySectionKey is not null && _plexOptions.Libraries.Contains(entry.LibrarySectionKey, StringComparer.Ordinal));
     }
 
     #endregion // Methods

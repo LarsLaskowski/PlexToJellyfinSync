@@ -86,7 +86,9 @@ Plex path becomes a local path and what a write changes in an `.nfo` file is sta
    All three are stateless singletons:
    - **`ProcessHistoryAsync`** (incremental, every poll) reads the high-water mark from `IStateStore`, calls
      `IPlexClient.GetHistorySinceAsync` for the owner's entries after it, hands each affected item to
-     `MediaItemWriter.WriteItemAsync` and advances the mark. Its rules — the first run without a mark,
+     `MediaItemWriter.WriteItemAsync` and advances the mark; it skips entries outside `Plex:Libraries` and items
+     that are neither movies nor episodes
+     ([decision 0023](decisions/0023-history-run-filters-by-library-and-kind.md)). Its rules — the first run without a mark,
      paging, the order of the entries — are in the
      [incremental history run](areas/sync-pipeline.md#incremental-history-run).
    - **`ReconcileAsync`** (full, on startup and periodically) walks the configured Plex libraries and hands

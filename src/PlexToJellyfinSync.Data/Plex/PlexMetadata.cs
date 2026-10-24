@@ -100,6 +100,12 @@ public sealed class PlexMetadata
     public int? AccountId { get; set; }
 
     /// <summary>
+    /// Library section id; a JSON string in history entries, a JSON number in metadata responses
+    /// </summary>
+    [JsonPropertyName("librarySectionID")]
+    public int? LibrarySectionId { get; set; }
+
+    /// <summary>
     /// Episode index within a season
     /// </summary>
     [JsonPropertyName("index")]
