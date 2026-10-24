@@ -674,7 +674,7 @@ def main():
         return run_on_stdin(parser, args, root)
     path = resolve_log(root, args.folder)
     if path is None:
-        print(f"No log.md in {args.folder} (create it from specs/_template/log.md first)")
+        print(f"No log.md in {args.folder} (create it from specs/_template/log.md first; after step 10 of squad-issue use --stdin)")
         return 1
     return run(parser, args, root, path)
 
