@@ -155,3 +155,12 @@ failed run stay as they are. Only a log line is added. No guarantee of `.squad/p
   pattern. Expected: a `null` element is skipped like an element without a usable id or key. Found while planning
   #235."
 - Changing the fallback itself (failing the run instead) — Product Manager decision, not requested.
+
+## Challenge notes
+
+1. minor — The AC2 test `PlexClientDetectsOwnerWithoutWarning` would mostly copy an existing test. `PlexClientDetectsLowestPositiveAccountIdAsOwner` (`PlexClientTests.cs:215-227`) already runs `AccountsJson` and checks for `4`. Why minor: it only affects test layout. Instruction to the Tester: either pass a `RecordingPlexClientLogger` into that existing test and also assert zero warnings, or name the new test `PlexClientDetectsLowestPositiveAccountIdAsOwnerLogsNoWarning`. Do not keep two tests that do the same thing. Treat the existing `PlexClientGetOwnerAccountIdWithMalformedResponseFallsBackToDefaultOwner` (`:296`) the same way.
+2. minor — AC2 checks the "failed or unreadable answer" case only with malformed JSON. A failed request with a non-401/403 status takes the same `catch`, and the existing `PlexClientFailingAccountRequestFallsBackToDefaultOwner` (`PlexClientTests.cs:235-245`, no stubbed response) already exercises it but records no logs. Why minor: the placement already guarantees the right behavior, and this only adds a guard. Instruction to the Tester: give that test a recording logger as well and assert exactly one warning, with a non-null `HttpRequestException` and a text that is not the AC1 text.
+
+## Security notes
+
+Security approved the plan (no blocking findings). Non-blocking: the new line reaches the in-memory log buffer ("Logging of external data"); the message is a compile-time constant, so no separate entry is needed, though naming it under *Security areas touched* would be more complete.
