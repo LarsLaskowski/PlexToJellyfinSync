@@ -24,7 +24,10 @@ Security areas touched: HTTP calls to Plex (`PlexClient`: request paths built fr
 Related defect found on the way: the unvalidated history rating key reaches log lines — the debug line
 `_logLibrarySkipped` (`SyncOrchestrator.cs:177`) and the error `Processing item {RatingKey} failed`
 (`SyncOrchestrator.cs:110`) — so control characters and line breaks from Plex reach the dashboard log buffer.
-The fix below closes it, because such an entry no longer leaves `PlexClient`.
+The fix below closes it, because such an entry no longer leaves `PlexClient`. The same holds for the warning
+`Plex server returned a non-advancing page for {BaseUrl}` (`PlexClient.cs:434`), whose `baseUrl` contains the show
+or library key: a show rating key with `?`, `#` or `%` passes today's rule and reaches it; after the change only
+keys that pass `RequireValidKey` do.
 
 ## Verified facts
 
@@ -92,8 +95,13 @@ key value, not hand-escaped. Warnings are read with `RecordingPlexClientLogger`.
 Regression (existing, unchanged, must stay green): `PlexClientGetHistorySinceSampleMapsLibrarySectionKey` (real
 sample keys pass the new rule), `PlexClientGetMediaItemMapsMovieMetadata`, `PlexClientGetEpisodesSendsContainerPaging`,
 `PlexClientGetLibraryItemsSendsContainerPaging` (request paths for valid keys unchanged),
-`PlexClientGetMediaItemWithInvalidRatingKeyReturnsNull`, `PlexClientGetMediaItemWithOverlongRatingKeyReturnsNull`,
+`PlexClientGetMediaItemWithInvalidRatingKeyReturnsNull`,
 `PlexClientGetEpisodesWithInvalidShowRatingKeyClearsShowRatingKey`, `PlexClientGetLibraryItemsSkipsItemsWithInvalidRatingKey`.
+
+Adapted by the **Tester** (step 6, Lead decision): `PlexClientGetMediaItemWithOverlongRatingKeyReturnsNull` passes
+the 65-character key as the argument, which AC4 now rejects. It keeps its name and purpose (an overlong key in the
+*response* is skipped): call `GetMediaItemAsync("12345", …)` with the response registered under
+`/library/metadata/12345` and carrying the 65-character `ratingKey`, assert `null`.
 
 ## Approach
 
@@ -197,7 +205,9 @@ inside `PlexClient`.
   valid Plex key (Parameter '<name>')` — no Plex value — recorded as last error only if a future caller passed
   an invalid key. No other new exception.
 - [ ] New log lines carry no Plex value (AC5), so no secret or hostile text enters the dashboard log buffer through
-  them; the removed path for hostile history keys into `SyncOrchestrator`'s log lines closes the related defect.
+  them; the removed path for hostile history keys into `SyncOrchestrator`'s log lines (`:110`, `:177`) and for
+  hostile show or library keys into the non-advancing-page warning (`PlexClient.cs:434`, `{BaseUrl}`) closes the
+  related defect.
 
 ## Decision records
 
