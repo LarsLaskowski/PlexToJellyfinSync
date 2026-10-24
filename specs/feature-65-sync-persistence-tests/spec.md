@@ -1,7 +1,7 @@
 # Spec: Tests for the remaining sync and persistence paths
 
 Source: Issue #65
-Status: Draft
+Status: Approved by Lead
 
 ## Problem
 
@@ -47,9 +47,10 @@ The "user" of each scenario is the operator, who reads `state.json`, the log and
 The scenarios describe behavior that holds today and that this feature pins with tests; none changes it.
 
 - S1: Given a `state.json` written in the documented format, a JSON object with the single value
-  `HighWaterMark` holding an ISO 8601 time with offset (for example
-  `{ "HighWaterMark": "2026-02-03T04:05:06+00:00" }`), as an earlier release wrote it, when the
-  application reads the mark, then it reports exactly that time.
+  `HighWaterMark` holding an ISO 8601 time with offset, as an earlier release wrote it — a whole-second
+  time from Plex (`{ "HighWaterMark": "2026-02-03T04:05:06+00:00" }`) or a seeded time with a 7-digit
+  fraction (`{ "HighWaterMark": "2026-02-03T04:05:06.1234567+00:00" }`) — when the application reads the
+  mark, then it reports exactly that time, fraction included.
 - S2: Given the application has written a mark, when the operator opens `state.json`, then the file is a
   JSON object whose value `HighWaterMark` holds that time in ISO 8601 with offset, readable by S1.
 - S3: Given a `state.json` that cannot be parsed, when the application reads the mark, then it continues
@@ -71,6 +72,8 @@ The scenarios describe behavior that holds today and that this feature pins with
   stays where it is with its content, and the log shows the error
   `State file <path>/state.json is corrupt and could not be preserved; starting fresh with no high-water mark`.
 - E2: After E1, the next written mark replaces the unparseable `state.json`, and the mark is read back.
+  With the obstacle still in place, that write first reads the file again and logs the E1 error a second
+  time before it replaces the file.
 - E3: A `state.json` that exists but cannot be opened for reading (for example while another handle holds
   it exclusively): the application continues with "no mark", the log shows the warning
   `Could not read state file <path>/state.json, starting fresh`, the file is not moved and no
@@ -83,6 +86,9 @@ The scenarios describe behavior that holds today and that this feature pins with
   counts as a failed item and the run continues (already pinned by
   `SyncOrchestratorProcessHistoryItemTimeoutIsTreatedAsItemFailure` and its aggregate counterpart; named
   here so S4 and S5 are not read as changing it).
+- E7: A `state.json` that cannot be parsed while a `state.json.corrupt` from an earlier corruption already
+  exists: the new file replaces the earlier one, so `state.json.corrupt` then holds the new content; the
+  application continues with "no mark" and logs the error of S3.
 
 ## Non-functional requirements
 
@@ -101,29 +107,37 @@ The scenarios describe behavior that holds today and that this feature pins with
 
 ## Acceptance criteria
 
-- [ ] AC1: A test reads a `state.json` written byte for byte in the documented format (not produced by the
-  store under test) and gets exactly its `HighWaterMark` time; a variant with an additional unknown value
+- [ ] AC1: Tests read a `state.json` written byte for byte in the documented format (not produced by the
+  store under test) and get exactly its `HighWaterMark` time, once for a whole-second time and once for a
+  time with a 7-digit fractional second (compared to the tick); a variant with an additional unknown value
   reads the same time (S1, E5).
-- [ ] AC2: A test writes a mark through the store and checks the file on disk: a JSON object whose value
-  `HighWaterMark` parses as that time with its offset (S2).
+- [ ] AC2: A test writes a mark with a fractional second through the store and checks the file on disk: a
+  JSON object with exactly one value, `HighWaterMark`, a string that parses as that time to the tick (S2).
 - [ ] AC3: A test with an unparseable `state.json` checks the error log entry with both paths and the text
   of S3, besides the existing checks of "no mark" and the moved file (S3).
 - [ ] AC4: A test with a well-formed `state.json` whose `HighWaterMark` is not a time gets "no mark" and
   finds the file moved to `state.json.corrupt` (E4).
 - [ ] AC5: A test with an unparseable `state.json` and an obstacle at `state.json.corrupt` gets "no mark",
-  finds `state.json` unchanged in place and the error log entry of E1; a following write and read return the
-  new mark (E1, E2).
+  and right after that read finds `state.json` unchanged in place and exactly one log entry, the error of
+  E1; a following write and read then return the new mark, and the log holds the E1 error twice, the second
+  from the write's own read (E1, E2).
 - [ ] AC6: A test with a `state.json` that cannot be opened for reading gets "no mark", finds the warning of
   E3 in the log, `state.json` still in place and no `state.json.corrupt` (E3).
-- [ ] AC7: A test cancels the run's token while the item of a history entry is being processed (the fake
-  observes the call, cancels, and the call then ends with the cancellation): the run ends with an
-  `OperationCanceledException`, the error count stays `0`, a later entry's item is not requested or
+- [ ] AC7: A test cancels the run's token while the item of a history entry that is not the last one is
+  being written (the fake observes the call, cancels the token, and the call then ends by throwing an
+  `OperationCanceledException`, never by returning): the run ends with an `OperationCanceledException`, the
+  error count stays `0` and the last error stays empty, the later entry's item is not requested or
   written, the stored mark is unchanged and `isRunning` is `false` (S4).
-- [ ] AC8: A test cancels the run's token while a show's aggregates are being written, with a second
-  affected show waiting: the run ends with an `OperationCanceledException`, the error count stays `0`, the
-  second show's aggregates are not written, the stored mark is unchanged and `isRunning` is `false` (S5).
+- [ ] AC8: A test with two affected shows cancels the run's token on the first aggregate write of whichever
+  show comes first (the call ends by throwing an `OperationCanceledException`, never by returning), without
+  depending on which show that is: the run ends with an `OperationCanceledException`, the error count stays
+  `0` and the last error stays empty, no season or series aggregate is written and the other show's
+  episodes are not listed, the stored mark is unchanged and `isRunning` is `false` (S5).
 - [ ] AC9: The full suite passes on the unchanged production code and the *Coverage gate* passes; the
   existing timeout tests of E6 are kept unchanged (E6).
+- [ ] AC10: A test with an unparseable `state.json` and an earlier `state.json.corrupt` holding other
+  content gets "no mark", finds `state.json.corrupt` holding the new content and the error of S3 in the log
+  (E7).
 
 ## Out of scope
 
@@ -164,20 +178,29 @@ The scenarios describe behavior that holds today and that this feature pins with
 ## Area documents
 
 - [`docs/areas/sync-pipeline.md`](../../docs/areas/sync-pipeline.md) already states every behavior these
-  tests pin (*State file*, *Limits and errors*); no change in behavior, so no change to its rules. Whether
-  the exact log texts of S3, E1 and E3 are added to its *State file* section is decided in the plan.
-- `.squad/project.md`, *Test doubles*: gains an entry for each new test double the plan introduces (for
-  example a logger that records the entries of `StateStore`), as its list requires.
+  tests pin (*State file*, *Limits and errors*). The behavior does not change, so its rules stay as they
+  are; its *State file* section gains the exact log texts of S3, E1 and E3, which the tests now compare.
+- `.squad/project.md`, *Test doubles*: gains an entry for the new `StateStore` logger double, and the
+  `RecordingNfoWriter` entry mentions its new cancellation hook.
 
-## Challenge notes
+## Challenge
 
-Minor objections of the spec challenge (Devil's Advocate), appended verbatim; the Lead answers them while it plans.
+The spec challenge raised five minor objections and no major one. Each is answered here; the notes are
+folded into this section.
 
-1. **minor — a documented edge case is not pinned.** docs/areas/sync-pipeline.md:161 says the corrupt file moves to `state.json.corrupt` "(replacing an earlier one)". This is the repeated-corruption case. `File.Move(..., overwrite: true)` at StateStore.cs:143 does it, but no test creates an existing `state.json.corrupt` file first. The spec skips it although it says it pins the State file promises. Instruction: add an edge case and a criterion. With an earlier `state.json.corrupt` file present, a new unparseable `state.json` replaces it: the `.corrupt` file then holds the new content, the result is "no mark", and the S3 error is logged.
-2. **minor — AC1's sample is not what real installs hold.** The first mark is seeded from `DateTimeOffset.UtcNow` (SyncOrchestrator.cs:269). An existing `state.json` therefore often holds a 7-digit fraction, e.g. `"2026-02-03T04:05:06.1234567+00:00"`. Only marks from Plex's `FromUnixTimeSeconds` are whole seconds (PlexClient.cs:291). A test with whole seconds only would pass on a reader that breaks fractional values. Instruction: AC1 also reads a byte-for-byte file whose `HighWaterMark` has a 7-digit fractional second and gets that exact time.
-3. **minor — E2 logs the E1 error a second time.** `SetHighWaterMarkAsync` calls `ReadAsync` first (StateStore.cs:188). With the obstacle still in place, the parse fails again, the move fails again, and the E1 error is logged once more before the overwrite. Instruction: in AC5, assert the E1 entry after the read alone. After the write, do not expect exactly one E1 entry over the whole test; either expect the second one or check the log per step.
-4. **minor — AC8 must not depend on show order.** Affected shows are a `HashSet<string>` (SyncOrchestrator.cs:160), and the order of a set is not guaranteed. Instruction: the fake cancels on whichever show is written first. The test then asserts that the other show's aggregates were not written. It does not hard-code which show comes first.
-5. **minor — AC7 and AC8 must check what actually catches a missing rethrow.** If lines 201–203 or 230–232 are removed, the generic catch counts an error. The next iteration's `ThrowIfCancellationRequested` (lines 164 and 224) then still throws `OperationCanceledException`. So "throws", "mark unchanged" and "not running" all pass on that wrong build. Only the error count and `LastError` tell the two builds apart. Instructions:
-   - AC7 and AC8 assert error count `0` and `LastError` unchanged; S4 promises the latter but AC7 does not check it yet.
-   - In both, the cancelled call ends with an `OperationCanceledException` thrown by the fake, not a normal return. Otherwise the rethrow lines are never reached.
-   - In AC7, the cancelled item is not the history's last entry. As the last entry, a build without the rethrow would advance the mark without throwing, because `FakeStateStore` ignores the token.
+1. Repeated corruption, the earlier `state.json.corrupt` replaced (`docs/areas/sync-pipeline.md`, *State
+   file*). Accepted: edge case E7 and criterion AC10 added.
+2. A seeded mark has a 7-digit fraction (`DateTimeOffset.UtcNow`), so a whole-second sample alone would miss
+   a reader that breaks fractions. Accepted: S1 names both forms, AC1 reads both and compares to the tick,
+   and AC2 writes a fractional mark. A scratch run of System.Text.Json on .NET 10 read
+   `"2026-02-03T04:05:06.1234567+00:00"` back to the tick and wrote it in the same form.
+3. The write of E2 reads the file again and logs the E1 error a second time (`StateStore.cs` line 188).
+   Accepted: E2 states it, and AC5 checks the log after the read alone (exactly one entry, the E1 error)
+   and after the write (the E1 error twice).
+4. Affected shows are a hash set, so their order is not fixed (`SyncOrchestrator.cs` line 160). Accepted:
+   AC8 cancels on the first aggregate write of whichever show comes first and asserts only
+   order-independent facts: no aggregate written, one show's episodes listed.
+5. Without the rethrow, the generic catch counts an error and the next loop pass still throws, so only the
+   error count and the last error tell the builds apart. Accepted: AC7 and AC8 assert error count `0` and an
+   empty last error. In both, the fake ends the cancelled call by throwing an `OperationCanceledException`.
+   In AC7 the cancelled entry is not the last one.
