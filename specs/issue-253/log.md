@@ -14,3 +14,5 @@ are quoted in full.
 | 2026-10-24 15:40 | 6 Implement | squad-dev | NfoWriter.SaveAsync cleanup + area doc done; 582 tests pass, coverage gate PASS (100% new lines) (sonnet/medium · 69,660 tokens · 7 tool uses · 44 s) |
 | 2026-10-24 15:43 | 7 Code check | squad-code-officer | Cleared 15 of 17 diagnostics; 2 CA1873 (log guards) handed to Dev (haiku/medium · 85,656 tokens · 18 tool uses · 109 s) |
 | 2026-10-24 15:45 | 7 Code check | squad-dev | Fix round: IsEnabled guards; format, analyzer, scope, tests (582), coverage gate (84.6% new, 90.1% overall) pass; Sonar NOT CHECKED (no SONAR_TOKEN) (sonnet/medium · 2,498 tokens · 4 tool uses · 36 s · continued from 6 Implement) |
+| 2026-10-24 15:46 | 8 Review | squad-reviewer | Round 1 APPROVE, no findings (head 612d7f5) (opus/medium · 33,964 tokens · 6 tool uses · 46 s) |
+| 2026-10-24 15:46 | 9 PR approval | Orchestrator | Approved by checklist: round clean, gates pass, no decision records, main unmoved, area doc in diff |
