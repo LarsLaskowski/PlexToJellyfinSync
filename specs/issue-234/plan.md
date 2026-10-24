@@ -208,3 +208,16 @@ inside `PlexClient`.
 - Advancing the high-water mark past a dropped history entry (it repeats its warning while it is the newest entry;
   accepted in decision 0025).
 - Validating `Plex:Libraries` entries at startup.
+
+## Challenge notes
+
+1. minor: the silent cases of AC1 are claimed but no test checks them. AC1 says an entry without a rating key "is still ignored without a warning". The *Approach* order (step 2) also drops an invalid-key entry of another account silently, because the account filter runs first. Neither is asserted.
+   Why minor: the Tester can add both without changing the plan.
+   Instruction for the Tester:
+   - Add a check that no warning was logged to an existing history test that uses `HistoryJson`. `PlexClientTests.cs:49-61` already contains a keyless entry (`{ "viewedAt": 1767312000, "accountID": 4 }`).
+   - Add one test with an entry of another account whose key is `1/2`, newer than since. Assert that it is not returned and that no warning is logged.
+
+## Security notes
+
+1. The plan's logging analysis misses one log line. `PlexClient.cs:434`, `"Plex server returned a non-advancing page for {BaseUrl}, stopping pagination"`, logs `baseUrl`, which contains the show or library key. Today a hostile `showRatingKey` with `?`, `#` or `%` (`IsValidRatingKey` lets these through) can reach this line. After the change, `RequireValidKey` lets only allow-listed keys reach it, so the change closes this path as well. The plan's *Security considerations* and *Problem* sections should name it next to `SyncOrchestrator.cs:110`/`:177` so the record is complete. No code change is needed.
+2. One-character keys made only of `-` or `_` are accepted. I measured them as harmless to the path structure, so no change is needed. Mentioning it would keep a future widening of the allow-list (decision 0025, *Consequences*) from adding `.` without a dot-segment check.
