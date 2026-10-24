@@ -175,7 +175,7 @@ public sealed class StateStoreTests
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     [UnsupportedOSPlatform("windows")]
     public async Task StateStoreSetHighWaterMarkAsyncWriteFailurePreservesExistingFile()
     {
@@ -197,7 +197,7 @@ public sealed class StateStoreTests
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     [UnsupportedOSPlatform("windows")]
     public async Task StateStoreSetHighWaterMarkAsyncPreservesFileMode()
     {
@@ -232,7 +232,7 @@ public sealed class StateStoreTests
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     [UnsupportedOSPlatform("windows")]
     public async Task StateStoreSetHighWaterMarkAsyncMoveFailureDeletesTempFile()
     {
@@ -251,7 +251,7 @@ public sealed class StateStoreTests
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     [UnsupportedOSPlatform("windows")]
     public async Task StateStoreSetHighWaterMarkAsyncMoveFailureRethrowsOriginalException()
     {
