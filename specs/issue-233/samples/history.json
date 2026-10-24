@@ -1,6 +1,6 @@
 {
   "MediaContainer": {
-    "size": 2,
+    "size": 1000000,
     "totalSize": 2,
     "offset": 0,
     "Metadata": [
@@ -15,7 +15,7 @@
         "originallyAvailableAt": "2020-01-01",
         "viewedAt": 1700000000,
         "accountID": 1,
-        "deviceID": 30
+        "deviceID": 1
       },
       {
         "historyKey": "/status/sessions/history/2",
@@ -36,7 +36,7 @@
         "originallyAvailableAt": "2020-01-01",
         "viewedAt": 1700000100,
         "accountID": 1,
-        "deviceID": 30
+        "deviceID": 1
       }
     ]
   }

@@ -211,3 +211,21 @@ path mapping and the NFO writer do not change. The orchestrator keeps owning the
 - Skipping non-video plays before their item request (option on the entry's `type`): not needed now.
 - The *Image build check* is required by `.squad/stack.md` for every `.csproj` change; the test project is not
   part of the image, the Dev runs the check once in step 6 anyway.
+
+## Challenge notes
+
+Minor objections of the Devil's Advocate (plan challenge, verbatim):
+
+1. minor — The new error case is documented too narrowly. `PlexMetadata` is shared by three response types: history pages (`PlexClient.cs:566`), paged library listings (`GetPagedMediaItemsAsync`, `PlexClient.cs:433`) and `/library/metadata/{key}` (`PlexClient.cs:603`). So a non-numeric `librarySectionID` now fails any of them, not just the history page. Instruction to the Dev: in the *Limits and errors* bullet that replaces lines 180-182 of `docs/areas/sync-pipeline.md`, and in the *Consequences* of decision 0023, say that a non-numeric `librarySectionID` fails whatever Plex response carries it: a history page fails the run (the mark stays); a library page fails the reconcile of that library; a metadata response is a failed item. Why minor: the code change and AC6 are right, only the description is too narrow.
+
+2. minor — The plan does not say what happens to data the old behaviour already left on disk. Earlier history runs wrote `<file>.nfo` with a `movie` root next to non-video files under mapped paths. With the kind skip those files are no longer updated, and nothing removes them. Instruction to the Dev: add one sentence to the history bullet of `docs/areas/sync-pipeline.md` (or to `docs/areas/path-mapping-and-nfo.md:75`) saying that NFO files written for such items before this change are left untouched and can be deleted by hand. Do not add any cleanup code, because the issue does not ask for it. Why minor: it is a documentation sentence, and the plan needs no other change.
+
+## Security notes
+
+Non-blocking findings of Security's plan review (APPROVED, verbatim summary):
+
+- Fail-closed holds; `"01"` and `"+1"` normalize to `"1"` (same numeric section), no change needed.
+- The library-skip Debug line logs `entry.RatingKey` unvalidated, as the existing `LogError` at `SyncOrchestrator.cs:111` already does; no new exposure, general log hardening is a separate issue.
+- A non-numeric `librarySectionID` fails the whole history page (the mark stays); accepted as designed, matches `accountID` behavior, stated in the decision record.
+- Fact 12: the numeric fields of the samples (`lastViewedAt`, `addedAt`, `updatedAt`, `size`, `deviceID`) were replaced with synthetic values by the orchestrator before step 4.
+- The test `.csproj` item affects only the test output; the image build check still runs once in step 6.
