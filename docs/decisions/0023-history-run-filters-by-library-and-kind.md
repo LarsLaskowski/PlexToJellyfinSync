@@ -1,6 +1,6 @@
 # 0023: The history run filters by library on the history entry and by kind on the item
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-24
 - **Area:** Sync pipeline
 - **Source:** Issue #233
