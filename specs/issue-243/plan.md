@@ -152,3 +152,13 @@ unchanged. Decision 0005 ("written atomically") stays true.
   next to the `.nfo` file in the media library, as `docs/areas/path-mapping-and-nfo.md` (*Limits and errors*)
   documents. #243 changed `StateStore` to delete its temp file on every failure; decide whether `NfoWriter`
   should do the same and update the area document accordingly."
+
+## Challenge notes
+
+- minor: Fact 7 does not need to wait for the Tester. The Devil's Advocate ran it in a scratch program (.NET 10, Linux): `File.Move(file, existingDirectory, overwrite: true)` throws exactly `System.IO.IOException` ("Is a directory"), and on the current code `state.json.tmp` is still there afterwards. Mark fact 7 confirmed as `IOException`; the AC2 test asserts `Assert.ThrowsExactlyAsync<IOException>`, and the Tester still confirms the type when it runs the new test on the current code in step 5.
+
+## Security notes
+
+- Fact 7 measured by Security (.NET SDK 10.0.402, Linux): `File.Move(tmp, <empty or non-empty directory>, overwrite: true)` throws exactly `System.IO.IOException` (HResult 21, EISDIR); the Tester can assert `Assert.ThrowsExactlyAsync<IOException>`.
+- The *Security considerations* checklist leaves both items unticked although each answer is given; tick them or phrase them as statements.
+- The wording change in `docs/areas/sync-pipeline.md` ("deletes the temporary file when possible") accurately describes the best-effort deletion of fact 4; keep it as written.
