@@ -36,7 +36,9 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   or before the mark, at a page shorter than 500 entries, at an empty page, or at a page whose first entry equals
   the first entry of the previous page (logged as a warning, see *Limits and errors*).
 - An entry without a viewed-at time or without a rating key is ignored. An entry without an account id counts as
-  the owner's.
+  the owner's. An entry of the owner newer than the mark whose rating key is not a valid Plex key (see *What is
+  read from Plex*) is ignored with the warning `Skipping a Plex history entry with an invalid rating key`, without
+  the key in the text; it does not advance the mark, and one at or before the mark still ends the paging.
 - The entries are processed one after another, oldest first. For each entry the item is read from Plex
   individually and handed to the NFO writer; an entry played several times is processed once per play.
 - When `Plex:Libraries` lists library keys, an entry whose library section key is not listed (compared exactly)
@@ -57,7 +59,8 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
 - A reconcile lists the Plex libraries and processes every movie library and every show library; libraries of
   any other kind are ignored. When `Plex:Libraries` lists library keys, only libraries whose key is listed are
   processed; an empty list means all libraries (the history run applies the same filter, see
-  *Incremental history run*).
+  *Incremental history run*). A library without a key is ignored; one whose key is not a valid Plex key (see
+  *What is read from Plex*) is ignored with the warning `Skipping a Plex library with an invalid key`.
 - In a movie library every movie is handed to the NFO writer, regardless of its watch state. In a show library
   every episode of every show is handed to the NFO writer, followed by the show's season and series aggregates
   when they are enabled.
@@ -95,9 +98,14 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
 - An item counts as watched when its Plex view count is greater than zero; its play count is the view count
   (`0` when absent); its last-played time is Plex's last-viewed time, absent when Plex reports none or a value
   of zero or less.
-- An item whose rating key is missing, longer than 64 characters or contains whitespace or a control character is
-  skipped with a warning. An episode's reference to its show that fails the same rule is dropped with a warning,
-  so the episode contributes to no aggregate in a history run.
+- A Plex key (an item's, a show's or a history entry's rating key, a library's key) is valid when it has 1 to 64
+  characters, each an ASCII letter, an ASCII digit, `-` or `_`; every other character, including `/`, `\`, `.`,
+  `?`, `#`, `%` and non-ASCII ones, makes it invalid. An item whose rating key is missing or invalid is skipped
+  with a warning. An episode's reference to its show that fails the same rule is dropped with a warning, so the
+  episode contributes to no aggregate in a history run.
+- No request is made with a key that fails the rule: reading an item, a show's episodes or a library's items with
+  such a key throws an `ArgumentException` (`The key is not a valid Plex key`, without the key) before the request.
+  See [decision 0025](../decisions/0025-plex-keys-allow-listed-before-request-paths.md).
 - A `null` element in a list of a Plex answer — accounts, libraries, history entries, library or episode items, an
   item's genres, external ids, media or parts — is handled like an element of that list without any field: an
   account without a positive id, a library without a key, a history entry without viewed-at time and rating key, an
@@ -230,6 +238,8 @@ The application keeps one in-memory status, reset when the process starts. Its v
   — the pipeline's split into collaborators and the single episode listing per show and run.
 - [`decisions/0024-null-elements-in-plex-lists.md`](../decisions/0024-null-elements-in-plex-lists.md) — a `null`
   element of a Plex list is handled like an empty element.
+- [`decisions/0025-plex-keys-allow-listed-before-request-paths.md`](../decisions/0025-plex-keys-allow-listed-before-request-paths.md)
+  — Plex keys are checked against an allow-list before they reach a request path.
 
 The rules above are implemented in `src/PlexToJellyfinSync/Worker.cs` and, under
 `src/PlexToJellyfinSync.Service/`, in `SyncOrchestrator.cs`, `LibraryReconciler.cs`, `SeriesAggregateWriter.cs`,
