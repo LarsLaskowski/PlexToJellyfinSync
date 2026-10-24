@@ -6,3 +6,4 @@ are quoted in full.
 | Date | Step | Member | Result |
 | ---- | ---- | ------ | ------ |
 | 2026-10-24 12:55 | 1 Intake | Orchestrator | bug: no feature label; branch claude/affectionate-davinci-6ozlsn off main 50014bf |
+| 2026-10-24 12:59 | 2 Plan | squad-lead | DONE: tier standard, security areas: HTTP calls to Plex; warning-only fix; plan-check clean (opus/medium · usage pending) |
