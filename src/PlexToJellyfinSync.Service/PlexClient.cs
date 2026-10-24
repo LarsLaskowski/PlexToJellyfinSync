@@ -272,7 +272,8 @@ public sealed class PlexClient : IPlexClient
                            {
                                RatingKey = entry.RatingKey,
                                AccountId = entryAccountId,
-                               ViewedAt = viewedAt
+                               ViewedAt = viewedAt,
+                               LibrarySectionKey = entry.LibrarySectionId?.ToString(CultureInfo.InvariantCulture)
                            });
             }
         }

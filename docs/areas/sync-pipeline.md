@@ -39,6 +39,13 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   the owner's.
 - The entries are processed one after another, oldest first. For each entry the item is read from Plex
   individually and handed to the NFO writer; an entry played several times is processed once per play.
+- When `Plex:Libraries` lists library keys, an entry whose library section key is not listed (compared exactly)
+  or that carries none is skipped before its item is read: it is not requested, written or counted, and adds no
+  show to the aggregates. An empty list processes every entry, one without a library included.
+- Only movies and episodes are written and counted: an item of any other kind (a season, a series, an unknown
+  type) is skipped after it is read. NFO files that earlier versions wrote for such items are left untouched and
+  can be deleted by hand.
+- Both skips are logged at debug level and still advance the mark.
 - After the entries, the season and series aggregates are written for every show of which an episode was
   processed (see *Season and series aggregates*), then the mark is set to the newest viewed-at time among the
   entries, if that is newer than the stored mark.
@@ -49,7 +56,8 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
 
 - A reconcile lists the Plex libraries and processes every movie library and every show library; libraries of
   any other kind are ignored. When `Plex:Libraries` lists library keys, only libraries whose key is listed are
-  processed; an empty list means all libraries.
+  processed; an empty list means all libraries (the history run applies the same filter, see
+  *Incremental history run*).
 - In a movie library every movie is handed to the NFO writer, regardless of its watch state. In a show library
   every episode of every show is handed to the NFO writer, followed by the show's season and series aggregates
   when they are enabled.
@@ -177,9 +185,10 @@ The application keeps one in-memory status, reset when the process starts. Its v
 - **Plex paging that does not advance.** When Plex returns the same first entry for two pages in a row, paging
   stops with the warning `Plex server returned a non-advancing page …` (`… non-advancing history page …` for
   history); the items of the pages read so far are processed.
-- **History and `Plex:Libraries`.** The library filter applies to the reconcile only. The history run processes
-  the owner's plays in every library, and it does not filter by item kind: a played item of another kind whose
-  file lies under a mapped path is handed to the NFO writer like a video.
+- **A history entry without a library, a non-numeric library id.** While `Plex:Libraries` is set, a history
+  entry without a `librarySectionID` is skipped (see *Incremental history run*). A `librarySectionID` that is not
+  a number fails whatever Plex response carries it: a history page fails the run (the mark stays), a library page
+  fails the reconcile of that library, and a metadata response is a failed item.
 - **Clock and timestamp resolution.** The mark set on a run without a mark comes from the application host's
   clock, the viewed-at times from Plex's; a difference between the two clocks moves the point from which history
   is read. Viewed-at times have a resolution of one second, and an entry viewed exactly at the mark is not read

@@ -72,7 +72,9 @@ of the media volume the application may write.
 - Several items can resolve to one target (episodes sharing one multi-episode file, two movies in one folder
   that both use `movie.nfo`, two libraries sharing a folder); each write applies that item's watch state to the
   same file.
-- An item of an unknown kind is written like an episode target (`<video>.nfo`) with the root element `movie`.
+- An item of an unknown kind is written like an episode target (`<video>.nfo`) with the root element `movie`. Neither the history run nor the reconcile hands such an item to the writer (see
+  [Sync pipeline](sync-pipeline.md#incremental-history-run)); NFO files written for such items before that change
+  are left untouched.
 
 ### Updating an existing file
 
