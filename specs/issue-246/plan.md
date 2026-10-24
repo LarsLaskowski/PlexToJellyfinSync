@@ -172,3 +172,11 @@ references are unchanged; the Plex JSON shape still stops in `PlexClient`.
 - `GetMediaItemAsync` with `Metadata: [null, {…}]` keeps taking the first element (returns `null`): a metadata
   request answers one item, so the second element is not looked for.
 - `Media: [null, {…}]` keeps the first media (no file path), as for `{}`.
+
+## Challenge notes
+
+- minor: Fact 6 says a `null` element in `Media` or `Part` does not throw, but no test checks it, even though the plan changes both DTO element types and the area document will promise that behaviour ("…media or parts — is handled like an element of that list without any field"). Instruction for the Tester: in `PlexClientGetMediaItemSkipsNullGenreAndGuidElements` (or a sibling test), also serve a movie with `"Media":[null]` and one with `"Media":[{"Part":[null]}]`. Assert that `GetMediaItemAsync` returns the item with `FilePath` null and does not throw, so the documented `Media`/`Part` rule is covered.
+
+## Security notes
+
+- Non-blocking: library paging has no stop for a repeated full page that starts with a null element. Where: `GetPagedMediaItemsAsync`, `PlexClient.cs` 429–436; the non-advancing check is `if (firstRatingKey is not null && firstRatingKey == previousFirstRatingKey)`. After the change a server that keeps returning the same full 200-entry page whose first element is `null` pages forever (one HTTP request and one warning per null element per round, until cancellation). Today the null case ends with the exception; after the change it behaves exactly like a first element `{}` (no `ratingKey`), which already loops the same way on `origin/main`. It gives a hostile or broken server no new capability. Recommendation: open a follow-up issue for the unkeyed-first-entry gap in library paging (covers `{}` and `null` alike); optionally name it in *Out of scope / follow-ups*.
