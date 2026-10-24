@@ -152,9 +152,9 @@ of the media volume the application may write.
   byte sequence becomes U+FFFD, and the file is written back as UTF-8 when one of the three values changes.
 - A failure to read, create a folder, write the temporary file or replace the target (a read-only volume, a
   missing permission, a full disk) leaves the target unchanged and is reported as an error of that item; it
-  does not stop the run ([Sync pipeline](sync-pipeline.md)). A temporary file whose serialization failed is
-  deleted when possible; one left by a failure after its serialization (copying the file mode, the rename)
-  stays next to the target and is overwritten by the next write to that target.
+  does not stop the run ([Sync pipeline](sync-pipeline.md)). A failure of the save — creating or serializing the
+  temporary file, copying the file mode or the rename — deletes the temporary file when possible; one that
+  cannot be deleted stays next to the target and is overwritten by the next write to that target.
 - The log lines of this area name the Plex path and the local target path in full. The malformed-file warning
   carries the XML parser's message, which can quote a name or character from the file and its line and
   position; no line carries the file's content beyond that.
