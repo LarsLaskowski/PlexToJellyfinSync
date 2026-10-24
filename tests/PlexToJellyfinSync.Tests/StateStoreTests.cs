@@ -1,5 +1,8 @@
+using System.Globalization;
 using System.Runtime.Versioning;
+using System.Text.Json;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -15,6 +18,8 @@ namespace PlexToJellyfinSync.Tests;
 public sealed class StateStoreTests
 {
     #region Fields
+
+    private const string CorruptContent = "{ \"HighWaterMark\": ";
 
     private static readonly DateTimeOffset _mark = new(2026, 2, 3, 4, 5, 6, TimeSpan.Zero);
 
@@ -336,17 +341,284 @@ public sealed class StateStoreTests
     }
 
     /// <summary>
+    /// A whole-second mark in the documented format is read exactly
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreReadsWholeSecondMarkInDocumentedFormat()
+    {
+        Directory.CreateDirectory(_tempDirectory);
+
+        await File.WriteAllTextAsync(GetStateFilePath(), "{ \"HighWaterMark\": \"2026-02-03T04:05:06+00:00\" }", _testContext.CancellationToken);
+
+        var mark = await CreateStore().GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.AreEqual(_mark, mark, "The documented whole-second format should be read exactly!");
+        Assert.AreEqual(_mark.UtcTicks, mark?.UtcTicks, "The ticks of the documented whole-second format should match!");
+    }
+
+    /// <summary>
+    /// A mark with a 7-digit fraction in the documented format is read to the tick
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreReadsFractionalMarkInDocumentedFormat()
+    {
+        Directory.CreateDirectory(_tempDirectory);
+
+        await File.WriteAllTextAsync(GetStateFilePath(), "{ \"HighWaterMark\": \"2026-02-03T04:05:06.1234567+00:00\" }", _testContext.CancellationToken);
+
+        var expected = _mark.AddTicks(1234567);
+        var mark = await CreateStore().GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.AreEqual(expected, mark, "The documented fractional format should be read exactly!");
+        Assert.AreEqual(expected.UtcTicks, mark?.UtcTicks, "The fraction should be kept to the tick!");
+    }
+
+    /// <summary>
+    /// An additional unknown value in the state file does not prevent reading the mark
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreWithUnknownValueReadsMark()
+    {
+        Directory.CreateDirectory(_tempDirectory);
+
+        await File.WriteAllTextAsync(GetStateFilePath(), "{ \"HighWaterMark\": \"2026-02-03T04:05:06+00:00\", \"SchemaVersion\": 2 }", _testContext.CancellationToken);
+
+        var mark = await CreateStore().GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.AreEqual(_mark, mark, "An unknown additional value should be ignored!");
+    }
+
+    /// <summary>
+    /// The written file is a JSON object with the single value HighWaterMark in ISO 8601
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreWritesMarkInDocumentedFormat()
+    {
+        var mark = _mark.AddTicks(1234567);
+
+        await CreateStore().SetHighWaterMarkAsync(mark, CancellationToken.None);
+
+        var content = await File.ReadAllTextAsync(GetStateFilePath(), _testContext.CancellationToken);
+
+        using var document = JsonDocument.Parse(content);
+
+        var root = document.RootElement;
+
+        Assert.AreEqual(JsonValueKind.Object, root.ValueKind, "The state file should hold a JSON object!");
+
+        var properties = root.EnumerateObject().ToList();
+
+        Assert.HasCount(1, properties, "The state file should hold exactly one value!");
+        Assert.AreEqual("HighWaterMark", properties[0].Name, "The value should be named HighWaterMark!");
+        Assert.AreEqual(JsonValueKind.String, properties[0].Value.ValueKind, "The mark should be written as a string!");
+
+        var parsed = DateTimeOffset.Parse(properties[0].Value.GetString()!, CultureInfo.InvariantCulture);
+
+        Assert.AreEqual(mark.UtcTicks, parsed.UtcTicks, "The written time should parse back to the tick!");
+    }
+
+    /// <summary>
+    /// A corrupt state file is logged as an error naming both paths
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreWithCorruptFileLogsErrorWithBothPaths()
+    {
+        Directory.CreateDirectory(_tempDirectory);
+
+        await File.WriteAllTextAsync(GetStateFilePath(), CorruptContent, _testContext.CancellationToken);
+
+        var logger = new RecordingStateStoreLogger();
+        var mark = await CreateStore(logger).GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.IsNull(mark, "A corrupt state file should yield no mark!");
+        Assert.HasCount(1, logger.Entries, "Exactly one entry should be logged!");
+        Assert.AreEqual(LogLevel.Error, logger.Entries[0].Level, "The corrupt file should be logged as an error!");
+        Assert.AreEqual(GetCorruptPreservedMessage(), logger.Entries[0].Message, "The message should name both paths!");
+        Assert.IsInstanceOfType<JsonException>(logger.Entries[0].Exception, "The parse failure should be attached!");
+    }
+
+    /// <summary>
+    /// A well-formed file whose mark is not a time is preserved as corrupt
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreWithNonTimeMarkPreservesItAsCorrupt()
+    {
+        Directory.CreateDirectory(_tempDirectory);
+
+        const string content = "{ \"HighWaterMark\": \"yesterday\" }";
+
+        await File.WriteAllTextAsync(GetStateFilePath(), content, _testContext.CancellationToken);
+
+        var mark = await CreateStore().GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.IsNull(mark, "A mark that is not a time should yield no mark!");
+        Assert.IsFalse(File.Exists(GetStateFilePath()), "The file should have been moved aside!");
+
+        var preserved = await File.ReadAllTextAsync(GetStateFilePath() + ".corrupt", _testContext.CancellationToken);
+
+        Assert.AreEqual(content, preserved, "The original content should be preserved!");
+    }
+
+    /// <summary>
+    /// A corrupt file that cannot be moved aside stays in place and the error is logged
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task StateStoreWithUnmovableCorruptFileKeepsItAndLogsError()
+    {
+        await CreateUnmovableCorruptFileAsync();
+
+        var logger = new RecordingStateStoreLogger();
+        var mark = await CreateStore(logger).GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.IsNull(mark, "A corrupt state file should yield no mark!");
+        Assert.IsTrue(File.Exists(GetStateFilePath()), "The file that could not be moved should stay in place!");
+
+        var content = await File.ReadAllTextAsync(GetStateFilePath(), _testContext.CancellationToken);
+
+        Assert.AreEqual(CorruptContent, content, "The content should be unchanged!");
+        Assert.HasCount(1, logger.Entries, "Exactly one entry should be logged!");
+        Assert.AreEqual(LogLevel.Error, logger.Entries[0].Level, "The failure should be logged as an error!");
+        Assert.AreEqual(GetUnpreservedMessage(), logger.Entries[0].Message, "The message should say the file could not be preserved!");
+    }
+
+    /// <summary>
+    /// A corrupt file that cannot be moved aside is replaced by the next write
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task StateStoreWithUnmovableCorruptFileIsOverwrittenByNextWrite()
+    {
+        await CreateUnmovableCorruptFileAsync();
+
+        var logger = new RecordingStateStoreLogger();
+        var store = CreateStore(logger);
+
+        await store.GetHighWaterMarkAsync(CancellationToken.None);
+        await store.SetHighWaterMarkAsync(_mark, CancellationToken.None);
+
+        var mark = await store.GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.AreEqual(_mark, mark, "The new mark should be read back!");
+        Assert.HasCount(2, logger.Entries, "The write's own read should log the error again!");
+        Assert.IsTrue(logger.Entries.TrueForAll(entry => entry.Level == LogLevel.Error && entry.Message == GetUnpreservedMessage()), "Both entries should be the could-not-be-preserved error!");
+    }
+
+    /// <summary>
+    /// A state file that cannot be opened is logged as a warning and left in place
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task StateStoreWithUnreadableFileLogsWarningAndKeepsIt()
+    {
+        await CreateStore().SetHighWaterMarkAsync(_mark, CancellationToken.None);
+
+        var logger = new RecordingStateStoreLogger();
+        DateTimeOffset? mark;
+
+        await using (new FileStream(GetStateFilePath(), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            mark = await CreateStore(logger).GetHighWaterMarkAsync(CancellationToken.None);
+        }
+
+        Assert.IsNull(mark, "An unreadable state file should yield no mark!");
+        Assert.HasCount(1, logger.Entries, "Exactly one entry should be logged!");
+        Assert.AreEqual(LogLevel.Warning, logger.Entries[0].Level, "A read failure should be logged as a warning!");
+        Assert.AreEqual($"Could not read state file {GetStateFilePath()}, starting fresh", logger.Entries[0].Message, "The message should name the state file!");
+        Assert.IsInstanceOfType<IOException>(logger.Entries[0].Exception, "The read failure should be attached!");
+        Assert.IsTrue(File.Exists(GetStateFilePath()), "The unreadable file should stay in place!");
+        Assert.IsFalse(File.Exists(GetStateFilePath() + ".corrupt"), "The unreadable file should not be moved!");
+    }
+
+    /// <summary>
+    /// A new corrupt file replaces an earlier preserved copy
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreWithCorruptFileReplacesEarlierCorruptCopy()
+    {
+        Directory.CreateDirectory(_tempDirectory);
+
+        await File.WriteAllTextAsync(GetStateFilePath() + ".corrupt", "earlier", _testContext.CancellationToken);
+        await File.WriteAllTextAsync(GetStateFilePath(), CorruptContent, _testContext.CancellationToken);
+
+        var logger = new RecordingStateStoreLogger();
+        var mark = await CreateStore(logger).GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.IsNull(mark, "A corrupt state file should yield no mark!");
+
+        var preserved = await File.ReadAllTextAsync(GetStateFilePath() + ".corrupt", _testContext.CancellationToken);
+
+        Assert.AreEqual(CorruptContent, preserved, "The earlier copy should be replaced by the new content!");
+        Assert.HasCount(1, logger.Entries, "Exactly one entry should be logged!");
+        Assert.AreEqual(GetCorruptPreservedMessage(), logger.Entries[0].Message, "The corrupt-and-preserved error should be logged!");
+    }
+
+    /// <summary>
+    /// Create a corrupt state file and a non-empty directory in the way of its preserved copy
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    private async Task CreateUnmovableCorruptFileAsync()
+    {
+        Directory.CreateDirectory(_tempDirectory);
+        Directory.CreateDirectory(GetStateFilePath() + ".corrupt");
+
+        await File.WriteAllTextAsync(Path.Combine(GetStateFilePath() + ".corrupt", "obstacle.txt"), "x", _testContext.CancellationToken);
+        await File.WriteAllTextAsync(GetStateFilePath(), CorruptContent, _testContext.CancellationToken);
+    }
+
+    /// <summary>
+    /// Get the expected message for a corrupt file that was preserved
+    /// </summary>
+    /// <returns>Expected message</returns>
+    private string GetCorruptPreservedMessage()
+    {
+        return $"State file {GetStateFilePath()} is corrupt, preserved as {GetStateFilePath()}.corrupt; starting fresh with no high-water mark";
+    }
+
+    /// <summary>
+    /// Get the expected message for a corrupt file that could not be preserved
+    /// </summary>
+    /// <returns>Expected message</returns>
+    private string GetUnpreservedMessage()
+    {
+        return $"State file {GetStateFilePath()} is corrupt and could not be preserved; starting fresh with no high-water mark";
+    }
+
+    /// <summary>
     /// Create a state store working in the temporary directory
     /// </summary>
     /// <returns>The state store under test</returns>
     private StateStore CreateStore()
+    {
+        return CreateStore(NullLogger<StateStore>.Instance);
+    }
+
+    /// <summary>
+    /// Create a state store working in the temporary directory
+    /// </summary>
+    /// <param name="logger">Logger of the store</param>
+    /// <returns>The state store under test</returns>
+    private StateStore CreateStore(ILogger<StateStore> logger)
     {
         var options = Options.Create(new StateOptions
                                      {
                                          Directory = _tempDirectory
                                      });
 
-        return new StateStore(options, NullLogger<StateStore>.Instance);
+        return new StateStore(options, logger);
     }
 
     /// <summary>

@@ -126,12 +126,12 @@ No mocking library; hand-written fakes and stubs in `tests/PlexToJellyfinSync.Te
 - `FakePlexClient` — preconfigured libraries, history, items and episodes; records calls
 - `FakeStateStore` — in-memory high-water mark
 - `StubPathMapper` — configurable Plex-path → local-path function
-- `RecordingNfoWriter` (with `NfoWriteRecord`) — records writes instead of touching the file system
+- `RecordingNfoWriter` (with `NfoWriteRecord`) — records writes instead of touching the file system; `CancellationSource` with `CancelWhen` cancels the run's token on a matching item and ends that write with an `OperationCanceledException`
 - `StubHttpMessageHandler` — canned responses for the real `HttpClient` in `PlexClientTests`
 - `FakeHttpClientFactory` — hands out a preconfigured `HttpClient` and counts requests
 - `StubDashboardLoginService` — preconfigured `LoginResult` for `LoginEndpointsTests`
 - `TestTimeProvider` — controllable clock for `LoginThrottleTests`
 - `FakeSyncOrchestrator` — configurable failures; signals when a history sync or reconcile was requested
 - `FakeSyncStatusProvider` — settable status snapshot that raises `Changed` on demand
-- `RecordingWorkerLogger`, `RecordingSyncStatusLogger` — record log entries of `Worker` / `SyncStatusService`
+- `RecordingWorkerLogger`, `RecordingSyncStatusLogger`, `RecordingStateStoreLogger` — record log entries of `Worker` / `SyncStatusService` / `StateStore`
 - `StubAntiforgery` — antiforgery validation that always passes or always fails
