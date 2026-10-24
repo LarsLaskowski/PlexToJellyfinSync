@@ -1566,7 +1566,12 @@ public sealed class SyncOrchestratorTests
 
         Assert.HasCount(1, _nfoWriter.Writes, "Only the movie of the listed library should be written!");
         Assert.AreEqual("/data/Movies/Heat (1995)/Heat.mkv", _nfoWriter.Writes[0].LocalPath, "The movie of the listed library should be the one written!");
-        CollectionAssert.AreEqual(new[] { "m1" }, _plexClient.MediaItemRequests, "The entry of the unlisted library should not be requested from Plex!");
+        Assert.AreSequenceEqual(new List<string>
+                                {
+                                    "m1"
+                                },
+                                _plexClient.MediaItemRequests,
+                                "The entry of the unlisted library should not be requested from Plex!");
         Assert.AreEqual(1L, snapshot.ItemsProcessed, "The skipped entry should not be counted as processed!");
         Assert.AreEqual(_since.AddMinutes(30), _stateStore.HighWaterMark, "The high-water mark should advance past the skipped entry!");
     }
