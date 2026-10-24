@@ -22,3 +22,4 @@ are quoted in full.
 | 2026-10-24 14:44 | 8 Review round 1 | squad-reviewer | NON-BLOCKING 2 (both verbatim docs: 0025 Decision limits -> link to area doc; sync-pipeline Related decisions lacks 0025); no blocking (opus/medium · 59,709 tokens · 10 tool uses · 65 s) |
 | 2026-10-24 14:45 | 8 Verbatim fixes | Orchestrator | applied both reviewer verbatim fixes (0025 Decision; sync-pipeline Related decisions) in d02dadb; Format check, scope-check, decision-check PASS; round clean |
 | 2026-10-24 14:45 | 9 PR approval checklist | Orchestrator | review clean (round 1 + verbatim fixes), Security diff APPROVED, gates pass, main unchanged, area doc in diff; 0025 set Accepted, decision-check PASS; open: Lead decision during step 6 (test dispute) -> approve-pr |
+| 2026-10-24 14:46 | 9 PR approval | squad-lead | APPROVED: step-6 test-dispute decision holds; record 0025 and sync-pipeline.md match the code; no edits (opus/medium · usage pending) |
