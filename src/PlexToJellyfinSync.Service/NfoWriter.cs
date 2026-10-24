@@ -44,7 +44,7 @@ public sealed class NfoWriter : INfoWriter
     {
         _nfoOptions = nfoOptions.Value;
         _syncOptions = syncOptions.Value;
-        _pathMappings = pathMappings.Value ?? new List<PathMapping>();
+        _pathMappings = pathMappings.Value ?? [];
         _logger = logger;
     }
 
