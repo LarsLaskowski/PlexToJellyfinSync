@@ -19,3 +19,4 @@ are quoted in full.
 | 2026-10-24 14:43 | 7 Code check | Orchestrator | main unchanged; Format check, Build (0 warn), Test 578/578, Coverage gate (new 100%, overall 90.1%), Analyzer gate (0 in changed), scope-check, decision-check: PASS |
 | 2026-10-24 14:43 | 7 Sonar gate | Orchestrator | NOT CHECKED: no SONAR_TOKEN; left to step 11 |
 | 2026-10-24 14:44 | 8 Security diff review | squad-security | APPROVED on 62f70a7; no findings (opus/medium · 38,208 tokens · 8 tool uses · 44 s) |
+| 2026-10-24 14:44 | 8 Review round 1 | squad-reviewer | NON-BLOCKING 2 (both verbatim docs: 0025 Decision limits -> link to area doc; sync-pipeline Related decisions lacks 0025); no blocking (opus/medium · 59,709 tokens · 10 tool uses · 65 s) |

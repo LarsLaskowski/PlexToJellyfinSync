@@ -43,7 +43,7 @@ are decimal numbers.
 ## Decision
 
 Every Plex key that goes into a request path — an item's, a show's, a history entry's rating key and a library's
-key — must consist of 1 to 64 ASCII letters, ASCII digits, `-` or `_`; a value that fails this is dropped where it
+key — must pass one allow-list rule (option 1); a value that fails it is dropped where it
 is read from Plex and rejected before any request is built from it. The rule and the warnings are stated in
 [Sync pipeline](../areas/sync-pipeline.md#what-is-read-from-plex).
 

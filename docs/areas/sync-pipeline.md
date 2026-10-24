@@ -238,6 +238,8 @@ The application keeps one in-memory status, reset when the process starts. Its v
   — the pipeline's split into collaborators and the single episode listing per show and run.
 - [`decisions/0024-null-elements-in-plex-lists.md`](../decisions/0024-null-elements-in-plex-lists.md) — a `null`
   element of a Plex list is handled like an empty element.
+- [`decisions/0025-plex-keys-allow-listed-before-request-paths.md`](../decisions/0025-plex-keys-allow-listed-before-request-paths.md)
+  — Plex keys are checked against an allow-list before they reach a request path.
 
 The rules above are implemented in `src/PlexToJellyfinSync/Worker.cs` and, under
 `src/PlexToJellyfinSync.Service/`, in `SyncOrchestrator.cs`, `LibraryReconciler.cs`, `SeriesAggregateWriter.cs`,
