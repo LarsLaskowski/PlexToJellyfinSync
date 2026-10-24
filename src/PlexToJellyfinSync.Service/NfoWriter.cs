@@ -522,7 +522,11 @@ public sealed class NfoWriter : INfoWriter
                 }
 
                 await SaveAsync(document, targetPath, indent: false, encoding, cancellationToken).ConfigureAwait(false);
-                _logger.LogInformation("Updated watch state in {Path}", targetPath);
+
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation("Updated watch state in {Path}", targetPath);
+                }
 
                 return NfoWriteOutcome.Updated;
             }
@@ -542,7 +546,11 @@ public sealed class NfoWriter : INfoWriter
             var newDocument = BuildDocument(item);
 
             await SaveAsync(newDocument, targetPath, indent: true, _utf8NoBom, cancellationToken).ConfigureAwait(false);
-            _logger.LogInformation("Created NFO {Path}", targetPath);
+
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation("Created NFO {Path}", targetPath);
+            }
 
             return NfoWriteOutcome.Created;
         }
