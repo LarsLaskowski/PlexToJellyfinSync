@@ -77,6 +77,17 @@ internal sealed class RecordingNfoWriter : INfoWriter
     /// </summary>
     public Dictionary<string, Exception> FailuresByRatingKey { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Cancellation source cancelled by <see cref="WriteAsync"/> when <see cref="CancelWhen"/> matches the item
+    /// </summary>
+    public CancellationTokenSource? CancellationSource { get; set; }
+
+    /// <summary>
+    /// Predicate selecting the item whose write cancels <see cref="CancellationSource"/>; the write then ends by
+    /// throwing an <see cref="OperationCanceledException"/> and is not recorded
+    /// </summary>
+    public Predicate<MediaItem>? CancelWhen { get; set; }
+
     #endregion // Properties
 
     #region Methods
@@ -95,13 +106,7 @@ internal sealed class RecordingNfoWriter : INfoWriter
 
     #region INfoWriter
 
-    /// <summary>
-    /// Record the write and return the preconfigured outcome, or throw the configured failure for this item
-    /// </summary>
-    /// <param name="item">Media item to write</param>
-    /// <param name="localPath">Local path of the media file or directory</param>
-    /// <param name="cancellationToken">Cancellation token honored while waiting for the configured <see cref="ConcurrencyGate"/></param>
-    /// <returns>The preconfigured outcome</returns>
+    /// <inheritdoc/>
     public async Task<NfoWriteOutcome> WriteAsync(MediaItem item, string localPath, CancellationToken cancellationToken)
     {
         Task? gateTask = null;
@@ -147,6 +152,13 @@ internal sealed class RecordingNfoWriter : INfoWriter
                     // No further concurrent write arrived within the window; proceed as if the gate were
                     // disabled so a correctly bounded caller never blocks needlessly on it.
                 }
+            }
+
+            if (CancellationSource is not null && CancelWhen is not null && CancelWhen(item))
+            {
+                await CancellationSource.CancelAsync().ConfigureAwait(false);
+
+                throw new OperationCanceledException($"The write of {item.RatingKey} was cancelled", cancellationToken);
             }
 
             if (FailuresByRatingKey.TryGetValue(item.RatingKey, out var failure))

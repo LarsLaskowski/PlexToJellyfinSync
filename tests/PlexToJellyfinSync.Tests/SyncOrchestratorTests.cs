@@ -700,6 +700,84 @@ public sealed class SyncOrchestratorTests
     }
 
     /// <summary>
+    /// Cancellation while the item of a history entry is written ends the run with the cancellation, counts no
+    /// error, skips the later entry and keeps the high-water mark
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryCancellationDuringItemWritePropagatesWithoutError()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddMovie("m1", "Heat", "/data/Movies/Heat (1995)/Heat.mkv");
+        AddMovie("m2", "Alien", "/data/Movies/Alien (1979)/Alien.mkv");
+        AddHistory("m1", _since.AddMinutes(10));
+        AddHistory("m2", _since.AddMinutes(30));
+
+        using var cancellation = new CancellationTokenSource();
+
+        _nfoWriter.CancellationSource = cancellation;
+        _nfoWriter.CancelWhen = item => item.RatingKey == "m1";
+
+        var orchestrator = CreateOrchestrator();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await orchestrator.ProcessHistoryAsync(cancellation.Token),
+                                                             "Cancellation during an item write should be propagated to the caller!");
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.AreEqual(0L, snapshot.Errors, "Cancellation during an item write should not be counted as an error!");
+        Assert.IsNull(snapshot.LastError, "Cancellation during an item write should not set the last error!");
+        Assert.AreSequenceEqual(new List<string>
+                                {
+                                    "m1"
+                                },
+                                _plexClient.MediaItemRequests,
+                                "The item after the cancelled one should not be requested!");
+        Assert.IsEmpty(_nfoWriter.Writes, "No item should be recorded as written after the cancellation!");
+        Assert.AreEqual(_since, _stateStore.HighWaterMark, "The high-water mark should stay unchanged after cancellation!");
+        Assert.IsEmpty(_stateStore.Writes, "No high-water mark should be persisted after cancellation!");
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared after cancellation!");
+    }
+
+    /// <summary>
+    /// Cancellation during the first aggregate write ends the run with the cancellation, counts no error, writes
+    /// no further aggregate and keeps the high-water mark, whichever show comes first
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task SyncOrchestratorProcessHistoryCancellationDuringAggregateWritePropagatesWithoutError()
+    {
+        _stateStore.HighWaterMark = _since;
+
+        AddShowWithOneEpisode("s1", "e1", "Show One");
+        AddShowWithOneEpisode("s2", "e2", "Show Two");
+        AddHistory("e1", _since.AddMinutes(10));
+        AddHistory("e2", _since.AddMinutes(20));
+
+        using var cancellation = new CancellationTokenSource();
+
+        _nfoWriter.CancellationSource = cancellation;
+        _nfoWriter.CancelWhen = item => item.Kind is MediaKind.Season or MediaKind.Series;
+
+        var orchestrator = CreateOrchestrator();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await orchestrator.ProcessHistoryAsync(cancellation.Token),
+                                                             "Cancellation during an aggregate write should be propagated to the caller!");
+
+        var snapshot = _status.GetSnapshot();
+
+        Assert.AreEqual(0L, snapshot.Errors, "Cancellation during an aggregate write should not be counted as an error!");
+        Assert.IsNull(snapshot.LastError, "Cancellation during an aggregate write should not set the last error!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Season), "No season aggregate should be written after the cancellation!");
+        Assert.IsEmpty(_nfoWriter.WritesOf(MediaKind.Series), "No series aggregate should be written after the cancellation!");
+        Assert.HasCount(1, _plexClient.EpisodeRequests, "The episodes of only one show should be listed!");
+        Assert.IsTrue(_plexClient.EpisodeRequests[0] is "s1" or "s2", "The listed episodes should belong to one of the two shows!");
+        Assert.AreEqual(_since, _stateStore.HighWaterMark, "The high-water mark should stay unchanged after cancellation!");
+        Assert.IsFalse(snapshot.IsRunning, "The run flag should be cleared after cancellation!");
+    }
+
+    /// <summary>
     /// The owner account id is resolved once and reused across runs
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -1922,6 +2000,42 @@ public sealed class SyncOrchestratorTests
                                            };
 
         _plexClient.Episodes[showRatingKey] = [first, second];
+    }
+
+    /// <summary>
+    /// Register a series with a single watched episode in its own season directory
+    /// </summary>
+    /// <param name="showRatingKey">Rating key of the series</param>
+    /// <param name="episodeRatingKey">Rating key of the episode</param>
+    /// <param name="title">Title of the series</param>
+    private void AddShowWithOneEpisode(string showRatingKey, string episodeRatingKey, string title)
+    {
+        var episode = new MediaItem
+                      {
+                          RatingKey = episodeRatingKey,
+                          Kind = MediaKind.Episode,
+                          Title = "Pilot",
+                          SeasonNumber = 1,
+                          EpisodeNumber = 1,
+                          ShowRatingKey = showRatingKey,
+                          ShowTitle = title,
+                          FilePath = $"/data/Shows/{title}/Season 01/S01E01.mkv".Replace('/', Path.DirectorySeparatorChar),
+                          Watch = new WatchInfo
+                                  {
+                                      Watched = true,
+                                      PlayCount = 1,
+                                      LastPlayed = _since.AddMinutes(5)
+                                  }
+                      };
+
+        _plexClient.Items[episodeRatingKey] = episode;
+        _plexClient.Items[showRatingKey] = new MediaItem
+                                           {
+                                               RatingKey = showRatingKey,
+                                               Kind = MediaKind.Series,
+                                               Title = title
+                                           };
+        _plexClient.Episodes[showRatingKey] = [episode];
     }
 
     /// <summary>
