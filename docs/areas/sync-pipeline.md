@@ -74,7 +74,9 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   and an entry of another account is dropped.
 - The owner's account id is `Plex:OwnerAccountId` when it is set. Otherwise it is resolved from the Plex account
   list as the lowest positive account id. When that request fails (except with `401` or `403`) or its answer
-  cannot be read, a warning is logged and the id `1` is used; an answer without a usable account also yields `1`.
+  cannot be read, a warning is logged and the id `1` is used; an answer that holds no account with a positive id also
+  yields `1`, with the warning `Could not auto-detect the Plex owner account id: the account list contains no account
+  with a positive id, defaulting to 1 (set Plex:OwnerAccountId to choose the owner)`.
 - A `401` or `403` answer or a timeout while resolving the owner is not replaced by the fallback: the run fails
   (see *Limits and errors*) and the owner is resolved again on the next run.
 - The resolved id is kept for the following runs until a run fails; after a failed run it is resolved again,

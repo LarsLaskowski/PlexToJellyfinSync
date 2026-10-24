@@ -501,6 +501,8 @@ public sealed class PlexClient : IPlexClient
                     return owner.Id;
                 }
             }
+
+            _logger.LogWarning("Could not auto-detect the Plex owner account id: the account list contains no account with a positive id, defaulting to 1 (set Plex:OwnerAccountId to choose the owner)");
         }
         catch (OperationCanceledException)
         {
