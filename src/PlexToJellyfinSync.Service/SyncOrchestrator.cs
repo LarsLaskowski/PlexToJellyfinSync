@@ -93,10 +93,12 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <summary>
     /// Handle an error by logging it, updating the status and clearing the cached owner account id so a possibly
     /// wrong id resolved during this cycle (for example a transient-failure fallback) is not pinned for the
-    /// remaining lifetime of the process; the next cycle re-resolves it
+    /// remaining lifetime of the process; the next cycle re-resolves it. The Plex connection flag is cleared only
+    /// when the run failed on a request to Plex
     /// </summary>
     /// <param name="ex">Exception</param>
-    private void HandleError(Exception ex)
+    /// <param name="plexRequestFailed"><c>true</c> if the run failed on a request to Plex, which clears the Plex connection flag</param>
+    private void HandleError(Exception ex, bool plexRequestFailed)
     {
         _logger.LogError(ex, "Synchronization run failed");
         _ownerAccountId = null;
@@ -104,7 +106,11 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
                        {
                            s.Errors++;
                            s.LastError = ex.Message;
-                           s.PlexConnected = false;
+
+                           if (plexRequestFailed)
+                           {
+                               s.PlexConnected = false;
+                           }
                        });
     }
 
@@ -264,6 +270,9 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <inheritdoc/>
     public async Task ProcessHistoryAsync(CancellationToken cancellationToken)
     {
+        var plexRequestStarted = false;
+        var plexAnswered = false;
+
         _status.Update(s => s.IsRunning = true);
 
         try
@@ -284,9 +293,12 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
                 return;
             }
 
+            plexRequestStarted = true;
+
             var ownerId = await ResolveOwnerAsync(cancellationToken).ConfigureAwait(false);
             var entries = await _plexClient.GetHistorySinceAsync(since.Value, ownerId, cancellationToken).ConfigureAwait(false);
 
+            plexAnswered = true;
             _status.Update(s => s.PlexConnected = true);
 
             var (maxViewed, affectedShows) = await ProcessHistoryEntriesAsync(entries, since.Value, cancellationToken).ConfigureAwait(false);
@@ -310,7 +322,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         }
         catch (Exception ex)
         {
-            HandleError(ex);
+            HandleError(ex, plexRequestStarted && plexAnswered == false);
         }
         finally
         {
@@ -349,7 +361,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
         }
         catch (Exception ex)
         {
-            HandleError(ex);
+            HandleError(ex, true);
         }
         finally
         {

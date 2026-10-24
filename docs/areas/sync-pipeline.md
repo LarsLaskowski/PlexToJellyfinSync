@@ -155,7 +155,7 @@ The application keeps one in-memory status, reset when the process starts. Its v
 
 | Value | Meaning |
 | ----- | ------- |
-| `plexConnected` | `true` once a reconcile's library list or a history run's history request succeeded; `false` at start and after a failed run. A run that only sets a missing mark makes no request to Plex and leaves it unchanged, as does a failing item. |
+| `plexConnected` | `true` once a reconcile's library list or a history run's history request succeeded; `false` at start and after a run that failed on a request to Plex (see *A failed run*). A run that fails only on writing the mark leaves it unchanged, as do a run that only sets a missing mark (it makes no request to Plex) and a failing item. |
 | `isRunning` | `true` while a history run or a reconcile is in progress. |
 | `lastPollAt` | End of the last history run that completed without failing, including a run that only set the mark. |
 | `lastReconcileAt` | End of the last reconcile that completed without failing. |
@@ -172,7 +172,9 @@ The application keeps one in-memory status, reset when the process starts. Its v
 - **A failed run.** A run fails when a request it cannot do without fails: the owner resolution with `401`,
   `403` or a timeout, the history request (any of its pages), the library list, any page of a library's
   contents, or writing the mark. The run then stops, logs the error `Synchronization run failed`, counts one
-  error, records the message as the last error and sets `plexConnected` to `false`. A failed history run leaves
+  error and records the message as the last error. When the failed request was one to Plex it sets
+  `plexConnected` to `false`; a failure to write the mark leaves `plexConnected` as it is, so a history run in
+  which Plex answered still reports it as connected. A failed history run leaves
   the mark unchanged, so its entries are read again by the next run. A failed reconcile does not reconcile the
   libraries it has not finished; items written before the failure stay written.
 - **A failed item.** A failure while reading or writing one item (a history entry's item, a movie, an episode) or
@@ -195,7 +197,7 @@ The application keeps one in-memory status, reset when the process starts. Its v
   is read. Viewed-at times have a resolution of one second, and an entry viewed exactly at the mark is not read
   again.
 - **State directory not writable.** Setting the mark then fails on every history run, so each one fails and
-  history reaches the files only through the reconcile.
+  history reaches the files only through the reconcile. `plexConnected` is not affected by these failures.
 - **Status is not persisted.** All counters and times of the run status start again from zero at every start.
 
 ## Related decisions
