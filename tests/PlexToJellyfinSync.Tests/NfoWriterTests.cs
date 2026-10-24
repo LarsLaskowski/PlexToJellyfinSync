@@ -400,6 +400,60 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// A failed replace of the target by the temp file deletes the temp file
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task NfoWriterMoveFailureDeletesTempFile()
+    {
+        var writer = CreateWriter(createMissing: true);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        Directory.CreateDirectory(nfoPath);
+
+        var item = CreateWatchedMovie();
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => writer.WriteAsync(item, moviePath, CancellationToken.None),
+                                                     "A target that is a directory should make the replace fail with the original exception!");
+
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "A failed replace must not leave the temp file next to the target!");
+        Assert.IsTrue(Directory.Exists(nfoPath), "A failed replace must leave the target as it was!");
+    }
+
+    /// <summary>
+    /// After a failed replace, the next write to the same target succeeds once the cause is removed
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task NfoWriterMoveFailureRethrowsOriginalExceptionAndNextWriteSucceeds()
+    {
+        var writer = CreateWriter(createMissing: true);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        Directory.CreateDirectory(nfoPath);
+
+        var item = CreateWatchedMovie();
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => writer.WriteAsync(item, moviePath, CancellationToken.None),
+                                                     "A target that is a directory should make the replace fail with the original exception!");
+
+        Directory.Delete(nfoPath);
+
+        var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
+        var content = await File.ReadAllTextAsync(nfoPath, CancellationToken.None);
+
+        Assert.AreEqual(NfoWriteOutcome.Created, outcome, "The write after the cause was removed should create the NFO!");
+        StringAssert.Contains(content, "<watched>true</watched>", "The created NFO should carry the watch state!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should remain after the successful write!");
+    }
+
+    /// <summary>
     /// Updating an existing NFO preserves its Unix file permissions
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -550,6 +604,24 @@ public sealed class NfoWriterTests
 
         Assert.AreEqual(NfoWriteOutcome.Created, outcome, "A mapped root that is the filesystem root should still accept writes under it!");
         Assert.IsTrue(File.Exists(Path.ChangeExtension(moviePath, ".nfo")), "NFO file should have been created!");
+    }
+
+    /// <summary>
+    /// Create a watched movie item
+    /// </summary>
+    /// <returns>Watched movie item</returns>
+    private static MediaItem CreateWatchedMovie()
+    {
+        return new MediaItem
+               {
+                   Kind = MediaKind.Movie,
+                   Title = "Heat",
+                   Watch = new WatchInfo
+                           {
+                               Watched = true,
+                               PlayCount = 1
+                           }
+               };
     }
 
     /// <summary>
