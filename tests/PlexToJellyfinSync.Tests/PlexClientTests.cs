@@ -1011,6 +1011,45 @@ public sealed class PlexClientTests
     }
 
     /// <summary>
+    /// A null Media or Part element is treated like an element without any field: the item has no file path
+    /// </summary>
+    /// <param name="mediaJson">The JSON of the Media property</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("""[null]""", DisplayName = "null Media element")]
+    [DataRow("""[{"Part":[null]}]""", DisplayName = "null Part element")]
+    public async Task PlexClientGetMediaItemWithNullMediaOrPartElementReturnsItemWithoutFilePath(string mediaJson)
+    {
+        using var handler = new StubHttpMessageHandler();
+
+        var json = $$"""
+                     {
+                       "MediaContainer": {
+                         "Metadata": [
+                           {
+                             "ratingKey": "12345",
+                             "type": "movie",
+                             "title": "Heat",
+                             "Media": {{mediaJson}}
+                           }
+                         ]
+                       }
+                     }
+                     """;
+
+        handler.Responses["/library/metadata/12345"] = json;
+
+        using var httpClient = CreateHttpClient(handler);
+
+        var client = CreateClient(httpClient);
+
+        var item = await client.GetMediaItemAsync("12345", CancellationToken.None);
+
+        Assert.IsNotNull(item, "A null Media or Part element should not drop the item!");
+        Assert.IsNull(item.FilePath, "A null Media or Part element should leave the file path empty!");
+    }
+
+    /// <summary>
     /// An empty metadata container yields no item
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>

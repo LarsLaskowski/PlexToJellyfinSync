@@ -12,3 +12,5 @@ are quoted in full.
 | 2026-10-24 13:46 | 4 Skeleton | Orchestrator | skipped: plan needs no skeleton (public signatures unchanged) |
 | 2026-10-24 13:49 | 5 Tests first | squad-tester | 6 tests + 1 DataRow added, all 7 cases fail with NRE on current code (confirmed); Media/Part null test deferred (passes today) (sonnet/medium · 103,675 tokens · 25 tool uses · 167 s) |
 | 2026-10-24 13:50 | 6 Implement | squad-dev | Nullable DTO list elements + null checks in PlexClient, docs updated; 438 tests pass, coverage gate pass (reported) (sonnet/medium · 81,531 tokens · 9 tool uses · 77 s) |
+| 2026-10-24 13:51 | 6 Coverage | squad-tester | Deferred Media/Part null-element test added, passes (pin test) (sonnet/medium · 64,714 tokens · 9 tool uses · 41 s) |
+| 2026-10-24 13:52 | 7 Code check | Orchestrator | Format check, build (0 RH), 440 tests, coverage 100%/90%, analyzer 0 in changed files: pass |
