@@ -155,3 +155,6 @@ The change only ends a loop that previously ran until cancellation.
 
 - Bounding the number of pages a run may request (a hostile server can vary the first key per page): not part of
   this issue, no follow-up proposed.
+## Security notes
+
+- A hostile Plex server that changes the first key on every full page can still make paging run until cancellation. This is accepted in the plan's *Out of scope* and in SECURITY.md (DoS out of scope). Nothing needs to change in this plan.
