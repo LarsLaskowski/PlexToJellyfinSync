@@ -1,6 +1,6 @@
 # 0025: Plex keys are checked against an allow-list before they reach a request path
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-24
 - **Area:** Sync pipeline
 - **Source:** Issue #234
