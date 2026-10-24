@@ -175,7 +175,7 @@ public sealed class StateStoreTests
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     [UnsupportedOSPlatform("windows")]
     public async Task StateStoreSetHighWaterMarkAsyncWriteFailurePreservesExistingFile()
     {
@@ -197,7 +197,7 @@ public sealed class StateStoreTests
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     [UnsupportedOSPlatform("windows")]
     public async Task StateStoreSetHighWaterMarkAsyncPreservesFileMode()
     {
@@ -225,6 +225,50 @@ public sealed class StateStoreTests
         await store.SetHighWaterMarkAsync(_mark, CancellationToken.None);
 
         Assert.IsFalse(File.Exists(GetStateFilePath() + ".tmp"), "A successful write must not leave a temp file behind!");
+    }
+
+    /// <summary>
+    /// A failed move of the temp file onto the state file deletes the temp file
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task StateStoreSetHighWaterMarkAsyncMoveFailureDeletesTempFile()
+    {
+        var store = CreateStore();
+
+        Directory.CreateDirectory(GetStateFilePath());
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => store.SetHighWaterMarkAsync(_mark, CancellationToken.None),
+                                                     "Moving the temp file onto a directory should surface the original failure!");
+
+        Assert.IsFalse(File.Exists(GetStateFilePath() + ".tmp"), "A failed move must not leave the temp file behind!");
+    }
+
+    /// <summary>
+    /// A failed move surfaces the original exception and the next write succeeds once the cause is removed
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task StateStoreSetHighWaterMarkAsyncMoveFailureRethrowsOriginalException()
+    {
+        var store = CreateStore();
+
+        Directory.CreateDirectory(GetStateFilePath());
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => store.SetHighWaterMarkAsync(_mark, CancellationToken.None),
+                                                     "The original move failure should reach the caller unchanged in type!");
+
+        Directory.Delete(GetStateFilePath());
+
+        await store.SetHighWaterMarkAsync(_mark.AddHours(3), CancellationToken.None);
+
+        var mark = await store.GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.AreEqual(_mark.AddHours(3), mark, "The write after the cause was removed should succeed and be read back!");
     }
 
     /// <summary>
