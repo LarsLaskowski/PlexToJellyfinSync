@@ -192,8 +192,9 @@ that implement it.
   response. `InMemoryLogger` runs every captured message and exception through
   `ILogRedactor`/`SecretLogRedactor` before an entry reaches the store. `Program.cs` also logs the startup
   warning for a dashboard without a token and calls `UseForwardedHeaders` with the options of
-  `Security/DashboardStartup.cs`, which clear `KnownIPNetworks`/`KnownProxies` since no reverse proxy address
-  is known upfront in this single-container deployment; which headers that trusts, from whom, and what follows
+  `Security/DashboardStartup.cs`, which build the trusted senders from `Dashboard:TrustedProxies` on top of the
+  framework's loopback defaults (see [decision 0022](decisions/0022-forwarded-headers-from-configured-proxies-only.md));
+  which headers that trusts, from whom, and what follows
   for the login throttle and the cookie is stated under
   [*Forwarded headers*](areas/dashboard-and-auth.md#forwarded-headers) and the area's
   [*Limits and errors*](areas/dashboard-and-auth.md#limits-and-errors).
@@ -217,8 +218,9 @@ that implement it.
   inputs are SHA-256-hashed first (removing any length side-channel) before a constant-time
   `CryptographicOperations.FixedTimeEquals` on the hashes — and, on success, mints a random session id
   (`RandomNumberGenerator`). Failed attempts go through `LoginThrottle`
-  (`src/PlexToJellyfinSync.Service/Security/LoginThrottle.cs`), which keeps its records in memory and prunes
-  them on a recorded failure instead of with a background sweep timer; its counting, backoff and pruning
+  (`src/PlexToJellyfinSync.Service/Security/LoginThrottle.cs`), which keeps at most 1024 records in memory, prunes
+  idle ones when admitting a new client to a full record set instead of with a background sweep timer, and
+  counts further clients on one shared record; its counting, backoff, pruning and bound
   rules are stated under [*Login throttle*](areas/dashboard-and-auth.md#login-throttle).
   **`LoginEndpoints.HandleLoginAsync`** (`src/PlexToJellyfinSync/Security/LoginEndpoints.cs`) is the HTTP
   glue: it turns `LockedOut` into `429` with `Retry-After`, stores a `Succeeded` login's session id in

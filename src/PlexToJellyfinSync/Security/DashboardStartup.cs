@@ -24,20 +24,26 @@ public static class DashboardStartup
     /// <summary>
     /// Build the forwarded-headers options used so a TLS-terminating reverse proxy's scheme is honored
     /// </summary>
-    /// <returns>Forwarded-headers options with no proxy network known upfront</returns>
-    public static ForwardedHeadersOptions CreateForwardedHeadersOptions()
+    /// <param name="options">Dashboard options holding the trusted proxies</param>
+    /// <returns>Forwarded-headers options trusting loopback and the configured proxies</returns>
+    public static ForwardedHeadersOptions CreateForwardedHeadersOptions(DashboardOptions options)
     {
-        var options = new ForwardedHeadersOptions
-                      {
-                          ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-                      };
+        var forwardedOptions = new ForwardedHeadersOptions
+                               {
+                                   ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+                                   ForwardLimit = 1
+                               };
 
-        // No reverse proxy address is known upfront in this single-container deployment; trust
-        // whatever proxy the operator places in front (see README for the reverse-proxy/TLS guidance).
-        options.KnownIPNetworks.Clear();
-        options.KnownProxies.Clear();
+        foreach (var entry in options.TrustedProxies)
+        {
+            // An entry the parser rejects is skipped, never treated as "trust all"
+            if (TrustedProxyParser.TryParse(entry, out var network))
+            {
+                forwardedOptions.KnownIPNetworks.Add(network);
+            }
+        }
 
-        return options;
+        return forwardedOptions;
     }
 
     #endregion // Static methods

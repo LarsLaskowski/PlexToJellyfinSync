@@ -13,7 +13,8 @@ A change that touches one of these is tier `security` (`.squad/routing.md`).
   never exposed in the UI, API responses or exceptions; `SecretLogRedactor` masks them before a log entry
   reaches the dashboard's in-memory log buffer.
 - **Dashboard authentication:** `TokenAuthMiddleware`, `LoginEndpoints`, `DashboardLoginService`,
-  `LoginThrottle`, `TokenComparer`, session cookies, security headers and CSP, `Program.cs` endpoint mapping.
+  `LoginThrottle`, `TokenComparer`, session cookies, security headers and CSP, `Program.cs` endpoint mapping,
+  the forwarded-header trust (`DashboardStartup`, `Dashboard:TrustedProxies`).
 - **Path mapping and file writes:** `PathMapper`, `MediaItemWriter`, `SeriesAggregateWriter`, `NfoWriter`
   and every file write (path traversal, writing outside a configured `PathMappings:N:Local` root, symlinks).
 - **`.nfo` / XML handling:** `NfoWriter` parsing and saving (XXE, entity expansion, preserving foreign
@@ -102,7 +103,7 @@ finding, and so is a diff that leaves the corresponding sentence in `README.md`,
 - the middleware allowlist — a new public prefix or static-asset extension widens what is reachable
   without a session cookie
 - the security headers and CSP, cookie flags (`HttpOnly`, `SameSite=Strict`, `Secure` only on HTTPS),
-  constant-time token comparison, and the throttle's backoff and pruning behavior
+  constant-time token comparison, and the throttle's backoff, pruning and bound, and the trusted-proxy list
 - `LoginEndpointsTests`, `LoginThrottleTests` and the middleware's tests
 
 **A new Plex API call or DTO** touches:

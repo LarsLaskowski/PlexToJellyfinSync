@@ -46,6 +46,7 @@ is empty without that file. "Not validated" means the startup check does not loo
 | `Dashboard:Enabled` | `PLEXSYNC__Dashboard__Enabled` | `true` | `true` or `false` |
 | `Dashboard:Token` | `PLEXSYNC__Dashboard__Token` | empty | Any text, optional; empty leaves the dashboard open |
 | `Dashboard:LogBufferSize` | `PLEXSYNC__Dashboard__LogBufferSize` | `1000` | At least 1 |
+| `Dashboard:TrustedProxies` | `PLEXSYNC__Dashboard__TrustedProxies__0`, `__1`, … | empty list | IPv4 addresses in dotted-decimal form, IPv6 addresses, either with `/` and a prefix length; no port; each entry set with its index (a value without index is not read as a list entry) |
 
 What each setting controls is stated in the area that owns the behavior: the Plex settings, the `Sync` settings
 and `State:Directory` in [Sync pipeline](sync-pipeline.md); `PathMappings`, the `Nfo` settings and the effect of
@@ -92,7 +93,8 @@ The shipped `appsettings.json` also holds the web host's standard settings `Logg
 ## Limits and errors
 
 - A missing or malformed `Plex:BaseUrl`, an `OwnerAccountId` below 1, a `Sync` value outside its range, an empty
-  `State:Directory` or a `Dashboard:LogBufferSize` below 1 stops the application at startup with the message of
+  `State:Directory`, a `Dashboard:LogBufferSize` below 1 or a `Dashboard:TrustedProxies` entry that is no IP
+  address or CIDR network stops the application at startup with the message of
   the violated rule (*Startup check*).
 - A value that cannot be read as the setting's type — text for a number or a switch, an unknown
   `Nfo:MovieFilenameStrategy` — also stops the application at startup. That error names the setting and **does

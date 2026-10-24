@@ -35,8 +35,7 @@ public static partial class Program
         builder.Services.AddRazorComponents()
                         .AddInteractiveServerComponents();
 
-        builder.Services.AddSingleton<ILoggerProvider>(serviceProvider =>
-        new InMemoryLogProvider(serviceProvider.GetRequiredService<ILogStore>(), serviceProvider.GetRequiredService<ILogRedactor>()));
+        builder.Services.AddSingleton<ILoggerProvider>(serviceProvider => new InMemoryLogProvider(serviceProvider.GetRequiredService<ILogStore>(), serviceProvider.GetRequiredService<ILogRedactor>()));
 
         var app = builder.Build();
 
@@ -47,7 +46,16 @@ public static partial class Program
             app.Logger.LogWarning("Dashboard is enabled with no access token configured (Dashboard:Token); it is reachable by anyone who can reach this host. Set Dashboard:Token to require authentication.");
         }
 
-        app.UseForwardedHeaders(DashboardStartup.CreateForwardedHeadersOptions());
+        app.UseForwardedHeaders(DashboardStartup.CreateForwardedHeadersOptions(dashboardOptions));
+
+        var forwardedHeadersWarning = new ForwardedHeadersWarning(app.Services.GetRequiredService<ILogger<ForwardedHeadersWarning>>());
+
+        app.Use(async (context, next) =>
+                {
+                    forwardedHeadersWarning.Inspect(context);
+
+                    await next(context).ConfigureAwait(false);
+                });
 
         if (app.Environment.IsDevelopment() == false)
         {
@@ -58,13 +66,16 @@ public static partial class Program
                 {
                     var headers = context.Response.Headers;
 
-                    headers["X-Content-Type-Options"] = "nosniff";
-                    headers["X-Frame-Options"] = "DENY";
-                    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+                    headers.XContentTypeOptions = "nosniff";
+                    headers.XFrameOptions = "DENY";
+                    headers.StrictTransportSecurity = "max-age=31536000; includeSubDomains";
 
                     // Blazor Server requires 'unsafe-inline' for its SignalR bootstrap script and
                     // wss:/ws: for WebSocket connections; all other sources are restricted to 'self'.
-                    headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:; img-src 'self' data:";
+                    // Sonar's static S7039 check cannot see that these sources are required, so it is disabled for this header only.
+#pragma warning disable S7039
+                    headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:; img-src 'self' data:";
+#pragma warning restore S7039
 
                     await next(context).ConfigureAwait(false);
                 });

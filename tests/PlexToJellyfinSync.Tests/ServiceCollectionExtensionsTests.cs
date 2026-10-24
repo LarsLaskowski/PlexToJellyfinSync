@@ -124,6 +124,7 @@ public sealed class ServiceCollectionExtensionsTests
                                                ["Sync:PollIntervalSeconds"] = "15",
                                                ["State:Directory"] = "/state",
                                                ["Dashboard:LogBufferSize"] = "25",
+                                               ["Dashboard:TrustedProxies:0"] = "172.18.0.0/16",
                                                ["PathMappings:0:Plex"] = "/data/Movies",
                                                ["PathMappings:0:Local"] = "/media/Movies"
                                            });
@@ -140,6 +141,8 @@ public sealed class ServiceCollectionExtensionsTests
         Assert.AreEqual(15, syncOptions.PollIntervalSeconds, "The poll interval should be bound!");
         Assert.AreEqual("/state", stateOptions.Directory, "The state directory should be bound!");
         Assert.AreEqual(25, dashboardOptions.LogBufferSize, "The log buffer size should be bound!");
+        Assert.HasCount(1, dashboardOptions.TrustedProxies, "The trusted proxy entry should be bound!");
+        Assert.AreEqual("172.18.0.0/16", dashboardOptions.TrustedProxies[0], "The trusted proxy entry should keep its text!");
         Assert.HasCount(1, pathMappings, "The path mappings should be bound!");
         Assert.AreEqual("/data/Movies", pathMappings[0].Plex, "The Plex prefix of the mapping should be bound!");
         Assert.AreEqual("/media/Movies", pathMappings[0].Local, "The local prefix of the mapping should be bound!");
@@ -214,6 +217,17 @@ public sealed class ServiceCollectionExtensionsTests
     public void ServiceCollectionExtensionsInvalidDashboardOptionsFailValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("Dashboard:LogBufferSize", "0"));
+
+        AssertInvalid<DashboardOptions>(provider);
+    }
+
+    /// <summary>
+    /// An invalid trusted proxy entry fails the startup validation and the options resolution
+    /// </summary>
+    [TestMethod]
+    public void ServiceCollectionExtensionsInvalidTrustedProxyFailsValidation()
+    {
+        using var provider = BuildProvider(WithBaseUrl("Dashboard:TrustedProxies:0", "proxy.local"));
 
         AssertInvalid<DashboardOptions>(provider);
     }
