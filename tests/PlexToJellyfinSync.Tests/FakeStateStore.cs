@@ -28,22 +28,13 @@ internal sealed class FakeStateStore : IStateStore
 
     #region IStateStore
 
-    /// <summary>
-    /// Return the stored high-water mark
-    /// </summary>
-    /// <param name="cancellationToken">Ignored cancellation token</param>
-    /// <returns>The stored high-water mark, or <c>null</c></returns>
+    /// <inheritdoc/>
     public Task<DateTimeOffset?> GetHighWaterMarkAsync(CancellationToken cancellationToken)
     {
         return Task.FromResult(HighWaterMark);
     }
 
-    /// <summary>
-    /// Store the given high-water mark and record the write
-    /// </summary>
-    /// <param name="value">New high-water mark</param>
-    /// <param name="cancellationToken">Ignored cancellation token</param>
-    /// <returns>Returns a task representing the asynchronous operation</returns>
+    /// <inheritdoc/>
     public Task SetHighWaterMarkAsync(DateTimeOffset value, CancellationToken cancellationToken)
     {
         if (SetException is not null)

@@ -121,11 +121,7 @@ internal sealed class FakePlexClient : IPlexClient
 
     #region IPlexClient
 
-    /// <summary>
-    /// Return the configured owner account id
-    /// </summary>
-    /// <param name="cancellationToken">Ignored cancellation token</param>
-    /// <returns>The configured owner account id</returns>
+    /// <inheritdoc/>
     public Task<int> GetOwnerAccountIdAsync(CancellationToken cancellationToken)
     {
         OwnerAccountIdCalls++;
@@ -138,11 +134,7 @@ internal sealed class FakePlexClient : IPlexClient
         return Task.FromResult(OwnerAccountId);
     }
 
-    /// <summary>
-    /// Return the configured libraries
-    /// </summary>
-    /// <param name="cancellationToken">Ignored cancellation token</param>
-    /// <returns>The configured libraries</returns>
+    /// <inheritdoc/>
     public Task<IReadOnlyList<PlexLibrary>> GetLibrariesAsync(CancellationToken cancellationToken)
     {
         if (LibrariesException is not null)
@@ -153,13 +145,7 @@ internal sealed class FakePlexClient : IPlexClient
         return Task.FromResult<IReadOnlyList<PlexLibrary>>(Libraries);
     }
 
-    /// <summary>
-    /// Return the configured history entries that occurred after the given timestamp
-    /// </summary>
-    /// <param name="since">Lower bound for the viewed-at timestamp</param>
-    /// <param name="accountId">Account id to filter for</param>
-    /// <param name="cancellationToken">Ignored cancellation token</param>
-    /// <returns>The matching history entries ordered ascending by viewed-at</returns>
+    /// <inheritdoc/>
     public Task<IReadOnlyList<PlexHistoryEntry>> GetHistorySinceAsync(DateTimeOffset since, int accountId, CancellationToken cancellationToken)
     {
         LastHistorySince = since;
@@ -177,12 +163,7 @@ internal sealed class FakePlexClient : IPlexClient
         return Task.FromResult<IReadOnlyList<PlexHistoryEntry>>(entries);
     }
 
-    /// <summary>
-    /// Return the configured media item for the given rating key
-    /// </summary>
-    /// <param name="ratingKey">Rating key of the item</param>
-    /// <param name="cancellationToken">Ignored cancellation token</param>
-    /// <returns>The configured media item, or <c>null</c></returns>
+    /// <inheritdoc/>
     public Task<MediaItem?> GetMediaItemAsync(string ratingKey, CancellationToken cancellationToken)
     {
         lock (_lock)
@@ -195,12 +176,7 @@ internal sealed class FakePlexClient : IPlexClient
         return Task.FromResult(item);
     }
 
-    /// <summary>
-    /// Stream the configured episodes of the given series
-    /// </summary>
-    /// <param name="showRatingKey">Rating key of the series</param>
-    /// <param name="cancellationToken">Ignored cancellation token</param>
-    /// <returns>The configured episodes</returns>
+    /// <inheritdoc/>
     public async IAsyncEnumerable<MediaItem> GetEpisodesAsync(string showRatingKey, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         await Task.Yield();
@@ -224,12 +200,7 @@ internal sealed class FakePlexClient : IPlexClient
         }
     }
 
-    /// <summary>
-    /// Stream the configured items of the given library section
-    /// </summary>
-    /// <param name="libraryKey">Section key</param>
-    /// <param name="cancellationToken">Ignored cancellation token</param>
-    /// <returns>The configured items</returns>
+    /// <inheritdoc/>
     public async IAsyncEnumerable<MediaItem> GetLibraryItemsAsync(string libraryKey, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         lock (_lock)
