@@ -13,3 +13,6 @@ are quoted in full.
 | 2026-10-24 17:25 | 6 G2 orchestrator tests | squad-tester | DONE; AC7+AC8 cancellation tests, RecordingNfoWriter hook; full suite 594 passed, Coverage gate PASS (overall 90.6%) (sonnet/medium · 83,756 tokens · 13 tool uses · 157 s) |
 | 2026-10-24 17:26 | 6 G3 docs | squad-lead | DONE; log texts in sync-pipeline.md State file, tasks 1-9 ticked; plan-check, format, decision-check PASS (opus/medium · 32,425 tokens · 10 tool uses · 62 s) |
 | 2026-10-24 17:27 | 7 Code check | Orchestrator | Format, Build, Test 594 passed, Coverage gate PASS (overall 90.6%), Analyzer gate 0 diagnostics in changed files, scope-check, decision-check PASS; 14 RH8201 warnings pre-existing in untouched files; Sonar gate NOT CHECKED (no SONAR_TOKEN), left to step 11 |
+| 2026-10-24 17:30 | 8 Review round 1 | squad-reviewer | BLOCKING 0, NON-BLOCKING 1 (verbatim doc fix) (opus/medium · 54,107 tokens · 12 tool uses · 87 s) |
+| 2026-10-24 17:30 | 8 Verbatim doc fix | Orchestrator | applied reviewer's verbatim fix to docs/areas/sync-pipeline.md (State file, move retry wording); diff only that line; format, scope-check, decision-check PASS |
+| 2026-10-24 17:30 | 9 PR approval | Orchestrator | approved by checklist: review clean, gates passed on head, main not moved, area doc and test-double entries in diff, no decision records, no open decisions |

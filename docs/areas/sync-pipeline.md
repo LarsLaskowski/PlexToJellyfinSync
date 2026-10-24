@@ -164,7 +164,7 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   high-water mark` after the move and `State file <path> is corrupt and could not be preserved; starting fresh
   with no high-water mark` when the move failed, `<path>` being the full path of `state.json`. A file that could
   not be moved is overwritten when the next mark is written; until then every read, including the one that
-  write makes first, logs the second error again.
+  write makes first, tries the move again and logs the second error again while the move keeps failing.
 - Any other read error is logged as the warning `Could not read state file <path>, starting fresh`, with the
   read failure attached, and treated as "no mark"; the file is not moved.
 - In every "no mark" case the next history run sets the mark to the current time and processes nothing, so plays
