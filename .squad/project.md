@@ -7,7 +7,8 @@ and never overwrites it. A product PR updates it when the change makes an entry 
 
 ## Security areas
 
-A change that touches one of these is tier `security` (`.squad/routing.md`).
+A change that touches one of these gets a Security review: of the plan, or of the diff on tier `patch/security`;
+it is tier `security` only when it creates, changes or removes a security control (`.squad/routing.md`, *Tiers*).
 
 - **Tokens and secrets:** the Plex token and the dashboard token — read from configuration, never logged,
   never exposed in the UI, API responses or exceptions; `SecretLogRedactor` masks them before a log entry
