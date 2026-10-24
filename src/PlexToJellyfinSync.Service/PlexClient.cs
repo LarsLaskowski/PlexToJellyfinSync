@@ -22,9 +22,9 @@ public sealed class PlexClient : IPlexClient
     #region Constants
 
     /// <summary>
-    /// Maximum accepted length for a rating key before an item is treated as invalid
+    /// Maximum accepted length for a Plex key before it is treated as invalid
     /// </summary>
-    private const int MaxRatingKeyLength = 64;
+    private const int MaxKeyLength = 64;
 
     /// <summary>
     /// Maximum accepted length for a Plex file path before it is treated as invalid
@@ -173,15 +173,32 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <summary>
-    /// Check whether a rating key is present, within a sane length and free of control or whitespace characters
+    /// Check whether a Plex key (rating key or library key) consists of 1 to 64 ASCII letters, ASCII digits,
+    /// hyphens or underscores, so that it cannot change the structure of a request path
     /// </summary>
-    /// <param name="ratingKey">Rating key to validate</param>
-    /// <returns><c>true</c> if the rating key is valid</returns>
-    private static bool IsValidRatingKey(string? ratingKey)
+    /// <param name="key">Key to validate</param>
+    /// <returns><c>true</c> if the key is valid</returns>
+    private static bool IsValidKey(string? key)
     {
-        return string.IsNullOrWhiteSpace(ratingKey) == false
-               && ratingKey.Length <= MaxRatingKeyLength
-               && ratingKey.All(c => char.IsControl(c) == false && char.IsWhiteSpace(c) == false);
+        return string.IsNullOrEmpty(key) == false
+               && key.Length <= MaxKeyLength
+               && key.All(c => char.IsAsciiLetterOrDigit(c) || c == '-' || c == '_');
+    }
+
+    /// <summary>
+    /// Return the key if it is valid, otherwise throw before any request path is built from it
+    /// </summary>
+    /// <param name="key">Key to validate</param>
+    /// <param name="paramName">Name of the parameter the key was passed in</param>
+    /// <returns>The valid key</returns>
+    private static string RequireValidKey(string key, string paramName)
+    {
+        if (IsValidKey(key) == false)
+        {
+            throw new ArgumentException("The key is not a valid Plex key", paramName);
+        }
+
+        return key;
     }
 
     /// <summary>
@@ -223,52 +240,6 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <summary>
-    /// Filter and append the valid, newer-than-"since" entries of a history page to the result, for
-    /// the requested account
-    /// </summary>
-    /// <param name="page">Raw history entries of the page</param>
-    /// <param name="since">Lower bound (exclusive) for the viewed-at timestamp</param>
-    /// <param name="accountId">Account id to filter for</param>
-    /// <param name="result">List to append matching entries to</param>
-    /// <returns><c>true</c> if an entry at or before "since" was seen on this page</returns>
-    private static bool AppendHistoryPage(IReadOnlyList<PlexMetadata?> page, DateTimeOffset since, int accountId, List<PlexHistoryEntry> result)
-    {
-        var reachedSince = false;
-
-        foreach (var entry in page)
-        {
-            if (entry is null || entry.ViewedAt is not > 0 || string.IsNullOrWhiteSpace(entry.RatingKey))
-            {
-                continue;
-            }
-
-            var viewedAt = DateTimeOffset.FromUnixTimeSeconds(entry.ViewedAt.Value);
-
-            if (viewedAt <= since)
-            {
-                reachedSince = true;
-
-                continue;
-            }
-
-            var entryAccountId = entry.AccountId ?? accountId;
-
-            if (entryAccountId == accountId)
-            {
-                result.Add(new PlexHistoryEntry
-                           {
-                               RatingKey = entry.RatingKey,
-                               AccountId = entryAccountId,
-                               ViewedAt = viewedAt,
-                               LibrarySectionKey = entry.LibrarySectionId?.ToString(CultureInfo.InvariantCulture)
-                           });
-            }
-        }
-
-        return reachedSince;
-    }
-
-    /// <summary>
     /// Rating key of the first entry of a page, used to detect a server that ignores the paging
     /// parameters and keeps returning the same page
     /// </summary>
@@ -298,6 +269,61 @@ public sealed class PlexClient : IPlexClient
     #region Methods
 
     /// <summary>
+    /// Filter and append the valid, newer-than-"since" entries of a history page to the result, for
+    /// the requested account
+    /// </summary>
+    /// <param name="page">Raw history entries of the page</param>
+    /// <param name="since">Lower bound (exclusive) for the viewed-at timestamp</param>
+    /// <param name="accountId">Account id to filter for</param>
+    /// <param name="result">List to append matching entries to</param>
+    /// <returns><c>true</c> if an entry at or before "since" was seen on this page</returns>
+    private bool AppendHistoryPage(IReadOnlyList<PlexMetadata?> page, DateTimeOffset since, int accountId, List<PlexHistoryEntry> result)
+    {
+        var reachedSince = false;
+
+        foreach (var entry in page)
+        {
+            if (entry is null || entry.ViewedAt is not > 0 || string.IsNullOrWhiteSpace(entry.RatingKey))
+            {
+                continue;
+            }
+
+            var viewedAt = DateTimeOffset.FromUnixTimeSeconds(entry.ViewedAt.Value);
+
+            if (viewedAt <= since)
+            {
+                reachedSince = true;
+
+                continue;
+            }
+
+            var entryAccountId = entry.AccountId ?? accountId;
+
+            if (entryAccountId != accountId)
+            {
+                continue;
+            }
+
+            if (IsValidKey(entry.RatingKey) == false)
+            {
+                _logger.LogWarning("Skipping a Plex history entry with an invalid rating key");
+
+                continue;
+            }
+
+            result.Add(new PlexHistoryEntry
+                       {
+                           RatingKey = entry.RatingKey,
+                           AccountId = entryAccountId,
+                           ViewedAt = viewedAt,
+                           LibrarySectionKey = entry.LibrarySectionId?.ToString(CultureInfo.InvariantCulture)
+                       });
+        }
+
+        return reachedSince;
+    }
+
+    /// <summary>
     /// Resolve the rating key of the owning series, dropping and logging it if it is present but invalid
     /// </summary>
     /// <param name="metadata">Plex metadata</param>
@@ -309,7 +335,7 @@ public sealed class PlexClient : IPlexClient
             return null;
         }
 
-        if (IsValidRatingKey(metadata.GrandparentRatingKey))
+        if (IsValidKey(metadata.GrandparentRatingKey))
         {
             return metadata.GrandparentRatingKey;
         }
@@ -320,13 +346,35 @@ public sealed class PlexClient : IPlexClient
     }
 
     /// <summary>
+    /// Check whether a library directory carries a usable key, logging a warning when the key is present but invalid
+    /// </summary>
+    /// <param name="directory">Library directory</param>
+    /// <returns><c>true</c> if the library is kept</returns>
+    private bool IsLibraryKeyAccepted(PlexDirectory directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory.Key))
+        {
+            return false;
+        }
+
+        if (IsValidKey(directory.Key))
+        {
+            return true;
+        }
+
+        _logger.LogWarning("Skipping a Plex library with an invalid key");
+
+        return false;
+    }
+
+    /// <summary>
     /// Map a Plex metadata element to a media item
     /// </summary>
     /// <param name="metadata">Plex metadata</param>
     /// <returns>Media item, or <c>null</c> if the metadata does not carry a valid rating key</returns>
     private MediaItem? MapMediaItem(PlexMetadata? metadata)
     {
-        if (metadata is null || IsValidRatingKey(metadata.RatingKey) == false)
+        if (metadata is null || IsValidKey(metadata.RatingKey) == false)
         {
             _logger.LogWarning("Skipping a Plex item with a missing or invalid rating key");
 
@@ -538,7 +586,7 @@ public sealed class PlexClient : IPlexClient
         }
 
         return directories.OfType<PlexDirectory>()
-                          .Where(d => string.IsNullOrWhiteSpace(d.Key) == false)
+                          .Where(IsLibraryKeyAccepted)
                           .Select(d => new PlexLibrary
                                        {
                                            Key = d.Key!,
@@ -595,7 +643,7 @@ public sealed class PlexClient : IPlexClient
     /// <inheritdoc/>
     public async Task<MediaItem?> GetMediaItemAsync(string ratingKey, CancellationToken cancellationToken)
     {
-        var response = await GetAsync<PlexMetadataResponse>($"/library/metadata/{ratingKey}", cancellationToken).ConfigureAwait(false);
+        var response = await GetAsync<PlexMetadataResponse>($"/library/metadata/{RequireValidKey(ratingKey, nameof(ratingKey))}", cancellationToken).ConfigureAwait(false);
         var metadata = response?.MediaContainer?.Metadata?.FirstOrDefault();
 
         if (metadata is null)
@@ -609,13 +657,13 @@ public sealed class PlexClient : IPlexClient
     /// <inheritdoc/>
     public IAsyncEnumerable<MediaItem> GetEpisodesAsync(string showRatingKey, CancellationToken cancellationToken)
     {
-        return GetPagedMediaItemsAsync($"/library/metadata/{showRatingKey}/allLeaves", cancellationToken);
+        return GetPagedMediaItemsAsync($"/library/metadata/{RequireValidKey(showRatingKey, nameof(showRatingKey))}/allLeaves", cancellationToken);
     }
 
     /// <inheritdoc/>
     public IAsyncEnumerable<MediaItem> GetLibraryItemsAsync(string libraryKey, CancellationToken cancellationToken)
     {
-        return GetPagedMediaItemsAsync($"/library/sections/{libraryKey}/all", cancellationToken);
+        return GetPagedMediaItemsAsync($"/library/sections/{RequireValidKey(libraryKey, nameof(libraryKey))}/all", cancellationToken);
     }
 
     #endregion // IPlexClient
