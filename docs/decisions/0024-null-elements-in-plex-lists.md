@@ -1,6 +1,6 @@
 # 0024: Plex list elements are declared nullable; a null element is handled like an empty one
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-24
 - **Area:** Sync pipeline
 - **Source:** Issue #246
