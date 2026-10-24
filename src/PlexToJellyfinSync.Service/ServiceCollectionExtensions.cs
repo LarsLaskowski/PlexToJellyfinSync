@@ -48,6 +48,17 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMediaItemWriter, MediaItemWriter>();
         services.AddSingleton<ISeriesAggregateWriter, SeriesAggregateWriter>();
         services.AddSingleton<ILibraryReconciler, LibraryReconciler>();
+        services.AddSingleton(serviceProvider => new SyncOrchestratorDependencies
+                                                 {
+                                                     PlexClient = serviceProvider.GetRequiredService<IPlexClient>(),
+                                                     ItemWriter = serviceProvider.GetRequiredService<IMediaItemWriter>(),
+                                                     AggregateWriter = serviceProvider.GetRequiredService<ISeriesAggregateWriter>(),
+                                                     LibraryReconciler = serviceProvider.GetRequiredService<ILibraryReconciler>(),
+                                                     StateStore = serviceProvider.GetRequiredService<IStateStore>(),
+                                                     Status = serviceProvider.GetRequiredService<ISyncStatusProvider>(),
+                                                     PlexOptions = serviceProvider.GetRequiredService<IOptions<PlexOptions>>(),
+                                                     SyncOptions = serviceProvider.GetRequiredService<IOptions<SyncOptions>>()
+                                                 });
         services.AddSingleton<ISyncOrchestrator, SyncOrchestrator>();
 
         // Registered as a named client, not a typed client (AddHttpClient<IPlexClient, PlexClient>), so

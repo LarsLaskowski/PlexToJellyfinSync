@@ -1818,15 +1818,19 @@ public sealed class SyncOrchestratorTests
         var aggregateWriter = new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter, new WatchAggregator());
         var reconciler = new LibraryReconciler(_plexClient, itemWriter, aggregateWriter, _status, options, NullLogger<LibraryReconciler>.Instance);
 
-        return new SyncOrchestrator(_plexClient,
-                                    itemWriter,
-                                    aggregateWriter,
-                                    reconciler,
-                                    _stateStore,
-                                    _status,
-                                    Options.Create(plexOptions ?? new PlexOptions()),
-                                    options,
-                                    NullLogger<SyncOrchestrator>.Instance);
+        var dependencies = new SyncOrchestratorDependencies
+                           {
+                               PlexClient = _plexClient,
+                               ItemWriter = itemWriter,
+                               AggregateWriter = aggregateWriter,
+                               LibraryReconciler = reconciler,
+                               StateStore = _stateStore,
+                               Status = _status,
+                               PlexOptions = Options.Create(plexOptions ?? new PlexOptions()),
+                               SyncOptions = options
+                           };
+
+        return new SyncOrchestrator(dependencies, NullLogger<SyncOrchestrator>.Instance);
     }
 
     /// <summary>
