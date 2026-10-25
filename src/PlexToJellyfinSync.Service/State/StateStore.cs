@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
@@ -153,8 +154,9 @@ public sealed class StateStore : IStateStore
     private async Task<SyncStateFile?> DeserializeFileAsync(CancellationToken cancellationToken)
     {
         var content = await File.ReadAllBytesAsync(_filePath, cancellationToken).ConfigureAwait(false);
+        var offset = content.AsSpan().StartsWith(Encoding.UTF8.Preamble) ? Encoding.UTF8.Preamble.Length : 0;
 
-        var probe = JsonSerializer.Deserialize<SchemaVersionProbe>(content, _jsonOptions);
+        var probe = JsonSerializer.Deserialize<SchemaVersionProbe>(content.AsSpan(offset), _jsonOptions);
 
         if (probe is null)
         {
@@ -169,7 +171,7 @@ public sealed class StateStore : IStateStore
                    };
         }
 
-        return JsonSerializer.Deserialize<SyncStateFile>(content, _jsonOptions);
+        return JsonSerializer.Deserialize<SyncStateFile>(content.AsSpan(offset), _jsonOptions);
     }
 
     /// <summary>

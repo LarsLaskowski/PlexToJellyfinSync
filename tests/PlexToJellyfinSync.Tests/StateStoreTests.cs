@@ -748,6 +748,53 @@ public sealed class StateStoreTests
     }
 
     /// <summary>
+    /// A file starting with a UTF-8 byte order mark returns its mark, logs nothing and stays unchanged
+    /// </summary>
+    /// <param name="json">JSON text of the file</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("{ \"SchemaVersion\": 1, \"HighWaterMark\": \"2026-02-03T04:05:06+00:00\" }")]
+    [DataRow("{ \"HighWaterMark\": \"2026-02-03T04:05:06+00:00\" }")]
+    public async Task StateStoreWithByteOrderMarkReadsMarkAndKeepsFile(string json)
+    {
+        var bytes = await WriteStateFileWithByteOrderMarkAsync(json);
+
+        var logger = new RecordingStateStoreLogger();
+        var mark = await CreateStore(logger).GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.AreEqual(_mark, mark, "The stored mark should be returned despite the byte order mark!");
+        Assert.IsEmpty(logger.Entries, "Nothing should be logged for a file with a byte order mark!");
+
+        var actual = await File.ReadAllBytesAsync(GetStateFilePath(), _testContext.CancellationToken);
+
+        Assert.AreSequenceEqual(bytes, actual, "The file should stay in place unchanged!");
+        Assert.IsFalse(File.Exists(GetStateFilePath() + ".corrupt"), "The file should not be preserved as corrupt!");
+    }
+
+    /// <summary>
+    /// A file starting with a UTF-8 byte order mark and holding an unsupported version is preserved as unsupported
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreWithByteOrderMarkAndUnsupportedSchemaVersionPreservesItAsUnsupported()
+    {
+        var bytes = await WriteStateFileWithByteOrderMarkAsync(CreateContentWithVersion("2"));
+
+        var logger = new RecordingStateStoreLogger();
+        var mark = await CreateStore(logger).GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.IsNull(mark, "The mark of an unsupported file should not be used!");
+        Assert.IsFalse(File.Exists(GetStateFilePath()), "The unsupported file should have been moved aside!");
+        Assert.IsFalse(File.Exists(GetStateFilePath() + ".corrupt"), "The file should not be treated as corrupt!");
+
+        var preserved = await File.ReadAllBytesAsync(GetStateFilePath() + ".unsupported", _testContext.CancellationToken);
+
+        Assert.AreSequenceEqual(bytes, preserved, "The content should be preserved unchanged!");
+        Assert.HasCount(1, logger.Entries, "Exactly one entry should be logged!");
+        Assert.AreEqual(GetUnsupportedPreservedMessage(2), logger.Entries[0].Message, "The message should name the path and the version!");
+    }
+
+    /// <summary>
     /// A new unsupported file replaces an earlier preserved copy
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -994,6 +1041,22 @@ public sealed class StateStoreTests
         Directory.CreateDirectory(_tempDirectory);
 
         await File.WriteAllTextAsync(GetStateFilePath(), content, _testContext.CancellationToken);
+    }
+
+    /// <summary>
+    /// Write the state file in the temporary directory, starting with a UTF-8 byte order mark
+    /// </summary>
+    /// <param name="json">JSON text of the file</param>
+    /// <returns>Returns the bytes written</returns>
+    private async Task<byte[]> WriteStateFileWithByteOrderMarkAsync(string json)
+    {
+        var bytes = new byte[] { 0xEF, 0xBB, 0xBF }.Concat(System.Text.Encoding.UTF8.GetBytes(json)).ToArray();
+
+        Directory.CreateDirectory(_tempDirectory);
+
+        await File.WriteAllBytesAsync(GetStateFilePath(), bytes, _testContext.CancellationToken);
+
+        return bytes;
     }
 
     /// <summary>
