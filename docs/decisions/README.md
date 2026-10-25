@@ -71,7 +71,7 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0016](0016-options-validated-at-startup.md) | Options are validated at startup with DataAnnotations | Accepted | 2026-10-02 |
 | [0017](0017-plex-token-stays-optional.md) | The Plex token stays optional | Accepted | 2026-10-02 |
 | [0018](0018-sync-orchestrator-split-into-collaborators.md) | SyncOrchestrator is split into an item writer, a series aggregate writer and a library reconciler | Accepted | 2026-10-03 |
-| [0019](0019-squad-maintained-in-the-template-repository.md) | Product PRs never change the squad; squad lessons go to the template repository | Accepted | 2026-10-03 |
+| [0019](0019-squad-maintained-in-the-template-repository.md) | Product PRs never change the squad; squad lessons go to the template repository | Superseded by [0028](0028-squad-working-records-off-main.md) | 2026-10-03 |
 | [0020](0020-squad-member-who-changed-files-runs-the-formatter.md) | In the squad, the member that changed the files runs the formatter | Accepted | 2026-10-17 |
 | [0021](0021-area-documents-and-area-assignment.md) | Four area documents; released records get their area from this record | Accepted | 2026-10-23 |
 | [0022](0022-forwarded-headers-from-configured-proxies-only.md) | Forwarded headers are trusted only from configured proxies; the login throttle is bounded | Accepted | 2026-10-23 |
@@ -80,4 +80,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0025](0025-plex-keys-allow-listed-before-request-paths.md) | Plex keys are checked against an allow-list before they reach a request path | Accepted | 2026-10-24 |
 | [0026](0026-releases-published-as-pre-release-and-promoted.md) | Releases are published as a pre-release and promoted by the release workflow | Accepted | 2026-10-24 |
 | [0027](0027-state-file-schema-version.md) | The state file records its schema version; an unknown version is set aside, not guessed at | Accepted | 2026-10-25 |
+| [0028](0028-squad-working-records-off-main.md) | Squad working records stay off main, and product PRs never change the squad | Accepted | 2026-10-25 |
 <!-- project:end index -->
