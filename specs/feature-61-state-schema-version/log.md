@@ -27,3 +27,4 @@ are quoted in full.
 | 2026-10-25 12:53 | 8 Plan update (revise) | squad-lead | plan.md aligned with SchemaVersionProbe and new tests (non-blocking review finding) (opus/medium · 11,841 tokens · 14 tool uses · 63 s · continued from 6 Docs (G4)) |
 | 2026-10-25 12:54 | 8 Review round 3 (delta) | squad-reviewer | APPROVE; BOM finding resolved, plan finding addressed (opus/medium · 4,826 tokens · 2 tool uses · 13 s · continued from 8 Review round 1) |
 | 2026-10-25 12:54 | 9 PR approval | Orchestrator | approved by checklist: round 3 clean, gates pass on head, main merged, area docs in diff; record 0027 Accepted, decision-check PASS |
+| 2026-10-25 12:54 | 10 Pull request | Orchestrator | working record posted to issue #61, work folder removed, draft PR opened |
