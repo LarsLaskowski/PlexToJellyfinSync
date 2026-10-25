@@ -149,15 +149,29 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
 
 ### State file
 
-- The high-water mark is the only persisted state. It is kept as a JSON document with one value,
-  `HighWaterMark`, in the file `state.json` in the directory `State:Directory`; the directory is created when it
-  is missing.
+- The high-water mark is the only persisted state. It is kept in the file `state.json` in the directory
+  `State:Directory`, as a JSON document with two values: `SchemaVersion`, the number of the file's format
+  (currently `1`), and `HighWaterMark`, the mark, e.g.
+  `{ "SchemaVersion": 1, "HighWaterMark": "2026-02-03T04:05:06+00:00" }` (written indented); the directory is
+  created when it is missing. Every write produces exactly these two values, `SchemaVersion` first, whatever
+  file it replaces; other values found in the file are ignored when it is read and dropped when it is next
+  written.
+- Value names are matched case-sensitively: a differently cased name, such as `schemaversion`, is an unknown
+  value and ignored. When a name occurs more than once, the last occurrence counts.
+- The version rule: a file without `SchemaVersion`, or with `SchemaVersion` `null`, is a version-1 file (the
+  format of the releases before the version was written); its mark is used and the next write adds the version.
+  `SchemaVersion` `1` is the supported version. Any other JSON integer literal in the 32-bit integer range (a
+  newer release's file after a downgrade, or a hand-edited `0` or `-1`) is an unsupported version, described
+  below. A `SchemaVersion` that is not such a literal — a string such as `"1"`, a number with a fraction or an
+  exponent such as `1.0` or `1e0`, a boolean, an object, a number outside the 32-bit range — makes the file one
+  that cannot be parsed.
 - The file is replaced atomically: the new content is written to `state.json.tmp` in the same directory and
   then moved over `state.json`, keeping the existing file's Unix file mode. A failed write — creating or serializing the
   temporary file, copying the file mode or the move — deletes the temporary file when possible and leaves
   `state.json` unchanged.
 - Reads and writes of the file are serialized within the process.
-- A missing file, or a file without a mark, means "no mark".
+- A missing file, a file holding JSON `null`, or a file of a supported version without a mark (or with a
+  `null` one) means "no mark"; nothing is logged and the file is not moved.
 - A file that cannot be parsed is moved to `state.json.corrupt` (replacing an earlier one) when that move
   succeeds, and an error is logged either way, with the parse failure attached; the run continues with "no
   mark". The error reads `State file <path> is corrupt, preserved as <path>.corrupt; starting fresh with no
@@ -165,9 +179,19 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   with no high-water mark` when the move failed, `<path>` being the full path of `state.json`. A file that could
   not be moved is overwritten when the next mark is written; until then every read, including the one that
   write makes first, tries the move again and logs the second error again while the move keeps failing.
+- A file of an unsupported version is not interpreted, and a mark it carries is not used: it is moved to
+  `state.json.unsupported` (replacing an earlier one) when that move succeeds, and an error is logged either
+  way, without an attached exception; the run continues with "no mark". The error reads `State file <path> has
+  unsupported schema version <version>, preserved as <path>.unsupported; starting fresh with no high-water mark`
+  after the move and `State file <path> has unsupported schema version <version> and could not be preserved;
+  starting fresh with no high-water mark` when the move failed, `<path>` being the full path of `state.json`
+  and `<version>` the number read. As for a file that cannot be parsed, a file that could not be moved is
+  overwritten when the next mark is written; until then every read, including the one that write makes first,
+  tries the move again and logs the second error again while the move keeps failing.
 - Any other read error is logged as the warning `Could not read state file <path>, starting fresh`, with the
   read failure attached, and treated as "no mark"; the file is not moved.
-- In every "no mark" case the next history run sets the mark to the current time and processes nothing, so plays
+- In every "no mark" case — a missing file or one without a mark, a file that cannot be parsed, a file of an
+  unsupported version, any other read error — the next history run sets the mark to the current time and processes nothing, so plays
   between the lost mark and that moment reach the `.nfo` files only through the next full reconcile.
 
 ### Run status
@@ -246,6 +270,8 @@ The application keeps one in-memory status, reset when the process starts. Its v
   element of a Plex list is handled like an empty element.
 - [`decisions/0025-plex-keys-allow-listed-before-request-paths.md`](../decisions/0025-plex-keys-allow-listed-before-request-paths.md)
   — Plex keys are checked against an allow-list before they reach a request path.
+- [`decisions/0027-state-file-schema-version.md`](../decisions/0027-state-file-schema-version.md) — the state
+  file records its schema version; a file of an unknown version is set aside, not guessed at.
 
 The rules above are implemented in `src/PlexToJellyfinSync/Worker.cs` and, under
 `src/PlexToJellyfinSync.Service/`, in `SyncOrchestrator.cs`, `LibraryReconciler.cs`, `SeriesAggregateWriter.cs`,

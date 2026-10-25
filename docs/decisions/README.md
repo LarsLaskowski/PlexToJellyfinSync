@@ -79,4 +79,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0024](0024-null-elements-in-plex-lists.md) | Plex list elements are declared nullable; a null element is handled like an empty one | Accepted | 2026-10-24 |
 | [0025](0025-plex-keys-allow-listed-before-request-paths.md) | Plex keys are checked against an allow-list before they reach a request path | Accepted | 2026-10-24 |
 | [0026](0026-releases-published-as-pre-release-and-promoted.md) | Releases are published as a pre-release and promoted by the release workflow | Accepted | 2026-10-24 |
+| [0027](0027-state-file-schema-version.md) | The state file records its schema version; an unknown version is set aside, not guessed at | Accepted | 2026-10-25 |
 <!-- project:end index -->

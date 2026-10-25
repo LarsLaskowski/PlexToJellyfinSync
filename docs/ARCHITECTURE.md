@@ -167,7 +167,7 @@ Plex path becomes a local path and what a write changes in an `.nfo` file is sta
    Reads and writes both go through a `SemaphoreSlim(1, 1)` gate so concurrent calls (there should only ever
    be one, from `Worker`, but the guard is cheap insurance) cannot interleave a read-modify-write, and a write
    replaces the file through a temporary sibling and `File.Move(overwrite: true)` the same way `NfoWriter`
-   does. The file, its atomic replace and the handling of a missing or unreadable file are stated under
+   does. The file, its atomic replace and the handling of a missing, unreadable or unsupported file are stated under
    [*State file*](areas/sync-pipeline.md#state-file).
 8. **`SyncStatusService`** (`src/PlexToJellyfinSync.Service/SyncStatusService.cs`) holds one
    mutable `SyncStatusViewData` behind a `Lock`, exposes immutable snapshots via `GetSnapshot()`,

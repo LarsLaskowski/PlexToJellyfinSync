@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
@@ -103,16 +104,27 @@ public sealed class StateStore : IStateStore
 
         try
         {
-            await using var stream = File.OpenRead(_filePath);
-            var state = await JsonSerializer.DeserializeAsync<SyncStateFile>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+            var state = await DeserializeFileAsync(cancellationToken).ConfigureAwait(false);
 
-            return state ?? new SyncStateFile();
+            if (state is null)
+            {
+                return new SyncStateFile();
+            }
+
+            if (state.SchemaVersion is null or SyncStateFile.CurrentSchemaVersion)
+            {
+                return state;
+            }
+
+            RejectUnsupportedFile(state.SchemaVersion.Value);
+
+            return new SyncStateFile();
         }
         catch (JsonException ex)
         {
             var corruptPath = _filePath + ".corrupt";
 
-            if (PreserveCorruptFile(corruptPath))
+            if (PreserveFile(corruptPath))
             {
                 _logger.LogError(ex, "State file {Path} is corrupt, preserved as {CorruptPath}; starting fresh with no high-water mark", _filePath, corruptPath);
             }
@@ -132,15 +144,64 @@ public sealed class StateStore : IStateStore
     }
 
     /// <summary>
-    /// Move the corrupt state file aside so the failure can be investigated instead of being overwritten
+    /// Read the state file and bind it only if its schema version is supported
     /// </summary>
-    /// <param name="corruptPath">Path to preserve the corrupt file at</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>
+    /// The deserialized state; a state that carries only the schema version if the version is unsupported;
+    /// <c>null</c> if the file holds a JSON null
+    /// </returns>
+    private async Task<SyncStateFile?> DeserializeFileAsync(CancellationToken cancellationToken)
+    {
+        var content = await File.ReadAllBytesAsync(_filePath, cancellationToken).ConfigureAwait(false);
+        var offset = content.AsSpan().StartsWith(Encoding.UTF8.Preamble) ? Encoding.UTF8.Preamble.Length : 0;
+
+        var probe = JsonSerializer.Deserialize<SchemaVersionProbe>(content.AsSpan(offset), _jsonOptions);
+
+        if (probe is null)
+        {
+            return null;
+        }
+
+        if (probe.SchemaVersion is not null and not SyncStateFile.CurrentSchemaVersion)
+        {
+            return new SyncStateFile
+                   {
+                       SchemaVersion = probe.SchemaVersion
+                   };
+        }
+
+        return JsonSerializer.Deserialize<SyncStateFile>(content.AsSpan(offset), _jsonOptions);
+    }
+
+    /// <summary>
+    /// Move a state file of an unsupported schema version aside and log it
+    /// </summary>
+    /// <param name="schemaVersion">Schema version read from the file</param>
+    private void RejectUnsupportedFile(int schemaVersion)
+    {
+        var unsupportedPath = _filePath + ".unsupported";
+
+        if (PreserveFile(unsupportedPath))
+        {
+            _logger.LogError("State file {Path} has unsupported schema version {SchemaVersion}, preserved as {PreservedPath}; starting fresh with no high-water mark", _filePath, schemaVersion, unsupportedPath);
+        }
+        else
+        {
+            _logger.LogError("State file {Path} has unsupported schema version {SchemaVersion} and could not be preserved; starting fresh with no high-water mark", _filePath, schemaVersion);
+        }
+    }
+
+    /// <summary>
+    /// Move the state file aside so it can be investigated instead of being overwritten
+    /// </summary>
+    /// <param name="preservedPath">Path to preserve the file at</param>
     /// <returns><c>true</c> if the file was preserved; <c>false</c> if the move itself failed</returns>
-    private bool PreserveCorruptFile(string corruptPath)
+    private bool PreserveFile(string preservedPath)
     {
         try
         {
-            File.Move(_filePath, corruptPath, overwrite: true);
+            File.Move(_filePath, preservedPath, overwrite: true);
 
             return true;
         }
@@ -186,6 +247,7 @@ public sealed class StateStore : IStateStore
             }
 
             var state = await ReadAsync(cancellationToken).ConfigureAwait(false);
+            state.SchemaVersion = SyncStateFile.CurrentSchemaVersion;
             state.HighWaterMark = value;
 
             var tempPath = _filePath + ".tmp";
