@@ -103,8 +103,7 @@ public sealed class StateStore : IStateStore
 
         try
         {
-            await using var stream = File.OpenRead(_filePath);
-            var state = await JsonSerializer.DeserializeAsync<SyncStateFile>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+            var state = await DeserializeFileAsync(cancellationToken).ConfigureAwait(false);
 
             return state ?? new SyncStateFile();
         }
@@ -112,7 +111,7 @@ public sealed class StateStore : IStateStore
         {
             var corruptPath = _filePath + ".corrupt";
 
-            if (PreserveCorruptFile(corruptPath))
+            if (PreserveFile(corruptPath))
             {
                 _logger.LogError(ex, "State file {Path} is corrupt, preserved as {CorruptPath}; starting fresh with no high-water mark", _filePath, corruptPath);
             }
@@ -132,15 +131,27 @@ public sealed class StateStore : IStateStore
     }
 
     /// <summary>
-    /// Move the corrupt state file aside so the failure can be investigated instead of being overwritten
+    /// Open, deserialize and close the state file
     /// </summary>
-    /// <param name="corruptPath">Path to preserve the corrupt file at</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The deserialized state, or <c>null</c> if the file holds a JSON null</returns>
+    private async Task<SyncStateFile?> DeserializeFileAsync(CancellationToken cancellationToken)
+    {
+        await using var stream = File.OpenRead(_filePath);
+
+        return await JsonSerializer.DeserializeAsync<SyncStateFile>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Move the state file aside so it can be investigated instead of being overwritten
+    /// </summary>
+    /// <param name="preservedPath">Path to preserve the file at</param>
     /// <returns><c>true</c> if the file was preserved; <c>false</c> if the move itself failed</returns>
-    private bool PreserveCorruptFile(string corruptPath)
+    private bool PreserveFile(string preservedPath)
     {
         try
         {
-            File.Move(_filePath, corruptPath, overwrite: true);
+            File.Move(_filePath, preservedPath, overwrite: true);
 
             return true;
         }
