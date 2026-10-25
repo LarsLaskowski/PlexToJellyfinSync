@@ -1,6 +1,6 @@
 # 0027: The state file records its schema version; an unknown version is set aside, not guessed at
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-25
 - **Area:** Sync pipeline
 - **Source:** Issue #61

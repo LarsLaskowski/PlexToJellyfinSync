@@ -25,3 +25,5 @@ are quoted in full.
 | 2026-10-25 12:53 | 5 Fix round 2 (Tester) | squad-tester | BOM tests (3, verified to fail without the fix); 623 tests pass (sonnet/medium · 5,517 tokens · 5 tool uses · 108 s · continued from 5 Tests first (G2)) |
 | 2026-10-25 12:53 | 7 Code check (fix round 2) | Orchestrator | Format 0/133, 623 tests, coverage gate PASS (new 100% 29/29, overall 90.8%), analyzer 0 diagnostics in changed files, scope-check PASS; Sonar NOT CHECKED |
 | 2026-10-25 12:53 | 8 Plan update (revise) | squad-lead | plan.md aligned with SchemaVersionProbe and new tests (non-blocking review finding) (opus/medium · 11,841 tokens · 14 tool uses · 63 s · continued from 6 Docs (G4)) |
+| 2026-10-25 12:54 | 8 Review round 3 (delta) | squad-reviewer | APPROVE; BOM finding resolved, plan finding addressed (opus/medium · 4,826 tokens · 2 tool uses · 13 s · continued from 8 Review round 1) |
+| 2026-10-25 12:54 | 9 PR approval | Orchestrator | approved by checklist: round 3 clean, gates pass on head, main merged, area docs in diff; record 0027 Accepted, decision-check PASS |
