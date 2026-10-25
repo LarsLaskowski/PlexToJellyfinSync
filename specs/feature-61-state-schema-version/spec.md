@@ -1,7 +1,7 @@
 # Spec: Schema version in the state file
 
 Source: Issue #61
-Status: Draft
+Status: Approved by Lead
 
 ## Problem
 
@@ -24,7 +24,7 @@ options set only `WriteIndented`, and the existing test reads a mark from a file
 
 - S1: Given any start of the application, when a history run writes the high-water mark, then `state.json`
   holds a JSON object with the values `SchemaVersion` and `HighWaterMark`, in this order, `SchemaVersion` being
-  the whole number `1` and `HighWaterMark` the mark as today, e.g.
+  the integer `1` and `HighWaterMark` the mark as today, e.g.
   `{ "SchemaVersion": 1, "HighWaterMark": "2026-02-03T04:05:06+00:00" }` (indented as today).
 - S2: Given a `state.json` written by an earlier release, holding `HighWaterMark` without `SchemaVersion`,
   when the application starts and the history run reads the mark, then the file is read as version 1: the
@@ -38,20 +38,22 @@ options set only `WriteIndented`, and the existing test reads a mark from a file
 
 ## Errors and edge cases
 
-- E1: `state.json` holds a `SchemaVersion` that is a whole number other than `1` (a file of a newer release
+- E1: `state.json` holds a `SchemaVersion` that is a JSON integer literal (digits with an optional leading
+  minus, without fraction or exponent) in the 32-bit integer range, other than `1` (a file of a newer release
   after a downgrade, or a hand-edited `0` or `-1`). The file is not interpreted: it is moved to
   `state.json.unsupported` (replacing an earlier one), the error
   `State file <path> has unsupported schema version <version>, preserved as <path>.unsupported; starting fresh with no high-water mark`
   is logged, `<path>` being the full path of `state.json` and `<version>` the number read, and the run continues
   with "no mark" (the history run seeds the mark to the current time; the next full reconcile covers the gap).
   The mark the file may carry is not used, even when it looks readable.
-- E2: As E1, but moving the file fails (for example a read-only directory). The error
+- E2: As E1, but moving the file fails (for example a directory in the way at `state.json.unsupported`). The error
   `State file <path> has unsupported schema version <version> and could not be preserved; starting fresh with no high-water mark`
   is logged and the run continues with "no mark". As for a corrupt file, the file stays in place, every
   following read tries the move again and logs the error again while the move keeps failing, and the next
   successful mark write replaces the file with a version-1 file (S1).
-- E3: `SchemaVersion` is present but not a whole number in the JSON number range of a 32-bit integer (a string
-  such as `"1"`, a fraction such as `1.5`, `true`, an object, a number beyond 2147483647). The file counts as
+- E3: `SchemaVersion` is present but not a JSON integer literal in the 32-bit integer range: a string such as
+  `"1"`, a number with a fraction or an exponent such as `1.5`, `1.0`, `2.0` or `1e0` (even where the value is
+  whole), `true`, an object, a number beyond 2147483647. The file counts as
   corrupt and is handled exactly as a corrupt file today: moved to `state.json.corrupt` with the existing error
   texts and the parse failure attached, run continues with "no mark".
 - E4: `SchemaVersion` is JSON `null`. Treated as a missing version, i.e. version 1 (S2).
@@ -59,7 +61,11 @@ options set only `WriteIndented`, and the existing test reads a mark from a file
   mark", as a file without a mark does today; nothing is logged and the file is not moved.
 - E6: Other existing cases are unchanged: a file holding JSON `null`, an empty or unparsable file, a mark that is
   not a time, an unreadable file, and unknown additional values next to a supported version (still ignored, and
-  dropped when the file is next written).
+  dropped when the file is next written). Value names are matched case-sensitively, as `HighWaterMark` is
+  today: a differently cased name such as `"schemaversion": 2` is an unknown value, so that file counts as
+  version 1 and its mark is used.
+- E9: `SchemaVersion` appears more than once in the file: the last occurrence counts (for example
+  `"SchemaVersion": 1` followed by `"SchemaVersion": 2` is unsupported, E1).
 - E7: Concurrent reads and writes within the process stay serialized: a write that first reads an unsupported
   file (E1) moves it aside, logs E1 once for that read, and then writes the version-1 file.
 - E8: Downgrade to a release before this feature: that release reads the version-1 file, uses its mark and
@@ -91,21 +97,25 @@ options set only `WriteIndented`, and the existing test reads a mark from a file
   stored mark, logs nothing and is left in place; the next write turns it into the file of AC1 (S2, S3, E4).
 - [ ] AC3: A file with `"SchemaVersion": 1` and a mark returns that mark; with `"SchemaVersion": 1` and no mark
   or a `null` mark it returns no mark; in both cases nothing is logged and the file stays in place (S4, E5).
-- [ ] AC4: A file whose `SchemaVersion` is a whole number other than `1` (tested with `2`, `0` and `-1`) returns
+- [ ] AC4: A file whose `SchemaVersion` is an integer literal other than `1` (tested with `2`, `0` and `-1`) returns
   no mark even though it carries a readable mark, is moved to `state.json.unsupported` with its content
   unchanged, replacing an earlier `state.json.unsupported`, and logs exactly one error with the first E1 text,
   the full path and the version, and no exception; a mark write that finds such a file logs that error once,
   moves the file and then writes the file of AC1 (E1, E7).
-- [ ] AC5: When the move of AC4 fails, the read returns no mark, the file stays in place with its content, and
+- [ ] AC5: When the move of AC4 fails (tested with a non-empty directory at `state.json.unsupported`), the read returns no mark, the file stays in place with its content, and
   exactly one error with the E2 text is logged per read; the next write replaces the file with the file of AC1
   (E2).
-- [ ] AC6: A file whose `SchemaVersion` is a string, a fraction, a boolean or a number beyond the 32-bit range is
+- [ ] AC6: A file whose `SchemaVersion` is a string (`"1"`), a fraction (`1.5`), a whole number written with a
+  fraction (`1.0`), a boolean or a number beyond the 32-bit range is
   handled as a corrupt file: no mark, moved to `state.json.corrupt`, the existing corrupt error with the parse
   failure attached (E3).
-- [ ] AC7: The existing state-file behavior of E6 is unchanged: the existing `StateStoreTests` pass, the one that
-  reads a mark next to `"SchemaVersion": 2` adapted to an unknown value that is not `SchemaVersion` (E6).
+- [ ] AC7: The existing state-file behavior of E6 is unchanged: the existing `StateStoreTests` pass, with two of
+  them adapted — `StateStoreWithUnknownValueReadsMark` to an unknown value that is not `SchemaVersion`, and
+  `StateStoreWritesMarkInDocumentedFormat` (test and summary) rewritten to the two values of AC1 (E6).
+- [ ] AC9: A file with `"schemaversion": 2` and a mark returns the mark, logs nothing and stays in place; a file
+  with `"SchemaVersion": 1` followed by `"SchemaVersion": 2` and a mark is handled as AC4 (E6, E9).
 - [ ] AC8: `docs/areas/sync-pipeline.md`, *State file*, states the two values, the version rule (missing or
-  `null` is 1, any other whole number is unsupported) and the E1/E2 texts (S1, E1, E2).
+  `null` is 1, any other integer literal is unsupported, a value that is not an integer literal is corrupt) and the E1/E2 texts (S1, E1, E2).
 
 ## Out of scope
 
@@ -128,7 +138,7 @@ options set only `WriteIndented`, and the existing test reads a mark from a file
   Answered: the file is not damaged, and a separate name keeps a corrupt file and an unsupported one from
   replacing each other; the log text names the path either way.
 - Should `0` and negative numbers count as corrupt rather than unsupported?
-  Answered: no; one rule (any whole number other than `1` is unsupported) is simpler to state and test, and the
+  Answered: no; one rule (any integer literal other than `1` is unsupported) is simpler to state and test, and the
   log line names the number read, so the operator sees what was found.
 - Does the change need a decision record?
   Answered: yes, for the plan: decision 0005, released in v1.0.0 and later tags, states under *Consequences*
@@ -139,18 +149,26 @@ options set only `WriteIndented`, and the existing test reads a mark from a file
 
 - `docs/areas/sync-pipeline.md`, *State file*: the file holds `SchemaVersion` (currently `1`) and
   `HighWaterMark`; a file without a version, or with `null`, is a version-1 file of an earlier release and is
-  upgraded by the next write; any other whole number is unsupported, moved to `state.json.unsupported` with the
-  E1/E2 error texts, and means "no mark"; a version that is not a whole number makes the file corrupt. The
+  upgraded by the next write; any other integer literal is unsupported, moved to `state.json.unsupported` with the
+  E1/E2 error texts, and means "no mark"; a version that is not an integer literal (a string, a fraction, an exponent, out of range) makes the file corrupt; names are case-sensitive and the last of duplicated names counts. The
   sentence "The high-water mark is the only persisted state. It is kept as a JSON document with one value"
   is reworded accordingly, and the "no mark" list at the end of the section includes the unsupported case.
 - `docs/ARCHITECTURE.md`, component 7 (`StateStore`): already links *State file* for the handling of a
   missing or unreadable file; the plan checks whether it needs a word on the version, no guarantee changes.
 
-## Challenge notes
+## Challenge
 
-Minor objections of the spec challenge (verbatim):
+The four minor objections of the spec challenge, all accepted:
 
-1. **minor - AC7 contradicts AC1 on the existing tests.** AC7 says "the existing `StateStoreTests` pass" and names only `StateStoreWithUnknownValueReadsMark` as adapted. But `StateStoreWritesMarkInDocumentedFormat` (`tests/PlexToJellyfinSync.Tests/StateStoreTests.cs:399-422`) asserts `Assert.HasCount(1, properties, "The state file should hold exactly one value!")` and `properties[0].Name == "HighWaterMark"`, so it must fail once AC1 holds. Instruction: in AC7, also name `StateStoreWritesMarkInDocumentedFormat` as rewritten to AC1 (two values, `SchemaVersion` first). Its XML summary ("the single value HighWaterMark") needs updating too. Why minor: the Tester would notice anyway, but the criterion as written cannot be met.
-2. **minor - "whole number" is not what the deserializer accepts.** E1/E3 sort values by "a whole number" in the 32-bit range. `System.Text.Json` reads an `int`/`int?` only from an integer literal, so `2.0`, `1.0` or `1e0` (mathematically whole) throw `JsonException` and become corrupt, not unsupported or version 1. Instruction: define the version as "a JSON integer literal without fraction or exponent in the `Int32` range". Move `1.0`, `2.0` and `1e0` explicitly into E3 (corrupt), and add one of them to the AC6 test values. Why minor: it only pins down the edge-case wording; the planned behavior does not change.
-3. **minor - property-name case and duplicate names are not specified.** The default options are case-sensitive (`StateStore.cs:18-21`). A hand-edited `"schemaversion": 2` is therefore skipped as an unknown value, and the file is read as version 1 with its mark used. That runs against the spec's goal of not guessing at an unknown format. A duplicated `SchemaVersion` key resolves last-wins under default options. Instruction: say in E6 (or a new edge case) that value names are matched case-sensitively, as `HighWaterMark` is today, so a differently cased `SchemaVersion` is an unknown value and the file counts as version 1. Also say a duplicated `SchemaVersion` uses the last occurrence, or decide otherwise in the plan; either way, pin the choice with one test. Why minor: it is about hand-edited files and needs at most one sentence and one test, not a design change.
-4. **minor - E2's example contradicts E2's own recovery path.** E2 gives "a read-only directory" as the cause of a failed move, then says "the next successful mark write replaces the file with a version-1 file". In a read-only directory the atomic write (`state.json.tmp` plus move, `StateStore.cs:212-218`) fails too, so no such write happens. The existing corrupt-file tests block the move with a non-empty directory at the target path instead (`StateStoreTests.cs:573-581`). Instruction: replace the example with "for example a directory in the way at `state.json.unsupported`", and test AC5 that way, mirroring `CreateUnmovableCorruptFileAsync`. Why minor: wording and test setup only.
+1. AC7 contradicted AC1 on the existing tests. Accepted: AC7 now names `StateStoreWritesMarkInDocumentedFormat`
+   (test and XML summary) as rewritten to the two values of AC1, next to `StateStoreWithUnknownValueReadsMark`.
+2. "Whole number" is not what the deserializer accepts. Accepted: E1 defines the version as a JSON integer
+   literal without fraction or exponent in the 32-bit range; E3 lists `1.0`, `2.0` and `1e0` as corrupt; AC6
+   tests `1.0`; AC4, AC8, the open questions and the area outline use "integer literal".
+3. Name case and duplicate names were not specified. Accepted: E6 states case-sensitive matching (a
+   differently cased `SchemaVersion` is an unknown value, the file is version 1), the new E9 states that the
+   last of duplicated `SchemaVersion` names counts, and the new AC9 pins both with one test each. Last-wins is
+   kept rather than rejecting duplicates: it is the deserializer's default and a duplicate key only arises from
+   a hand edit.
+4. E2's example contradicted its own recovery path. Accepted: the example is now a directory in the way at
+   `state.json.unsupported`, and AC5 is tested that way, mirroring `CreateUnmovableCorruptFileAsync`.
