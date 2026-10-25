@@ -143,15 +143,33 @@ public sealed class StateStore : IStateStore
     }
 
     /// <summary>
-    /// Open, deserialize and close the state file
+    /// Read the state file and bind it only if its schema version is supported
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>The deserialized state, or <c>null</c> if the file holds a JSON null</returns>
+    /// <returns>
+    /// The deserialized state; a state that carries only the schema version if the version is unsupported;
+    /// <c>null</c> if the file holds a JSON null
+    /// </returns>
     private async Task<SyncStateFile?> DeserializeFileAsync(CancellationToken cancellationToken)
     {
-        await using var stream = File.OpenRead(_filePath);
+        var content = await File.ReadAllBytesAsync(_filePath, cancellationToken).ConfigureAwait(false);
 
-        return await JsonSerializer.DeserializeAsync<SyncStateFile>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        var probe = JsonSerializer.Deserialize<SchemaVersionProbe>(content, _jsonOptions);
+
+        if (probe is null)
+        {
+            return null;
+        }
+
+        if (probe.SchemaVersion is not null and not SyncStateFile.CurrentSchemaVersion)
+        {
+            return new SyncStateFile
+                   {
+                       SchemaVersion = probe.SchemaVersion
+                   };
+        }
+
+        return JsonSerializer.Deserialize<SyncStateFile>(content, _jsonOptions);
     }
 
     /// <summary>

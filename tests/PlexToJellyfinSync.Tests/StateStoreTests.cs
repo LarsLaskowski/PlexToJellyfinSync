@@ -605,13 +605,16 @@ public sealed class StateStoreTests
     }
 
     /// <summary>
-    /// A file without a schema version is upgraded by the next write
+    /// A file without a schema version, or with a null one, is upgraded by the next write
     /// </summary>
+    /// <param name="content">File content</param>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
-    public async Task StateStoreWithoutSchemaVersionIsUpgradedByNextWrite()
+    [DataRow("{ \"HighWaterMark\": \"2026-02-03T04:05:06+00:00\" }")]
+    [DataRow("{ \"SchemaVersion\": null, \"HighWaterMark\": \"2026-02-03T04:05:06+00:00\" }")]
+    public async Task StateStoreWithoutSchemaVersionIsUpgradedByNextWrite(string content)
     {
-        await WriteStateFileAsync("{ \"HighWaterMark\": \"2026-02-03T04:05:06+00:00\" }");
+        await WriteStateFileAsync(content);
 
         var later = _mark.AddHours(3);
 
@@ -687,6 +690,61 @@ public sealed class StateStoreTests
         Assert.AreEqual(LogLevel.Error, logger.Entries[0].Level, "The unsupported file should be logged as an error!");
         Assert.AreEqual(GetUnsupportedPreservedMessage(version), logger.Entries[0].Message, "The message should name the path and the version!");
         Assert.IsNull(logger.Entries[0].Exception, "No exception should be attached!");
+    }
+
+    /// <summary>
+    /// A file of an unsupported version is preserved as unsupported even when its mark is not a time
+    /// </summary>
+    /// <param name="content">File content</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [DataRow("{ \"SchemaVersion\": 2, \"HighWaterMark\": 1767000000 }")]
+    [DataRow("{ \"SchemaVersion\": 2, \"HighWaterMark\": { \"Utc\": \"x\" } }")]
+    [DataRow("{ \"SchemaVersion\": 2, \"HighWaterMark\": \"not a time\" }")]
+    public async Task StateStoreWithUnsupportedSchemaVersionAndNonTimeMarkPreservesItAsUnsupported(string content)
+    {
+        await WriteStateFileAsync(content);
+
+        var logger = new RecordingStateStoreLogger();
+        var mark = await CreateStore(logger).GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.IsNull(mark, "The mark of an unsupported file should not be used!");
+        Assert.IsFalse(File.Exists(GetStateFilePath()), "The unsupported file should have been moved aside!");
+        Assert.IsFalse(File.Exists(GetStateFilePath() + ".corrupt"), "The file should not be treated as corrupt!");
+
+        var preserved = await File.ReadAllTextAsync(GetStateFilePath() + ".unsupported", _testContext.CancellationToken);
+
+        Assert.AreEqual(content, preserved, "The content should be preserved unchanged!");
+        Assert.HasCount(1, logger.Entries, "Exactly one entry should be logged!");
+        Assert.AreEqual(LogLevel.Error, logger.Entries[0].Level, "The unsupported file should be logged as an error!");
+        Assert.AreEqual(GetUnsupportedPreservedMessage(2), logger.Entries[0].Message, "The message should name the path and the version!");
+        Assert.IsNull(logger.Entries[0].Exception, "No exception should be attached!");
+    }
+
+    /// <summary>
+    /// A file of version 1 whose mark is not a time is preserved as corrupt
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreWithSchemaVersionOneAndNonTimeMarkPreservesItAsCorrupt()
+    {
+        const string content = "{ \"SchemaVersion\": 1, \"HighWaterMark\": \"not a time\" }";
+
+        await WriteStateFileAsync(content);
+
+        var logger = new RecordingStateStoreLogger();
+        var mark = await CreateStore(logger).GetHighWaterMarkAsync(CancellationToken.None);
+
+        Assert.IsNull(mark, "A mark that is not a time should yield no mark!");
+        Assert.IsFalse(File.Exists(GetStateFilePath()), "The file should have been moved aside!");
+        Assert.IsFalse(File.Exists(GetStateFilePath() + ".unsupported"), "The file should not be treated as unsupported!");
+
+        var preserved = await File.ReadAllTextAsync(GetStateFilePath() + ".corrupt", _testContext.CancellationToken);
+
+        Assert.AreEqual(content, preserved, "The original content should be preserved as corrupt!");
+        Assert.HasCount(1, logger.Entries, "Exactly one entry should be logged!");
+        Assert.AreEqual(GetCorruptPreservedMessage(), logger.Entries[0].Message, "The existing corrupt message should be logged!");
+        Assert.IsInstanceOfType<JsonException>(logger.Entries[0].Exception, "The parse failure should be attached!");
     }
 
     /// <summary>
