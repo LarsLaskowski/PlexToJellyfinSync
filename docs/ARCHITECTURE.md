@@ -303,8 +303,8 @@ how the image is built and released.
   every local build — see [decision 0009](decisions/0009-quality-gates-before-the-pull-request.md) and
   [decision 0020](decisions/0020-squad-member-who-changed-files-runs-the-formatter.md).
 - **CodeQL** (`.github/workflows/codeql.yml`) runs on push/PR to `main` and weekly on a schedule,
-  analyzing both C# and JavaScript/TypeScript in `build-mode: none` (no compiled build needed for
-  CodeQL's extraction).
+  analyzing C#, JavaScript/TypeScript and the GitHub Actions workflows in `build-mode: none` (no
+  compiled build needed for CodeQL's extraction).
 - **Dependabot** (`.github/dependabot.yml`) checks weekly for `github-actions`, `nuget`, and
   `docker` updates, each grouped into a single PR per ecosystem (capped at 10 open PRs) instead of
   one PR per dependency.
