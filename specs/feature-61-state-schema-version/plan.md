@@ -40,11 +40,11 @@ and `[UnsupportedOSPlatform("windows")]` like their corrupt-file counterparts, w
 | AC | Test(s) | Test file |
 | -- | ------- | --------- |
 | AC1 | `StateStoreWritesMarkInDocumentedFormat` (rewritten: two values, `SchemaVersion` first with number `1`, then `HighWaterMark` parsing back to the tick, no prior file); `StateStoreWithVersionOneFileWritesSchemaVersionOnNextWrite` | `StateStoreTests.cs` |
-| AC2 | `StateStoreWithoutSchemaVersionReadsMarkAndKeepsFile` (mark returned, no log entry, file unchanged); `StateStoreWithNullSchemaVersionReadsMark`; `StateStoreWithoutSchemaVersionIsUpgradedByNextWrite` (file then equals the AC1 layout) | `StateStoreTests.cs` |
+| AC2 | `StateStoreWithoutSchemaVersionReadsMarkAndKeepsFile` (mark returned, no log entry, file unchanged); `StateStoreWithNullSchemaVersionReadsMark`; `StateStoreWithoutSchemaVersionIsUpgradedByNextWrite` (`DataRow`: no `SchemaVersion`, `"SchemaVersion": null`; file then equals the AC1 layout); `StateStoreWithByteOrderMarkReadsMarkAndKeepsFile` (`DataRow`: version 1, no version; a BOM-prefixed file reads its mark and stays in place) | `StateStoreTests.cs` |
 | AC3 | `StateStoreWithSchemaVersionOneReadsMark`; `StateStoreWithSchemaVersionOneWithoutMarkReturnsNull` (`DataRow`: no `HighWaterMark`, `HighWaterMark` `null`; no log entry, file in place) | `StateStoreTests.cs` |
-| AC4 | `StateStoreWithUnsupportedSchemaVersionPreservesItAsUnsupported` (`DataRow` `2`, `0`, `-1`, each with a readable mark: no mark, `state.json` gone, `state.json.unsupported` with the original content, one error with the exact E1 text and no exception); `StateStoreWithUnsupportedSchemaVersionReplacesEarlierUnsupportedCopy`; `StateStoreWithUnsupportedSchemaVersionIsReplacedByNextWrite` (one error logged by the write's read, then the AC1 file) | `StateStoreTests.cs` |
+| AC4 | `StateStoreWithUnsupportedSchemaVersionPreservesItAsUnsupported` (`DataRow` `2`, `0`, `-1`, each with a readable mark: no mark, `state.json` gone, `state.json.unsupported` with the original content, one error with the exact E1 text and no exception); `StateStoreWithUnsupportedSchemaVersionAndNonTimeMarkPreservesItAsUnsupported` (`DataRow`: a number, an object, a non-time string as `HighWaterMark` next to version `2`: handled as unsupported, not corrupt); `StateStoreWithByteOrderMarkAndUnsupportedSchemaVersionPreservesItAsUnsupported`; `StateStoreWithUnsupportedSchemaVersionReplacesEarlierUnsupportedCopy`; `StateStoreWithUnsupportedSchemaVersionIsReplacedByNextWrite` (one error logged by the write's read, then the AC1 file) | `StateStoreTests.cs` |
 | AC5 | `StateStoreWithUnmovableUnsupportedFileKeepsItAndLogsError` (no mark, file and content in place, one error with the exact E2 text); `StateStoreWithUnmovableUnsupportedFileIsOverwrittenByNextWrite` (read then write: two E2 errors, then the new mark reads back and the file has the AC1 layout) | `StateStoreTests.cs` |
-| AC6 | `StateStoreWithNonIntegerSchemaVersionPreservesItAsCorrupt` (`DataRow` `"1"`, `1.5`, `1.0`, `true`, `2147483648`: no mark, moved to `state.json.corrupt`, the existing corrupt error text, `JsonException` attached) | `StateStoreTests.cs` |
+| AC6 | `StateStoreWithNonIntegerSchemaVersionPreservesItAsCorrupt` (`DataRow` `"1"`, `1.5`, `1.0`, `true`, `2147483648`: no mark, moved to `state.json.corrupt`, the existing corrupt error text, `JsonException` attached); `StateStoreWithSchemaVersionOneAndNonTimeMarkPreservesItAsCorrupt` (version 1 with a mark that is not a time stays corrupt) | `StateStoreTests.cs` |
 | AC7 | the existing `StateStoreTests`, with `StateStoreWithUnknownValueReadsMark` adapted (unknown value `"Comment": "x"` instead of `"SchemaVersion": 2`) and `StateStoreWritesMarkInDocumentedFormat` rewritten (row AC1, summary included) | `StateStoreTests.cs` |
 | AC8 | no test: the Reviewer reads the *State file* section against AC8 and the final code in step 8; the Lead's `docs` task checks every statement against the code | `docs/areas/sync-pipeline.md` |
 | AC9 | `StateStoreWithDifferentlyCasedSchemaVersionReadsMark` (`"schemaversion": 2` plus mark: mark returned, no log entry, file in place); `StateStoreWithDuplicateSchemaVersionUsesLastOccurrence` (`"SchemaVersion": 1`, then `"SchemaVersion": 2`, plus mark: handled as AC4) | `StateStoreTests.cs` |
@@ -64,13 +64,19 @@ and the test fails on "moved to `state.json.corrupt`", because a version-1 file 
    `HighWaterMark` so it is written first.
 2. `SetHighWaterMarkAsync` sets `state.SchemaVersion = SyncStateFile.CurrentSchemaVersion` next to the mark,
    so every write produces the AC1 file whatever it read.
-3. `ReadAsync` deserializes through a new helper `DeserializeFileAsync`, which owns the read stream, so the
-   stream is closed before any move (fact 3 — the move must not run with the file still open). After the
-   helper returns: a `null` result or a `SchemaVersion` of `null` or `1` returns the state as today; any other
-   value moves the file with the renamed `PreserveFile` to `_filePath + ".unsupported"`, logs E1 or E2 at
-   level error with no exception (message template placeholders `{Path}`, `{SchemaVersion}`,
-   `{PreservedPath}`), and returns `new SyncStateFile()`. The `JsonException` and generic catches stay as they
-   are and keep wrapping the helper call, so E3 and E6 are unchanged.
+3. `ReadAsync` deserializes through a new helper `DeserializeFileAsync`, which reads the whole file into bytes
+   with `File.ReadAllBytesAsync`, so no handle is open before any move (fact 3 — the move must not run with the
+   file still open), and skips a leading UTF-8 byte order mark as the stream deserializer did. It first binds
+   the bytes to the internal type `SchemaVersionProbe` (only `SchemaVersion`) with the same `_jsonOptions`: a
+   JSON `null` returns `null`; a version other than `null` or `1` returns a `SyncStateFile` carrying only that
+   version, without binding the rest of the file; otherwise it binds `SyncStateFile` from the same bytes.
+   After the helper returns: a `null` result or a `SchemaVersion` of `null` or `1` returns the state as today;
+   any other value moves the file with the renamed `PreserveFile` to `_filePath + ".unsupported"`, logs E1 or
+   E2 at level error with no exception (message template placeholders `{Path}`, `{SchemaVersion}`,
+   `{PreservedPath}`), and returns `new SyncStateFile()`. So a file of an unsupported version is unsupported
+   whatever its other values hold, and a version-1 file whose mark is not a time stays corrupt. The
+   `JsonException` and generic catches stay as they are and keep wrapping the helper call, so E3 and E6 are
+   unchanged.
 4. `PreserveCorruptFile(string corruptPath)` becomes `PreserveFile(string preservedPath)`; its body is
    unchanged, the corrupt path calls it with `_filePath + ".corrupt"`.
 
@@ -83,9 +89,10 @@ first); the log texts are the exact E1/E2 texts above.
   weighed in [decision 0027](../../docs/decisions/0027-state-file-schema-version.md).
 - Reuse `state.json.corrupt` for an unsupported file: lost, because a corrupt and an unsupported file would
   replace each other and the file is not damaged (spec, *Open questions*).
-- A custom `JsonConverter` or a `JsonDocument` pre-read that inspects `SchemaVersion` before binding: lost; a
-  check on the bound `int?` is enough for one supported version, and a future migration can add the branch
-  where it is needed.
+- A check on the bound `int?` after binding the whole file: lost in review, because a newer file whose
+  `HighWaterMark` no longer binds would count as corrupt instead of unsupported; the version is read first
+  through `SchemaVersionProbe` with the same options, and `SyncStateFile` is bound only for version `null` or
+  `1`.
 - Default `SchemaVersion` to `1` in the property initializer instead of setting it on write: lost, because an
   explicit `null` in the file would then overwrite it and the write would emit `null`; setting it on write
   keeps AC1 independent of what was read.
@@ -95,6 +102,7 @@ first); the log texts are the exact E1/E2 texts above.
 | Project | Type / file | Change |
 | ------- | ----------- | ------ |
 | `PlexToJellyfinSync.Service` | `State/SyncStateFile.cs` | constant and `SchemaVersion` property |
+| `PlexToJellyfinSync.Service` | `State/SchemaVersionProbe.cs` | new internal type holding only `SchemaVersion`, read before binding |
 | `PlexToJellyfinSync.Service` | `State/StateStore.cs` | version check in `ReadAsync`, `DeserializeFileAsync`, `PreserveFile` rename, version set on write |
 | `PlexToJellyfinSync.Tests` | `StateStoreTests.cs` | new tests, two adapted |
 
@@ -109,8 +117,14 @@ Properties region):
 
 In src/PlexToJellyfinSync.Service/State/StateStore.cs (changed by the skeleton, Methods region):
 
-- `private async Task<SyncStateFile?> DeserializeFileAsync(CancellationToken cancellationToken)` — opens,
-  deserializes and closes state.json; throws what the deserializer or the file system throws
+- `private async Task<SyncStateFile?> DeserializeFileAsync(CancellationToken cancellationToken)` — reads
+  state.json into bytes, probes the version, binds SyncStateFile only for version null or 1; throws what
+  the deserializer or the file system throws
+
+In src/PlexToJellyfinSync.Service/State/SchemaVersionProbe.cs (new file; its own file because RH2101 forbids
+nested classes):
+
+- internal sealed class `SchemaVersionProbe` with the property `public int? SchemaVersion { get; set; }`
 - `private bool PreserveFile(string preservedPath)` — replaces PreserveCorruptFile(string corruptPath)
 
 No change to IStateStore, FakeStateStore or any other public member of StateStore.
