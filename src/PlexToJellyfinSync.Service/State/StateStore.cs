@@ -105,7 +105,19 @@ public sealed class StateStore : IStateStore
         {
             var state = await DeserializeFileAsync(cancellationToken).ConfigureAwait(false);
 
-            return state ?? new SyncStateFile();
+            if (state is null)
+            {
+                return new SyncStateFile();
+            }
+
+            if (state.SchemaVersion is null or SyncStateFile.CurrentSchemaVersion)
+            {
+                return state;
+            }
+
+            RejectUnsupportedFile(state.SchemaVersion.Value);
+
+            return new SyncStateFile();
         }
         catch (JsonException ex)
         {
@@ -140,6 +152,24 @@ public sealed class StateStore : IStateStore
         await using var stream = File.OpenRead(_filePath);
 
         return await JsonSerializer.DeserializeAsync<SyncStateFile>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Move a state file of an unsupported schema version aside and log it
+    /// </summary>
+    /// <param name="schemaVersion">Schema version read from the file</param>
+    private void RejectUnsupportedFile(int schemaVersion)
+    {
+        var unsupportedPath = _filePath + ".unsupported";
+
+        if (PreserveFile(unsupportedPath))
+        {
+            _logger.LogError("State file {Path} has unsupported schema version {SchemaVersion}, preserved as {PreservedPath}; starting fresh with no high-water mark", _filePath, schemaVersion, unsupportedPath);
+        }
+        else
+        {
+            _logger.LogError("State file {Path} has unsupported schema version {SchemaVersion} and could not be preserved; starting fresh with no high-water mark", _filePath, schemaVersion);
+        }
     }
 
     /// <summary>
@@ -197,6 +227,7 @@ public sealed class StateStore : IStateStore
             }
 
             var state = await ReadAsync(cancellationToken).ConfigureAwait(false);
+            state.SchemaVersion = SyncStateFile.CurrentSchemaVersion;
             state.HighWaterMark = value;
 
             var tempPath = _filePath + ".tmp";
