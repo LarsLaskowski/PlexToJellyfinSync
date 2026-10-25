@@ -171,3 +171,9 @@ corrupt move.
 ## Out of scope / follow-ups
 
 As in [spec.md](spec.md), *Out of scope*. No follow-up issue.
+## Security notes
+
+Non-blocking findings of the Security plan review (verbatim):
+
+- Non-blocking: the Lead can mark facts 7, 8 and 9 in plan.md as confirmed, with this measurement as evidence (.NET SDK 10.0.402, options `WriteIndented` only: `"1"`, `1.5`, `1.0`, `1e0`, `true`, `{}`, `[1]`, `2147483648`, `-2147483649` throw `JsonException`; duplicate `SchemaVersion` gives the last value; `"schemaversion"` is ignored; declaring `SchemaVersion` first writes it first and the const is not serialized). The Tester's AC1, AC6 and AC9 tests still pin the behavior.
+- Non-blocking, for information: `-0` binds to 0, so it is handled as "unsupported" (E1), not "corrupt". This matches the spec's "integer literal with optional leading minus" rule, so nothing needs to change.
