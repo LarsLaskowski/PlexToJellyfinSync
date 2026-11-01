@@ -326,4 +326,4 @@ accepted.
       real clock (a time bound: the ratio of two durations, see above).
 - [ ] Shared setup factored into a private/static helper method, not a constructor.
 - [ ] `#region` layout and XML docs follow [`AGENTS.md`](../AGENTS.md).
-- [ ] `reihitsu-format ./` run before committing.
+- [ ] *Format* from `.squad/stack.md` run before committing.

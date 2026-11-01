@@ -20,10 +20,11 @@ development: the unit test suite exercises the sync pipeline entirely against fa
 (see [`UNIT_TESTS.md`](UNIT_TESTS.md)), and `PlexClient` only needs a reachable Plex server when
 you are manually verifying an end-to-end change against real data.
 
-Format checks rely on `reihitsu-format`, a .NET tool. Install it once with:
+Format checks rely on `reihitsu-format`, a .NET tool pinned in the repository's tool manifest
+(`.config/dotnet-tools.json`). Restore it once per clone with:
 
 ```shell
-dotnet tool install -g Reihitsu.Cli
+dotnet tool restore
 ```
 
 Keep the CLI on the same release line as the **Reihitsu.Analyzer** version pinned in
@@ -56,7 +57,8 @@ The solution file at the repository root (`PlexToJellyfinSync.slnx`) covers ever
 
 ```shell
 dotnet restore PlexToJellyfinSync.slnx
-reihitsu-format ./
+dotnet tool run reihitsu-format --force ./
+
 dotnet build PlexToJellyfinSync.slnx -c Release --no-restore
 ```
 
