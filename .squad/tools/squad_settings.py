@@ -32,7 +32,10 @@ COVERAGE_FORMAT = "cobertura"
 COVERAGE_REPORT_GLOB = "TestResults/**/coverage.cobertura.xml"
 COVERAGE_PATHSPECS = ["src/*.cs", "src/*.razor"]
 COVERAGE_EXCLUDES = []
-COVERAGE_TEST_PATHSPECS = ["tests/*.cs"]  # a diff touching these is gated on overall coverage too
+# Every location the Tester may write (.claude/hooks/file-guard.py reads it): test code, the JSON samples under
+# tests/PlexToJellyfinSync.Tests/TestData/ and the test project file. A diff touching these is gated on overall
+# coverage too.
+COVERAGE_TEST_PATHSPECS = ["tests/*.cs", "tests/*.json", "tests/*.csproj"]
 
 # Size warnings (config-check.py, decision-check.py): a file past its limit is reported with the split it needs.
 PROJECT_MAX_WORDS = 1500  # .squad/project.md, read by five members on every launch
