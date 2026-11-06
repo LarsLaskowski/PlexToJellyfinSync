@@ -189,7 +189,7 @@ itself with a lock (`obj/analyzer-check.lock`), plain builds do not.
   non-interactive session cannot answer.
 - `reihitsu-format` rewrites a `\u` escape in a C# string literal into the character it names, so a literal
   U+2028 then breaks the compilation and a test about an escape tests the wrong input — also each half of a
-  surrogate pair (`😀` becomes the emoji). After *Format*, check
+  surrogate pair (`\uD83D\uDE00` becomes the emoji). After *Format*, check
   the escapes of the changed files on disk (`grep -n '\\u' <file>`, *Escapes in files* in `.squad/team.md`);
   where the formatter keeps rewriting one, build the character at run time (`char.ConvertFromUtf32(0x2028)`)
   instead of writing it as an escape in a literal; a test that needs the escape text itself (a JSON input, say)

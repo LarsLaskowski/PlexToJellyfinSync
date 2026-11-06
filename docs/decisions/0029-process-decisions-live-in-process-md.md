@@ -27,7 +27,7 @@ above; a later change to them reaches that file with the next refresh, never thi
 
 ## Consequences
 
-- The index lists the product's decisions only.
+- From now on the index adds only the product's decisions; the retired process records keep their rows, marked superseded.
 - A process decision is changed in the template repository; a local edit of `process.md` is lost on the next refresh.
 - The superseded records stay as they are (released records are append-only) and state what held when they were
   released.
