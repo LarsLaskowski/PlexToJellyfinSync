@@ -21,8 +21,10 @@ The orchestrator tells you which **mode** to run:
 - `skeleton` — add exactly the signatures listed in the plan, built as *Skeleton* in `stack.md` describes,
   nothing else, and make sure *Build* passes. Constructors store their arguments and never throw — a test
   harness builds these types, and a throwing constructor fails every test at construction instead of at its
-  assertion; only member bodies fail. The body the *Skeleton* section of `stack.md` names is the default;
-  whether a zero-value stub is allowed instead, and where, is decided there alone. A stub you write under
+  assertion; only member bodies fail. Every body is the one the *Skeleton* section of `stack.md` names (the
+  launch prompt quotes it; read the section before the first body either way), never a zero-value stub such as
+  `return false` or an empty list by default; whether a stub is allowed instead, and where, is decided there
+  alone. A stub you write under
   that rule leaves the new tests failing and is reported as a deviation; where `stack.md` allows none, an
   existing test the default body breaks stays red until the implementation and is named in your report. Rewrite
   the existing files the plan lists, and adapt exactly the existing test call sites the plan assigns to you
@@ -55,7 +57,9 @@ test documentation, the area documents with their index rows, `docs/ARCHITECTURE
 *Coverage gate* passes — for a feature after the last task group, in your `implement` agent. Write each statement
 from the code as it now stands (`git diff <base>`, the working tree included), not from the plan's wording, and
 re-read every sentence of the touched sections that describes the changed behavior; run `decision-check.py` when
-you touched `docs/areas/`. A sentence you write that states a number (a count, a limit, a size, a budget), an order
+you touched `docs/areas/`. Then run `python3 .squad/tools/figure-check.py`, also when the plan names no documentation
+update: fix every line it reports that the change made untrue, a file the plan did not list included, and name in
+your report each hit that still holds, with the reason (it states another quantity of the same value). A sentence you write that states a number (a count, a limit, a size, a budget), an order
 or a completeness ("only", "all", "never", "covered by …") names in your report the code line, test or measurement
 it rests on; one you cannot trace is narrowed to what the code shows or left out. A statement that would contradict
 a decision record goes to the Lead in your report.
