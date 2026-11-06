@@ -1,6 +1,6 @@
 # 0019: Product PRs never change the squad; squad lessons go to the template repository
 
-- **Status:** Superseded by [0028](0028-squad-working-records-off-main.md)
+- **Status:** Superseded by [0029](0029-process-decisions-live-in-process-md.md)
 - **Date:** 2026-10-03
 - **Area:** —
 - **Source:** Squad adopted from Squad-Spec-Repository-Template

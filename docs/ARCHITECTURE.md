@@ -300,8 +300,8 @@ how the image is built and released.
   (`networlddev_PlexToJellyfinSync`). CI deliberately does **not** check formatting: formatting, Reihitsu
   and Sonar diagnostics are cleared before a push (in the squad, the member that changed the files formats
   them and the Code Officer clears analyzer diagnostics), with the `SonarAnalyzer.CSharp` rules running in
-  every local build — see [decision 0009](decisions/0009-quality-gates-before-the-pull-request.md) and
-  [decision 0020](decisions/0020-squad-member-who-changed-files-runs-the-formatter.md).
+  every local build — see the process decision
+  [Quality gates before the pull request](decisions/process.md#quality-gates-before-the-pull-request).
 - **CodeQL** (`.github/workflows/codeql.yml`) runs on push/PR to `main` and weekly on a schedule,
   analyzing C#, JavaScript/TypeScript and the GitHub Actions workflows in `build-mode: none` (no
   compiled build needed for CodeQL's extraction).
