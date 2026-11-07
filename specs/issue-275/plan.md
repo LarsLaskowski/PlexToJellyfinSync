@@ -161,3 +161,9 @@ or component changes; `docs/ARCHITECTURE.md` gets the one sentence above.
 
 - (minor) Limit the rented buffer to bound + 1 bytes when reading. `ArrayPool<byte>.Shared.Rent(1_048_577)` returns an array of at least that size, normally the next power of two (2 MiB), and `Stream.ReadAtLeastAsync` can fill the whole buffer it is given. Call it as `ReadAtLeastAsync(buffer.AsMemory(0, MaxExistingFileBytes + 1), MaxExistingFileBytes + 1, throwOnEndOfStream: false, cancellationToken)` so AC3 holds (at most 1,048,577 bytes read).
 - (minor) Decode only the bytes actually read. Build the decode stream as `new MemoryStream(buffer, 0, bytesRead, writable: false)`, never over the whole rented array; otherwise a small file picks up stale bytes from an earlier rental and fails as malformed or gets a corrupt write. AC1/AC2 would not reliably catch it, so the Reviewer checks it explicitly.
+
+## Security notes
+
+- Fact 6 is confirmed by Security's plan-review measurement (`dotnet run probe.cs`, .NET SDK 10.0.403): for a symbolic link to `/dev/zero`, `File.Exists` is True, `CanSeek` is True, `Length` is 0, and the bounded `ReadAtLeastAsync` read stops at 1048577 bytes. A `Length` of 0 bounds nothing, so the plan's "no check of `FileStream.Length`" stands.
+- The pooled buffer must be sliced on both sides: `ArrayPool<byte>.Shared.Rent(1_048_577)` returns a 2,097,152-byte array that is handed out again. Read into `buffer.AsMemory(0, MaxExistingFileBytes + 1)` and decode from `new MemoryStream(buffer, 0, bytesRead, writable: false)`, never from the whole rented array; otherwise the read exceeds AC3's bound and leftover bytes of another `.nfo` file could be written into this one (against 0003).
+- A FIFO at a target path blocks `new FileStream(...)` while the target lock is held. That is not new and the bound cannot address it; it is the follow-up issue the plan drafts.
