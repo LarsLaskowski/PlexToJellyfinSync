@@ -5,10 +5,17 @@ Advocate, Security, the Tester and the Reviewer. Not template-managed: `adopt-te
 and never overwrites it. A product PR updates it when the change makes an entry untrue
 (`.squad/routing.md`, *Scope of a product PR*).
 
+Every entry points: it names files, types or endpoints and links the document that says more. Behavior, values,
+limits and sequences are written once, in the area documents (`docs/areas/README.md`), and the reasons in the
+decision records; a copy here goes stale with the next change. `config-check.py` warns when this file grows past
+`PROJECT_MAX_WORDS` words (`.squad/tools/squad_settings.py`).
+
 ## Security areas
 
 A change that touches one of these gets a Security review: of the plan, or of the diff on tier `patch/security`;
 it is tier `security` only when it creates, changes or removes a security control (`.squad/routing.md`, *Tiers*).
+One line per area: what is protected, the concrete types, files or endpoints, and a link to the area document that
+states its rules; no limits, patterns or sequences.
 
 - **Tokens and secrets:** the Plex token and the dashboard token — read from configuration, never logged,
   never exposed in the UI, API responses or exceptions; `SecretLogRedactor` masks them before a log entry
@@ -27,8 +34,9 @@ it is tier `security` only when it creates, changes or removes a security contro
 
 ## Guarantees
 
-Deliberate behavior that must not change without the Product Manager. Each one is described in its area
-document under `docs/areas/` and rests on the decision record linked with it.
+Deliberate behavior that must not change without the Product Manager. One line each: the guarantee in a few words,
+a link to its decision record where it was a real choice, and a link to the area document under `docs/areas/` that
+states it.
 
 - Existing `.nfo` files are only ever touched in their `watched` / `playcount` / `lastplayed` elements, and
   an unchanged value skips the write entirely (`NfoWriteOutcome.Skipped`); an update saves without
@@ -121,7 +129,8 @@ statement that writes a token, a credential or a full Plex URL with query string
 ## Test doubles
 
 No mocking library; hand-written fakes and stubs in `tests/PlexToJellyfinSync.Tests`, each implementing a
-`Core.Abstractions` interface directly (pattern and details in `docs/UNIT_TESTS.md`, *Test doubles*):
+`Core.Abstractions` interface directly (pattern and details in `docs/UNIT_TESTS.md`, *Test doubles*), one line
+each: the double, where it lives and what it stands in for; how it behaves is read in its code:
 
 - `FakePlexClient` — preconfigured libraries, history, items and episodes; records calls
 - `FakeStateStore` — in-memory high-water mark

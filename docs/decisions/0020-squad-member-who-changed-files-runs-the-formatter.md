@@ -1,6 +1,6 @@
 # 0020: In the squad, the member that changed the files runs the formatter
 
-- **Status:** Accepted
+- **Status:** Superseded by [0029](0029-process-decisions-live-in-process-md.md)
 - **Date:** 2026-10-17
 - **Area:** —
 - **Source:** Squad update from Squad-Spec-Repository-Template (template PR #88)

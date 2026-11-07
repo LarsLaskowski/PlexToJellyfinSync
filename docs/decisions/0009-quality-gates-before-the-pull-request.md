@@ -1,6 +1,6 @@
 # 0009: Quality gates before the pull request
 
-- **Status:** Accepted
+- **Status:** Superseded by [0029](0029-process-decisions-live-in-process-md.md)
 - **Date:** 2026-10-01
 - **Source:** Product Manager decision while setting up the squad workflow (`.squad/`)
 - **Supersedes:** —

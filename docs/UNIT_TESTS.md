@@ -133,6 +133,13 @@ public void ServiceCollectionExtensionsRegistersSharedStateAsSingleton()
 Test class names follow `{TypeUnderTest}Tests` (for example `WatchAggregatorTests`,
 `ServiceCollectionExtensionsTests`, `PlexClientTests`), `[TestClass]`, `public sealed class`.
 
+## Criterion ids
+
+A test written for an acceptance criterion of a squad plan or spec carries the criterion's id as a test category,
+`[TestCategory("AC3")]` on the test method, so that `.squad/tools/plan-check.py --matrix` finds it by id after a
+rename or a split; a test that asserts several criteria carries each id. The method name follows
+[Naming your tests](#naming-your-tests) unchanged.
+
 ## Arranging your tests
 
 Follow Arrange, Act, Assert without labeling the sections with comments — a blank line before the
@@ -234,7 +241,7 @@ branching within one test.
   windows, backoff delays, session expiry). Inject `TimeProvider` into the component under test
   and drive it with `TestTimeProvider`, following `LoginThrottleTests`.
 - **Time bounds as a ratio.** A time bound that cannot be tested as a count (allocations, iterations) — a
-  quadratic check that must stay linear, say — is the one exception to the real clock: measure two durations
+  quadratic check that must stay linear, say — is an exception to the real clock: measure two durations
   in the same test (the base input and a multiple of it) and assert their **ratio**, never an absolute
   duration; set the limit to at least three times the highest ratio measured, with the coverage
   instrumentation of *Test with coverage* (`.squad/stack.md`) included.
@@ -315,7 +322,8 @@ accepted.
       (`.squad/tools/coverage-check.py`).
 - [ ] Test class named `{TypeUnderTest}Tests`, placed directly in
       `tests/PlexToJellyfinSync.Tests/` (no subfolders).
-- [ ] Test method named `{TypeUnderTest}{Scenario}{ExpectedResult}` (PascalCase, no underscores).
+- [ ] Test method named `{TypeUnderTest}{Scenario}{ExpectedResult}` (PascalCase, no underscores); a test for a
+      squad acceptance criterion carries its id as `[TestCategory("AC3")]`.
 - [ ] `[TestClass]` / `[TestMethod]` (MSTest), `[DataRow]` instead of in-test branching for
       multiple inputs.
 - [ ] Arrange / Act / Assert, separated by blank lines, one act per test.

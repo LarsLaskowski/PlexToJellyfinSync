@@ -1,6 +1,6 @@
 # 0010: Squash-merge pull requests
 
-- **Status:** Accepted
+- **Status:** Superseded by [0029](0029-process-decisions-live-in-process-md.md)
 - **Date:** 2026-10-01
 - **Source:** Product Manager decision during the squad workflow review (`.squad/routing.md`)
 - **Supersedes:** —
