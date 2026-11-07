@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Text;
+using System.Xml.Linq;
 
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -395,6 +396,34 @@ public sealed class NfoWriterTests
         Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "An existing NFO with a document type declaration must be skipped!");
         Assert.AreSequenceEqual(originalBytes, bytes, "An existing NFO with a document type declaration must be left byte for byte untouched on disk!");
         Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind when the existing NFO was refused!");
+    }
+
+    /// <summary>
+    /// An existing NFO without a document type declaration that uses predefined entities and character
+    /// references is still updated, and its title and other content keep the same text
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC4")]
+    public async Task NfoWriterExistingNfoWithPredefinedEntitiesUpdates()
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        await File.WriteAllTextAsync(nfoPath, "<movie><title>Tom &amp; Jerry &lt;3 Caf&#233;</title><plot>Rock &amp; roll &#x2013; &quot;live&quot;</plot></movie>", _testContext.CancellationToken);
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+        var content = await File.ReadAllTextAsync(nfoPath, _testContext.CancellationToken);
+        var root = XDocument.Parse(content).Root;
+
+        Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "An existing NFO with predefined entities and character references must be updated!");
+        Assert.IsNotNull(root, "The updated NFO must have a root element!");
+        Assert.AreEqual("Tom & Jerry <3 Café", root.Element("title")?.Value, "The title must keep the same text!");
+        Assert.AreEqual("Rock & roll – \"live\"", root.Element("plot")?.Value, "Other content must keep the same text!");
+        Assert.AreEqual("true", root.Element("watched")?.Value, "Watched flag should be updated!");
+        Assert.AreEqual("1", root.Element("playcount")?.Value, "Play count should be updated!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind after the update!");
     }
 
     /// <summary>
