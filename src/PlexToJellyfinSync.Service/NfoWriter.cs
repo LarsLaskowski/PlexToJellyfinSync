@@ -155,6 +155,25 @@ public sealed class NfoWriter : INfoWriter
         }
     }
 
+    /// <summary>
+    /// Parse an existing NFO file's content with a reader that prohibits document type declarations and resolves nothing
+    /// </summary>
+    /// <param name="xml">Existing NFO file content</param>
+    /// <returns>Parsed document, whitespace preserved</returns>
+    private static XDocument ParseExisting(string xml)
+    {
+        var settings = new XmlReaderSettings
+                       {
+                           DtdProcessing = DtdProcessing.Prohibit,
+                           XmlResolver = null
+                       };
+
+        using var stringReader = new StringReader(xml);
+        using var reader = XmlReader.Create(stringReader, settings);
+
+        return XDocument.Load(reader, LoadOptions.PreserveWhitespace);
+    }
+
     #endregion // Static methods
 
     #region Methods
@@ -504,7 +523,7 @@ public sealed class NfoWriter : INfoWriter
 
                 try
                 {
-                    document = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
+                    document = ParseExisting(xml);
                 }
                 catch (XmlException exception)
                 {

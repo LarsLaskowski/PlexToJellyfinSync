@@ -5,7 +5,7 @@
 How a file path reported by Plex becomes a path in this application's file system, and what is written there:
 the prefix mapping, the rejection of traversal forms, the containment check against the configured local roots,
 the `.nfo` target name per kind of item, the fields an update may change, the content of a new file, the
-encoding, the atomic replace, malformed files and concurrent writers on one target. Users rely on it because
+encoding, the atomic replace, malformed files, document type declarations and entities and concurrent writers on one target. Users rely on it because
 their `.nfo` files are shared with Jellyfin and often with other tools; operators rely on it to know which part
 of the media volume the application may write.
 
@@ -148,6 +148,11 @@ of the media volume the application may write.
   byte-order mark) is skipped and left untouched — never rebuilt or repaired — with the warning `Skipping
   malformed NFO <target>: existing content could not be parsed as XML`; it counts as neither created nor
   updated, and the same item is tried again on its next write.
+- An existing file with a document type declaration (`<!DOCTYPE …>`) in any form — with or without an internal
+  subset, an external subset or entity declarations — is treated like a malformed file: skipped, left untouched,
+  with the same warning, which carries the parser's message that the DTD is prohibited. External entities are
+  never resolved and no entity is expanded. The predefined entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;`)
+  and character references need no DTD and are read normally.
 - A file without a byte-order mark that is not UTF-8 (for example ISO-8859-1) is decoded as UTF-8: each invalid
   byte sequence becomes U+FFFD, and the file is written back as UTF-8 when one of the three values changes.
 - A failure to read, create a folder, write the temporary file or replace the target (a read-only volume, a
@@ -168,6 +173,8 @@ of the media volume the application may write.
   existing files change only in `watched`, `playcount` and `lastplayed`; new files only when enabled.
 - [`decisions/0004-unmapped-paths-are-skipped.md`](../decisions/0004-unmapped-paths-are-skipped.md) — a matching
   mapping is mandatory, traversal forms are rejected and every target is checked against the local roots.
+- [`decisions/0031-nfo-with-a-dtd-is-refused.md`](../decisions/0031-nfo-with-a-dtd-is-refused.md) — an existing
+  file with a document type declaration is refused like a malformed file; no entity is resolved or expanded.
 
 ## Not here
 
