@@ -156,3 +156,8 @@ or component changes; `docs/ARCHITECTURE.md` gets the one sentence above.
   existing path as a file (`File.Exists`); a FIFO at a target path blocks `new FileStream(...)` until a writer
   opens it, stalling that write and the reconcile waiting on it. Decide whether non-regular files (FIFO, device,
   socket) are skipped before opening, and state it in *Path mapping and NFO*. Found while planning #275."
+
+## Challenge notes
+
+- (minor) Limit the rented buffer to bound + 1 bytes when reading. `ArrayPool<byte>.Shared.Rent(1_048_577)` returns an array of at least that size, normally the next power of two (2 MiB), and `Stream.ReadAtLeastAsync` can fill the whole buffer it is given. Call it as `ReadAtLeastAsync(buffer.AsMemory(0, MaxExistingFileBytes + 1), MaxExistingFileBytes + 1, throwOnEndOfStream: false, cancellationToken)` so AC3 holds (at most 1,048,577 bytes read).
+- (minor) Decode only the bytes actually read. Build the decode stream as `new MemoryStream(buffer, 0, bytesRead, writable: false)`, never over the whole rented array; otherwise a small file picks up stale bytes from an earlier rental and fails as malformed or gets a corrupt write. AC1/AC2 would not reliably catch it, so the Reviewer checks it explicitly.
