@@ -169,3 +169,11 @@ An entity reference without a DTD other than the five predefined ones is an unde
   write of its item. Decide a size bound, state it in *Path mapping and NFO*, *Limits and errors*, and test it."
 - Asserting the warning line itself needs a logger double for `NfoWriter` (fact 13); the refusal reuses the
   existing, unchanged warning path, so no double is added here.
+
+## Challenge notes
+
+- minor: `NfoWriteOutcome.Skipped` also means "nothing to change". A test file that already carries the item's watch state would be skipped without any DTD guard, so the AC1–AC3 tests would pass on a wrong build. Instruction for the Tester: build each AC1–AC3 test like `NfoWriterMalformedExistingNfoSkips` (`tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs:278-304`), with an item that has `Watched = true, PlayCount = 1` and an NFO body without `playcount`/`watched`. Then today's code would change the file, and each row fails before the fix as the plan's "Rows that fail on today's code" expects.
+
+## Security notes
+
+- non-blocking: Facts 5–10 in *Verified facts* cite a "scratch probe" but give no command or quoted output. Security's own probe (`XmlReader.Create(new StringReader(x), new XmlReaderSettings{DtdProcessing=DtdProcessing.Prohibit, XmlResolver=null})` then `XDocument.Load(r, LoadOptions.PreserveWhitespace)`, SDK 10.0.403) reproduced facts 6, 7, 9 and the Prohibit side of fact 10: general, parameter, external-subset, PUBLIC, bare, after-comment, lowercase, lol5 and lol8 inputs and a UTF-16 declaration all throw `XmlException` "For security reasons DTD is prohibited in this XML document."; `<a>A &amp; B &lt; é</a>`-style DTD-free input parses. No code impact.
