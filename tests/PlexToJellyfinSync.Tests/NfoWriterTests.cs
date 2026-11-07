@@ -304,6 +304,100 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// An existing NFO whose document type declaration declares an external entity pointing at a readable
+    /// file is skipped and left untouched, and the referenced file's content never reaches the target
+    /// </summary>
+    /// <param name="template">NFO content with the placeholder "{url}" for the URL of the referenced file</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC1")]
+    [DataRow("<!DOCTYPE movie [<!ENTITY x SYSTEM '{url}'>]><movie><title>&x;</title></movie>", DisplayName = "General entity referenced in an element")]
+    [DataRow("<!DOCTYPE movie [<!ENTITY % p SYSTEM '{url}'> %p;]><movie><title>Heat</title></movie>", DisplayName = "Parameter entity referenced in the DTD")]
+    [DataRow("<!DOCTYPE movie SYSTEM '{url}'><movie><title>Heat</title></movie>", DisplayName = "External DTD subset")]
+    public async Task NfoWriterExistingNfoWithExternalEntitySkips(string template)
+    {
+        const string marker = "PJF-EXTERNAL-ENTITY-MARKER";
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        var referencedPath = Path.Combine(_tempDirectory, "referenced.txt");
+
+        await File.WriteAllTextAsync(referencedPath, marker, _testContext.CancellationToken);
+
+        var originalContent = template.Replace("{url}", new Uri(referencedPath).AbsoluteUri, StringComparison.Ordinal);
+
+        await File.WriteAllTextAsync(nfoPath, originalContent, _testContext.CancellationToken);
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+        var content = await File.ReadAllTextAsync(nfoPath, _testContext.CancellationToken);
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "An existing NFO with an external entity must be skipped!");
+        Assert.AreEqual(originalContent, content, "An existing NFO with an external entity must be left untouched on disk!");
+        Assert.DoesNotContain(marker, content, "The content of the file an external entity points at must never reach the target!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind when the existing NFO was refused!");
+    }
+
+    /// <summary>
+    /// An existing NFO whose document type declaration declares nested internal entities (an entity-expansion
+    /// payload) is skipped and left untouched, below and above the framework's expansion bound
+    /// </summary>
+    /// <param name="levels">Number of nesting levels, each referencing the level below ten times</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC2")]
+    [DataRow(5, DisplayName = "5 levels, 1,000,000 characters")]
+    [DataRow(8, DisplayName = "8 levels, 1,000,000,000 characters")]
+    public async Task NfoWriterExistingNfoWithEntityExpansionSkips(int levels)
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        var originalContent = CreateEntityExpansionNfo(levels);
+
+        await File.WriteAllTextAsync(nfoPath, originalContent, _testContext.CancellationToken);
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+        var content = await File.ReadAllTextAsync(nfoPath, _testContext.CancellationToken);
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "An existing NFO with an entity-expansion payload must be skipped!");
+        Assert.AreEqual(originalContent, content, "An existing NFO with an entity-expansion payload must be left untouched on disk!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind when the existing NFO was refused!");
+    }
+
+    /// <summary>
+    /// An existing NFO with a document type declaration in any other form is skipped and its bytes are left
+    /// untouched on disk
+    /// </summary>
+    /// <param name="originalContent">NFO content written to disk</param>
+    /// <param name="codePage">Code page of the encoding the file is written with</param>
+    /// <param name="emitBom">Whether the file is written with a byte order mark</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC3")]
+    [DataRow("<!DOCTYPE movie><movie><title>Heat</title></movie>", 65001, false, DisplayName = "Bare DOCTYPE")]
+    [DataRow("<!DOCTYPE movie [<!ENTITY t 'Heat'>]><movie><title>&t;</title></movie>", 65001, false, DisplayName = "Internal subset with one internal entity")]
+    [DataRow("<!DOCTYPE movie PUBLIC '-//PlexToJellyfinSync//DTD Movie//EN' 'movie.dtd'><movie><title>Heat</title></movie>", 65001, false, DisplayName = "PUBLIC identifier")]
+    [DataRow("<!-- prolog comment --><!DOCTYPE movie><movie><title>Heat</title></movie>", 65001, false, DisplayName = "DOCTYPE after a comment in the prolog")]
+    [DataRow("<?xml version='1.0' encoding='utf-16'?><!DOCTYPE movie><movie><title>Heat</title></movie>", 1200, true, DisplayName = "DOCTYPE in UTF-16 LE with BOM")]
+    public async Task NfoWriterExistingNfoWithDocumentTypeSkips(string originalContent, int codePage, bool emitBom)
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        await File.WriteAllTextAsync(nfoPath, originalContent, CreateEncodingWithBom(codePage, emitBom), _testContext.CancellationToken);
+
+        var originalBytes = await File.ReadAllBytesAsync(nfoPath, _testContext.CancellationToken);
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+        var bytes = await File.ReadAllBytesAsync(nfoPath, _testContext.CancellationToken);
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "An existing NFO with a document type declaration must be skipped!");
+        Assert.AreSequenceEqual(originalBytes, bytes, "An existing NFO with a document type declaration must be left byte for byte untouched on disk!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind when the existing NFO was refused!");
+    }
+
+    /// <summary>
     /// When creation is disabled and no file exists nothing is written
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
@@ -622,6 +716,29 @@ public sealed class NfoWriterTests
                                PlayCount = 1
                            }
                };
+    }
+
+    /// <summary>
+    /// Create the content of an NFO whose DTD nests internal entities: the innermost entity holds ten
+    /// characters and every further level references the level below ten times; the title references the
+    /// outermost level, which expands to ten to the power of (levels + 1) characters
+    /// </summary>
+    /// <param name="levels">Number of nesting levels above the innermost entity</param>
+    /// <returns>NFO content without "watched" and "playcount" elements</returns>
+    private static string CreateEntityExpansionNfo(int levels)
+    {
+        var builder = new StringBuilder("<!DOCTYPE movie [<!ENTITY e0 'aaaaaaaaaa'>");
+
+        foreach (var level in Enumerable.Range(1, levels))
+        {
+            var reference = $"&e{level - 1};";
+
+            builder.Append($"<!ENTITY e{level} '{string.Concat(Enumerable.Repeat(reference, 10))}'>");
+        }
+
+        builder.Append($"]><movie><title>&e{levels};</title></movie>");
+
+        return builder.ToString();
     }
 
     /// <summary>
