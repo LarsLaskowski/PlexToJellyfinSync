@@ -22,7 +22,7 @@ writes at once.
 | 3 | The issue: read and parsed in full on every write of its item | `NfoWriter.cs:518-526`, no cache; called from `MediaItemWriter` and `SeriesAggregateWriter` for each item | confirmed |
 | 4 | Several writes run in parallel | `LibraryReconciler.cs:147-153` (`EpisodeReconcileParallelism`, default 4), `SyncOrchestrator.cs:333-339` (`LibraryReconcileParallelism`, default 2) | confirmed |
 | 5 | Decoded characters never exceed the file's bytes for every encoding the reader accepts (UTF-8 with U+FFFD replacement, UTF-16, UTF-32 by byte-order mark), so a byte bound also bounds the parser's input and no `MaxCharactersInDocument` is needed | UTF-8: 1–3 bytes per BMP char, 4 bytes per surrogate pair, at most one U+FFFD per invalid byte; UTF-16: 2 bytes per char; UTF-32: 4 bytes per 1–2 chars; DTDs are prohibited (0031), so no entity expands | confirmed |
-| 6 | A target that is a symbolic link to `/dev/zero` passes `File.Exists` and is read by `ReadToEndAsync` until memory runs out; `FileStream.Length` on it does not bound the read (non-seekable or 0) | to verify: the Tester's AC3 test in step 6 (Linux, after the fix only — on today's code it exhausts the test host's memory) | unverified |
+| 6 | A target that is a symbolic link to `/dev/zero` passes `File.Exists` and is read by `ReadToEndAsync` until memory runs out; `FileStream.Length` on it does not bound the read | Security's plan-review measurement (.NET SDK 10.0.403): `File.Exists` True, `CanSeek` True, `Length` 0; a bounded `ReadAtLeastAsync` stops at 1,048,577 bytes. AC3's test holds it | confirmed |
 | 7 | The existing-file tests use `NullLogger<NfoWriter>`, so no test sees a warning of `NfoWriter` today | `NfoWriterTests.cs:812` | confirmed |
 | 8 | No real sample is needed: the change bounds the byte count of the read; decoding and parsing of the format are unchanged, and the tests generate files of exact byte lengths | `ParseExisting` and the `StreamReader` encoding detection stay as they are (*Approach*) | confirmed |
 | 9 | Nothing else documents a limit on existing files: the sweep of `docs/areas/`, `docs/ARCHITECTURE.md`, `README.md`, `SECURITY.md` for "size", "limit", "bound" and the NFO enumerations found only the hits under *Documentation updates* | `grep -n -i "size\|bound\|limit\|nfo"` over those files | confirmed |
@@ -58,14 +58,16 @@ side of the bound.
 ## Approach
 
 - `NfoWriter` gets the bound as a private constant, and `ReadExistingAsync` reads through a bounded read: it takes
-  at most bound + 1 bytes from the stream (a read loop such as `Stream.ReadAtLeastAsync` with
-  `throwOnEndOfStream: false` into a buffer of bound + 1 bytes; a pooled buffer from `ArrayPool<byte>.Shared`,
-  returned in `finally`, so a reconcile does not allocate 1 MiB per item). More than bound bytes read → the
-  result says "oversized" and nothing is decoded. Otherwise the bytes are decoded exactly as today: a
-  `StreamReader` with `_utf8NoBom` and `detectEncodingFromByteOrderMarks: true` over a read-only `MemoryStream` of
-  the bytes read, returning its content and `CurrentEncoding` — the encoding rules of *Updating an existing file*
-  stay unchanged.
-- No check of `FileStream.Length` (fact 6: it does not bound a device or a growing file; one mechanism, one
+  at most bound + 1 bytes from the stream into a buffer rented from `ArrayPool<byte>.Shared` and returned in
+  `finally` (so a reconcile does not allocate 1 MiB per item). The rented array is larger than requested and is
+  reused, so it is sliced on both sides: the read fills only `buffer.AsMemory(0, bound + 1)`
+  (`ReadAtLeastAsync(..., bound + 1, throwOnEndOfStream: false, cancellationToken)`), and decoding reads only
+  `new MemoryStream(buffer, 0, bytesRead, writable: false)` — never the whole array, whose leftover bytes belong to
+  an earlier rental. More than bound bytes read → "oversized", nothing is decoded. Otherwise the bytes are decoded
+  exactly as today: a `StreamReader` with `_utf8NoBom` and `detectEncodingFromByteOrderMarks: true` over that
+  stream, returning its content and `CurrentEncoding` — the encoding rules of *Updating an existing file* stay
+  unchanged. The Reviewer checks both slices explicitly (AC1/AC2 would not reliably catch a missing one).
+- No check of `FileStream.Length` (fact 6: it is 0 for `/dev/zero` and does not bound a growing file; one mechanism, one
   place). No `MaxCharactersInDocument` (fact 5).
 - `WriteAsync`: when the read reports "oversized", log the AC2 warning at level Warning and return
   `NfoWriteOutcome.Skipped`, before `ParseExisting`; the target lock is released by the existing `finally`.
@@ -86,10 +88,9 @@ only (the read is already done), a smaller or larger value.
 
 ## Signatures (for the Dev's skeleton)
 
-No public API changes; no skeleton (step 4 skipped). Private members, for orientation:
-
-- `private const int MaxExistingFileBytes = 1_048_576;` in `NfoWriter`
-- `private static async Task<(string Content, Encoding Encoding)?> ReadExistingAsync(string path, CancellationToken cancellationToken)` — `null` when the file exceeds the bound
+None: no public or internal API changes, so step 4 is skipped. Inside the writer the Dev adds a private constant for
+the bound (1,048,576) and changes its private read method to report an oversized file instead of returning content
+(for example a nullable result); the exact private shape is the Dev's choice (*Approach*).
 
 ## Test files
 
