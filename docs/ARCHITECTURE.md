@@ -144,7 +144,8 @@ Plex path becomes a local path and what a write changes in an `.nfo` file is sta
 6. **`NfoWriter`** (`src/PlexToJellyfinSync.Service/NfoWriter.cs`) is the only component that
    touches `.nfo` files on disk. It checks every target against the configured local roots independently of
    `PathMapper`'s own guard, resolves the target per `MediaKind`, updates an existing file through
-   `XDocument` (`LoadOptions.PreserveWhitespace`) read by a reader that prohibits DTDs and resolves nothing
+   `XDocument` (`LoadOptions.PreserveWhitespace`) read through a bounded read of at most 1 MiB
+   ([0032](decisions/0032-existing-nfo-size-bound.md)) by a reader that prohibits DTDs and resolves nothing
    ([0031](decisions/0031-nfo-with-a-dtd-is-refused.md)), with `SetChild` comparing each value first, builds a new
    file in `BuildDocument`, and saves every write to a sibling temporary file that replaces the target with
    `File.Move(overwrite: true)`. The rules are stated in [Path mapping and NFO](areas/path-mapping-and-nfo.md):
@@ -154,7 +155,7 @@ Plex path becomes a local path and what a write changes in an `.nfo` file is sta
    README's promise that in existing `.nfo` files only the watch fields change and every other element keeps
    its content),
    [creating a new file](areas/path-mapping-and-nfo.md#creating-a-new-file),
-   [atomic replace](areas/path-mapping-and-nfo.md#atomic-replace) and malformed files and DTDs under
+   [atomic replace](areas/path-mapping-and-nfo.md#atomic-replace) and malformed files, DTDs and the size bound under
    [*Limits and errors*](areas/path-mapping-and-nfo.md#limits-and-errors).
    - `WriteAsync` holds a `SemaphoreSlim` keyed by the resolved target path (kept in an
      instance-lifetime `ConcurrentDictionary`, since `NfoWriter` is registered as a singleton) for

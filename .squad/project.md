@@ -143,6 +143,7 @@ line each: the double, where it lives and what it stands in for; how it behaves 
 - `RecordingWorkerLogger` (`RecordingWorkerLogger.cs`) — `ILogger<Worker>`
 - `RecordingSyncStatusLogger` (`RecordingSyncStatusLogger.cs`) — `ILogger<SyncStatusService>`
 - `RecordingStateStoreLogger` (`RecordingStateStoreLogger.cs`) — `ILogger<StateStore>`
+- `RecordingNfoWriterLogger` (`RecordingNfoWriterLogger.cs`) — `ILogger<NfoWriter>`
 - `RecordingPlexClientLogger` (`RecordingPlexClientLogger.cs`) — `ILogger<PlexClient>`
 - `RecordingForwardedHeadersWarningLogger` (`RecordingForwardedHeadersWarningLogger.cs`) —
   `ILogger<ForwardedHeadersWarning>`

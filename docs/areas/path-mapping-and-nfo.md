@@ -5,7 +5,7 @@
 How a file path reported by Plex becomes a path in this application's file system, and what is written there:
 the prefix mapping, the rejection of traversal forms, the containment check against the configured local roots,
 the `.nfo` target name per kind of item, the fields an update may change, the content of a new file, the
-encoding, the atomic replace, malformed files, document type declarations and entities, and concurrent
+encoding, the atomic replace, malformed files, document type declarations and entities, the size bound of an existing file, and concurrent
 writers on one target. Users rely on it because their `.nfo` files are shared with Jellyfin and often with other
 tools; operators rely on it to know which part of the media volume the application may write.
 
@@ -153,6 +153,11 @@ tools; operators rely on it to know which part of the media volume the applicati
   with the same warning, which carries the parser's message that the DTD is prohibited. External entities are
   never resolved and no entity is expanded. The predefined entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;`)
   and character references need no DTD and are read normally.
+- An existing file larger than 1,048,576 bytes (counted on the bytes as stored, byte-order mark included, before
+  decoding), or a target that never reaches its end (for example a symbolic link to `/dev/zero`), is skipped and
+  left untouched: it is read no further than one byte past the bound and never parsed, with the warning `Skipping
+  oversized NFO <target>: existing file is larger than 1048576 bytes`. It counts as neither created nor updated,
+  and the same item is tried again on its next write. A file of exactly 1,048,576 bytes is updated as usual.
 - A file without a byte-order mark that is not UTF-8 (for example ISO-8859-1) is decoded as UTF-8: each invalid
   byte sequence becomes U+FFFD, and the file is written back as UTF-8 when one of the three values changes.
 - A failure to read, create a folder, write the temporary file or replace the target (a read-only volume, a
@@ -162,7 +167,8 @@ tools; operators rely on it to know which part of the media volume the applicati
   cannot be deleted stays next to the target and is overwritten by the next write to that target.
 - The log lines of this area name the Plex path and the local target path in full. The malformed-file warning
   carries the XML parser's message, which can quote a name or character from the file and its line and
-  position; no line carries the file's content beyond that.
+  position; no line carries the file's content beyond that. The oversized-file warning names the target path in
+  full and carries no content.
 - Containment is lexical and case-sensitive and does not follow symbolic links (see *Root containment*): it is
   no protection against links inside a root.
 - The kept content of an updated file is its XML content, not its bytes (see *Updating an existing file*).
@@ -175,6 +181,8 @@ tools; operators rely on it to know which part of the media volume the applicati
   mapping is mandatory, traversal forms are rejected and every target is checked against the local roots.
 - [`decisions/0031-nfo-with-a-dtd-is-refused.md`](../decisions/0031-nfo-with-a-dtd-is-refused.md) — an existing
   file with a document type declaration is refused like a malformed file; no entity is resolved or expanded.
+- [`decisions/0032-existing-nfo-size-bound.md`](../decisions/0032-existing-nfo-size-bound.md) — an existing file is
+  read only up to a fixed byte bound; a larger one is skipped with a warning.
 
 ## Not here
 
