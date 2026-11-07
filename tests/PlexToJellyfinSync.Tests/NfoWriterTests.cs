@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Xml.Linq;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -302,6 +303,53 @@ public sealed class NfoWriterTests
         Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "A malformed existing NFO must be skipped rather than throwing!");
         Assert.AreEqual(originalContent, content, "A malformed existing NFO must be left untouched on disk!");
         Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind when the existing NFO could not be parsed!");
+    }
+
+    /// <summary>
+    /// An existing NFO larger than the size bound is skipped without being parsed: the outcome is Skipped,
+    /// the file stays byte for byte unchanged, no temp file remains and exactly one warning with the oversized text is logged
+    /// </summary>
+    /// <param name="utf16">Whether the file is UTF-16 LE with a byte order mark instead of UTF-8 without one</param>
+    /// <param name="fileLength">Exact length of the file in bytes</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC2")]
+    [DataRow(false, 1_048_577, DisplayName = "UTF-8 without BOM, 1,048,577 bytes")]
+    [DataRow(true, 1_048_578, DisplayName = "UTF-16 LE with BOM, 1,048,578 bytes")]
+    [DataRow(false, 4_194_304, DisplayName = "UTF-8 without BOM, 4 MiB")]
+    public async Task NfoWriterExistingNfoOverSizeBoundSkips(bool utf16, int fileLength)
+    {
+        var logger = new RecordingNfoWriterLogger();
+        var writer = CreateWriter(createMissing: false, logger: logger);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        var originalBytes = CreateNfoBytes(utf16, fileLength);
+
+        await File.WriteAllBytesAsync(nfoPath, originalBytes, _testContext.CancellationToken);
+
+        Assert.AreEqual(fileLength, new FileInfo(nfoPath).Length, "The fixture must have the exact byte length under test!");
+
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Heat",
+                       Watch = new WatchInfo
+                               {
+                                   Watched = true,
+                                   PlayCount = 1
+                               }
+                   };
+
+        var outcome = await writer.WriteAsync(item, moviePath, CancellationToken.None);
+        var bytes = await File.ReadAllBytesAsync(nfoPath, _testContext.CancellationToken);
+        var expectedMessage = $"Skipping oversized NFO {Path.GetFullPath(nfoPath)}: existing file is larger than 1048576 bytes";
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "An existing NFO over the size bound must be skipped!");
+        Assert.IsTrue(originalBytes.AsSpan().SequenceEqual(bytes), "An oversized existing NFO must be left untouched on disk!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind for an oversized existing NFO!");
+        Assert.HasCount(1, logger.Entries, "Exactly one log entry is expected for an oversized existing NFO!");
+        Assert.AreEqual(LogLevel.Warning, logger.Entries[0].Level, "The oversized NFO entry must be a warning!");
+        Assert.AreEqual(expectedMessage, logger.Entries[0].Message, "The warning must carry the exact oversized text with the full target path!");
     }
 
     /// <summary>
@@ -784,13 +832,33 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// Create the bytes of a well-formed movie NFO of an exact length, padded with trailing whitespace
+    /// </summary>
+    /// <param name="utf16">Whether to encode as UTF-16 LE with a byte order mark instead of UTF-8 without one</param>
+    /// <param name="fileLength">Exact length of the result in bytes</param>
+    /// <returns>NFO bytes</returns>
+    private static byte[] CreateNfoBytes(bool utf16, int fileLength)
+    {
+        const string xml = "<movie><title>Heat</title></movie>";
+
+        Encoding encoding = utf16 ? new UnicodeEncoding(bigEndian: false, byteOrderMark: true) : new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        var preambleLength = encoding.GetPreamble().Length;
+        var bytesPerChar = utf16 ? 2 : 1;
+        var paddingLength = (fileLength - preambleLength) / bytesPerChar - xml.Length;
+        var text = xml + new string(' ', paddingLength);
+
+        return [.. encoding.GetPreamble(), .. encoding.GetBytes(text)];
+    }
+
+    /// <summary>
     /// Create an NFO writer with the given options
     /// </summary>
     /// <param name="createMissing">Whether missing files are created</param>
     /// <param name="dateTimeFormat">Optional custom date/time format used for the "lastplayed" element</param>
     /// <param name="localRoot">Local root the writer accepts targets under; defaults to the test's temp directory</param>
+    /// <param name="logger">Optional logger of the writer; defaults to a null logger</param>
     /// <returns>NFO writer</returns>
-    private NfoWriter CreateWriter(bool createMissing, string? dateTimeFormat = null, string? localRoot = null)
+    private NfoWriter CreateWriter(bool createMissing, string? dateTimeFormat = null, string? localRoot = null, ILogger<NfoWriter>? logger = null)
     {
         var nfoOptions = Options.Create(new NfoOptions
                                         {
@@ -809,7 +877,7 @@ public sealed class NfoWriterTests
                                               }
                                           });
 
-        return new NfoWriter(nfoOptions, syncOptions, pathMappings, NullLogger<NfoWriter>.Instance);
+        return new NfoWriter(nfoOptions, syncOptions, pathMappings, logger ?? NullLogger<NfoWriter>.Instance);
     }
 
     #endregion // Methods
