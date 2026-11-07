@@ -23,8 +23,9 @@ states its rules; no limits, patterns or sequences.
   [Configuration](../docs/areas/configuration.md)
 - **Dashboard authentication** — the dashboard routes against access without a session and against token guessing:
   `TokenAuthMiddleware`, `LoginEndpoints`, `LoginPage`, `DashboardLoginService`, `LoginThrottle`, `TokenComparer`,
-  `DashboardStartup` (security headers, forwarded headers, `Dashboard:TrustedProxies`), the endpoint mapping in
-  `Program.cs`; `/login`, `/logout`, `/health` — [Dashboard and auth](../docs/areas/dashboard-and-auth.md)
+  `DashboardStartup` and `ForwardedHeadersWarning` (forwarded headers, `Dashboard:TrustedProxies`), the security
+  headers and the endpoint mapping in `Program.cs`; `/login`, `/logout`, `/health` —
+  [Dashboard and auth](../docs/areas/dashboard-and-auth.md)
 - **Path mapping and file writes** — the media volume against writes outside the configured local roots:
   `PathMapper`, `MediaItemWriter`, `SeriesAggregateWriter`, `NfoWriter` —
   [Path mapping and NFO](../docs/areas/path-mapping-and-nfo.md)
