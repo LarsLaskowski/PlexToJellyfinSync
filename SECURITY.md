@@ -47,6 +47,7 @@ The following are considered in scope for vulnerability reports:
 
 - Server-side request handling (Blazor Server hub, ASP.NET middleware)
 - Path traversal or `.nfo` file writes outside the configured media path
+- XML external entity or entity-expansion attacks through existing `.nfo` files
 - Leakage of the Plex token or Jellyfin API key through logs, API responses, or error messages
   (the configured Plex and dashboard tokens are masked by `SecretLogRedactor` before an entry
   reaches the dashboard's log buffer, but that mitigation is limited to that in-memory sink)

@@ -91,4 +91,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0027](0027-state-file-schema-version.md) | The state file records its schema version; an unknown version is set aside, not guessed at | Accepted | 2026-10-25 |
 | [0029](0029-process-decisions-live-in-process-md.md) | The squad's process decisions live in process.md | Accepted | 2026-11-06 |
 | [0030](0030-settings-listed-once-in-the-configuration-area.md) | The settings are listed once, in the Configuration area | Accepted | 2026-11-07 |
+| [0031](0031-nfo-with-a-dtd-is-refused.md) | An existing NFO file with a document type declaration is refused, not parsed | Accepted | 2026-11-07 |
 <!-- project:end index -->
