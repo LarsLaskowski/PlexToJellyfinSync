@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
@@ -19,6 +20,15 @@ namespace PlexToJellyfinSync.Service;
 /// </summary>
 public sealed class NfoWriter : INfoWriter
 {
+    #region Constants
+
+    /// <summary>
+    /// Largest existing NFO file, in bytes as stored, that is read and updated
+    /// </summary>
+    private const int MaxExistingFileBytes = 1_048_576;
+
+    #endregion // Constants
+
     #region Fields
 
     private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
@@ -184,15 +194,34 @@ public sealed class NfoWriter : INfoWriter
     /// </summary>
     /// <param name="path">Existing NFO file path</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>File content and the encoding detected from its byte order mark, if any</returns>
-    private static async Task<(string Content, Encoding Encoding)> ReadExistingAsync(string path, CancellationToken cancellationToken)
+    /// <returns>File content and the encoding detected from its byte order mark, if any; null when the file is larger than the size bound</returns>
+    private static async Task<(string Content, Encoding Encoding)?> ReadExistingAsync(string path, CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using var reader = new StreamReader(stream, _utf8NoBom, detectEncodingFromByteOrderMarks: true);
 
-        var content = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        var buffer = ArrayPool<byte>.Shared.Rent(MaxExistingFileBytes + 1);
 
-        return (content, reader.CurrentEncoding);
+        try
+        {
+            var bytesRead = await stream.ReadAtLeastAsync(buffer.AsMemory(0, MaxExistingFileBytes + 1), MaxExistingFileBytes + 1, throwOnEndOfStream: false, cancellationToken)
+                                        .ConfigureAwait(false);
+
+            if (bytesRead > MaxExistingFileBytes)
+            {
+                return null;
+            }
+
+            using var content = new MemoryStream(buffer, 0, bytesRead, writable: false);
+            using var reader = new StreamReader(content, _utf8NoBom, detectEncodingFromByteOrderMarks: true);
+
+            var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
+            return (text, reader.CurrentEncoding);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>
@@ -517,7 +546,16 @@ public sealed class NfoWriter : INfoWriter
         {
             if (File.Exists(targetPath))
             {
-                var (xml, encoding) = await ReadExistingAsync(targetPath, cancellationToken).ConfigureAwait(false);
+                var existing = await ReadExistingAsync(targetPath, cancellationToken).ConfigureAwait(false);
+
+                if (existing is null)
+                {
+                    _logger.LogWarning("Skipping oversized NFO {Path}: existing file is larger than {MaxBytes} bytes", targetPath, MaxExistingFileBytes);
+
+                    return NfoWriteOutcome.Skipped;
+                }
+
+                var (xml, encoding) = existing.Value;
 
                 XDocument document;
 
