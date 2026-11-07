@@ -1,6 +1,6 @@
 # 0031: An existing NFO file with a document type declaration is refused, not parsed
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-07
 - **Area:** Path mapping and NFO
 - **Source:** Issue #273
