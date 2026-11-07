@@ -353,6 +353,67 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// An existing NFO of exactly the size bound is read and updated as before
+    /// </summary>
+    /// <param name="utf16">Whether the file is UTF-16 LE with a byte order mark instead of UTF-8 without one</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC1")]
+    [DataRow(false, DisplayName = "UTF-8 without BOM, 1,048,576 bytes")]
+    [DataRow(true, DisplayName = "UTF-16 LE with BOM, 1,048,576 bytes")]
+    public async Task NfoWriterExistingNfoAtSizeBoundUpdates(bool utf16)
+    {
+        const int fileLength = 1_048_576;
+        var logger = new RecordingNfoWriterLogger();
+        var writer = CreateWriter(createMissing: false, logger: logger);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        await File.WriteAllBytesAsync(nfoPath, CreateNfoBytes(utf16, fileLength), _testContext.CancellationToken);
+
+        Assert.AreEqual(fileLength, new FileInfo(nfoPath).Length, "The fixture must have the exact byte length under test!");
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+        var encoding = CreateEncodingWithBom(utf16 ? Encoding.Unicode.CodePage : Encoding.UTF8.CodePage, emitBom: utf16);
+        var content = encoding.GetString(await File.ReadAllBytesAsync(nfoPath, _testContext.CancellationToken));
+
+        Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "An existing NFO of exactly the size bound must be updated!");
+        Assert.Contains("<watched>true</watched>", content, "The watched flag must be written into the NFO at the size bound!");
+        Assert.Contains("<playcount>1</playcount>", content, "The play count must be written into the NFO at the size bound!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind after the update!");
+        Assert.AreEqual(0, logger.Entries.Count(entry => entry.Level == LogLevel.Warning), "No warning is expected for an NFO at the size bound!");
+    }
+
+    /// <summary>
+    /// A target that delivers bytes without end (a symbolic link to /dev/zero) is skipped with the oversized
+    /// warning and the write completes
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC3")]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    [UnsupportedOSPlatform("windows")]
+    public async Task NfoWriterExistingNfoWithoutEndSkips()
+    {
+        var logger = new RecordingNfoWriterLogger();
+        var writer = CreateWriter(createMissing: false, logger: logger);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        File.CreateSymbolicLink(nfoPath, "/dev/zero");
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+        var expectedMessage = $"Skipping oversized NFO {Path.GetFullPath(nfoPath)}: existing file is larger than 1048576 bytes";
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "A target without end must be skipped!");
+        Assert.IsNotNull(new FileInfo(nfoPath).LinkTarget, "The target must still be the symbolic link!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind for a target without end!");
+        Assert.HasCount(1, logger.Entries, "Exactly one log entry is expected for a target without end!");
+        Assert.AreEqual(LogLevel.Warning, logger.Entries[0].Level, "The oversized entry must be a warning!");
+        Assert.AreEqual(expectedMessage, logger.Entries[0].Message, "The warning must carry the exact oversized text with the full target path!");
+    }
+
+    /// <summary>
     /// An existing NFO whose document type declaration declares an external entity pointing at a readable
     /// file is skipped and left untouched, and the referenced file's content never reaches the target
     /// </summary>
