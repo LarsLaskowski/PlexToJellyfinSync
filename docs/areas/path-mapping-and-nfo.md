@@ -5,9 +5,9 @@
 How a file path reported by Plex becomes a path in this application's file system, and what is written there:
 the prefix mapping, the rejection of traversal forms, the containment check against the configured local roots,
 the `.nfo` target name per kind of item, the fields an update may change, the content of a new file, the
-encoding, the atomic replace, malformed files, document type declarations and entities and concurrent writers on one target. Users rely on it because
-their `.nfo` files are shared with Jellyfin and often with other tools; operators rely on it to know which part
-of the media volume the application may write.
+encoding, the atomic replace, malformed files, document type declarations and entities, and concurrent
+writers on one target. Users rely on it because their `.nfo` files are shared with Jellyfin and often with other
+tools; operators rely on it to know which part of the media volume the application may write.
 
 ## Behavior
 

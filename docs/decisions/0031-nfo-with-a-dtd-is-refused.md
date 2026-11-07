@@ -13,7 +13,7 @@ do not all come from the operator: media downloaded from elsewhere often ships w
 tools write them too, so the parser reads untrusted XML. Until this decision the code called
 `XDocument.Parse` without reader settings and relied on the framework's defaults, which no document stated and no
 test held: a document type declaration (DTD) is parsed, external entities are not resolved, and entity expansion
-is capped at 10,000,000 characters (measured on .NET 10, see the plan of issue #273).
+is capped at 10,000,000 characters (measured on .NET 10 for issue #273).
 
 Measured on that behavior, a DTD did harm even without a resolver: a reference to an external entity became
 empty text and was lost when the file was written back, and internal entities were written back expanded, so a
