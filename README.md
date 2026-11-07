@@ -38,19 +38,11 @@ docker run -d \
 ```
 
 - Image: [`networlddev/plextojellyfinsync`](https://hub.docker.com/r/networlddev/plextojellyfinsync)
-  on Docker Hub – `latest` plus a tag per released version (for example `1.2.2`).
-
+  on Docker Hub.
 - Dashboard: `http://<host>:8080/` – logs at `/logs`, health at `/health`.
-- The media volume must be **writable** so NFO files can be written next to the media.
-- The `/config` volume stores `state.json` (the incremental high-water mark).
-- The container runs as the base image's non-root user (not `root`). Make sure the host
-  directories mounted to `/media` and `/config` are writable by that user's UID – check it with
-  `docker run --rm networlddev/plextojellyfinsync:latest id`.
-- Prefer the `PLEXSYNC__` environment variables above for configuration. If you bind-mount a custom
-  `appsettings.json` over `/app/appsettings.json` instead, that file must be **readable** by the same
-  non-root UID – a bind mount keeps the host file's ownership/permissions as-is, so the image's own
-  file permissions do not apply to it, and a `600`/root-owned file causes a startup crash
-  (`UnauthorizedAccessException: Access to the path '/app/appsettings.json' is denied`).
+- Both volumes must be writable by the container's non-root user – the media volume because the `.nfo` files are
+  written next to the media, `/config` because it keeps `state.json`. What the image expects (port, volumes, user,
+  a bind-mounted `appsettings.json`) is stated in [*Container*](docs/areas/configuration.md#container).
 
 ## Path mappings
 
@@ -65,10 +57,9 @@ next to it.
 > API can differ from the path this container has mounted. Compare the path Plex reports against the
 > right-hand side of this container's volume mounts.
 
-**A matching mapping is mandatory.** If no mapping prefix matches a file path, that item is **skipped**
-(logged as `No path mapping for <path>, skipping`) – the path is never passed through unchanged. So even
-when this container mounts the media under the *exact* path Plex reports, you still need an identity
-mapping where `Plex` and `Local` are equal:
+**A matching mapping is mandatory**: an item whose path no mapping matches is skipped, never written under
+the Plex path. So even when this container mounts the media under the *exact* path Plex reports, you still need
+an identity mapping where `Plex` and `Local` are equal:
 
 ```json
 "PathMappings": [
@@ -80,36 +71,15 @@ mapping where `Plex` and `Local` are equal:
 To find the right values: the `Plex` prefix is what Plex shows under *Settings → Library → Manage
 Folders* (and exactly what appears in the `No path mapping for …` log line if a mapping is missing); the
 `Local` prefix is the right-hand side of this container's volume mounts (`-v /host/movies:/media/Movies`
-→ `Local` = `/media/Movies`). When several mappings match, the longest matching `Plex` prefix wins.
+→ `Local` = `/media/Movies`). How paths are matched, rejected and checked against the local roots is stated in
+[Path mapping and NFO](docs/areas/path-mapping-and-nfo.md#path-mapping).
 
 ## Configuration
 
-All settings can be provided via `appsettings.json` or environment variables (prefix `PLEXSYNC__`,
-double underscore for nesting).
-
-| Key | Env var | Default | Description |
-|---|---|---|---|
-| `Plex:BaseUrl` | `PLEXSYNC__Plex__BaseUrl` | – | Plex base URL — **required**, an absolute `http`/`https` URL (e.g. `http://plex:32400`); the container does not start without it |
-| `Plex:Token` | `PLEXSYNC__Plex__Token` | – | Plex auth token (`X-Plex-Token`); required unless Plex allows unauthenticated access from this container's network |
-| `Plex:OwnerAccountId` | `PLEXSYNC__Plex__OwnerAccountId` | auto | Owner account id (auto-detected; ≥ 1) |
-| `Plex:Libraries` | `PLEXSYNC__Plex__Libraries__0` | all | Restrict to library section keys |
-| `Sync:PollIntervalSeconds` | `PLEXSYNC__Sync__PollIntervalSeconds` | `60` | Incremental poll interval (5–86400) |
-| `Sync:FullReconcileIntervalHours` | `PLEXSYNC__Sync__FullReconcileIntervalHours` | `24` | Full reconcile interval (1–8760) |
-| `Sync:CreateMissingNfo` | `PLEXSYNC__Sync__CreateMissingNfo` | `true` | Create complete NFO if missing |
-| `Sync:WriteSeriesSeasonAggregates` | `PLEXSYNC__Sync__WriteSeriesSeasonAggregates` | `true` | Write season/series aggregates |
-| `Sync:EpisodeReconcileParallelism` | `PLEXSYNC__Sync__EpisodeReconcileParallelism` | `4` | Concurrent episode writes per series reconcile (minimum 1) |
-| `Sync:LibraryReconcileParallelism` | `PLEXSYNC__Sync__LibraryReconcileParallelism` | `2` | Concurrent libraries reconciled per full reconcile run (minimum 1) |
-| `PathMappings:N:Plex` / `:Local` | `PLEXSYNC__PathMappings__N__Plex` / `__Local` | example entry `/data/movies` → `/local/movies` at index 0 | Path prefix mapping |
-| `Nfo:DateTimeFormat` | `PLEXSYNC__Nfo__DateTimeFormat` | `yyyy-MM-dd HH:mm:ss` | `lastplayed` format |
-| `Nfo:MovieFilenameStrategy` | `PLEXSYNC__Nfo__MovieFilenameStrategy` | `PreferExistingMovieNfo` | Movie NFO naming |
-| `State:Directory` | `PLEXSYNC__State__Directory` | `/config` | Where `state.json` is stored (must not be empty) |
-| `Dashboard:Enabled` | `PLEXSYNC__Dashboard__Enabled` | `true` | Enable the web dashboard |
-| `Dashboard:Token` | `PLEXSYNC__Dashboard__Token` | – | Optional access token |
-| `Dashboard:LogBufferSize` | `PLEXSYNC__Dashboard__LogBufferSize` | `1000` | In-memory log entries (minimum 1) |
-| `Dashboard:TrustedProxies` | `PLEXSYNC__Dashboard__TrustedProxies__0`, `__1`, … | – | IP addresses or CIDR networks of reverse proxies whose `X-Forwarded-For`/`X-Forwarded-Proto` are trusted, each with its index; loopback is always trusted |
-
-Invalid or missing required settings stop the application at startup, before the sync worker or the dashboard
-start, with an error naming the setting (visible in `docker logs`), instead of failing on every sync.
+Settings come from `appsettings.json` or from environment variables with the prefix `PLEXSYNC__` (a double
+underscore for every level of nesting, as in the quick start above). Every setting with its environment variable,
+default and allowed values, and what happens when one is invalid, is listed in
+[Configuration](docs/areas/configuration.md#settings).
 
 ## Jellyfin setup
 

@@ -90,4 +90,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0026](0026-releases-published-as-pre-release-and-promoted.md) | Releases are published as a pre-release and promoted by the release workflow | Accepted | 2026-10-24 |
 | [0027](0027-state-file-schema-version.md) | The state file records its schema version; an unknown version is set aside, not guessed at | Accepted | 2026-10-25 |
 | [0029](0029-process-decisions-live-in-process-md.md) | The squad's process decisions live in process.md | Accepted | 2026-11-06 |
+| [0030](0030-settings-listed-once-in-the-configuration-area.md) | The settings are listed once, in the Configuration area | Accepted | 2026-11-07 |
 <!-- project:end index -->
