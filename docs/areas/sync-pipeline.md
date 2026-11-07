@@ -104,8 +104,8 @@ the `.nfo` files and what a failure costs; the dashboard and `/health` rely on t
   with a warning. An episode's reference to its show that fails the same rule is dropped with a warning, so the
   episode contributes to no aggregate in a history run.
 - No request is made with a key that fails the rule: reading an item, a show's episodes or a library's items with
-  such a key throws an `ArgumentException` (`The key is not a valid Plex key`, without the key) before the request.
-  See [decision 0025](../decisions/0025-plex-keys-allow-listed-before-request-paths.md).
+  such a key fails before the request is sent, with the message `The key is not a valid Plex key`, which does not
+  contain the key. See [decision 0025](../decisions/0025-plex-keys-allow-listed-before-request-paths.md).
 - A `null` element in a list of a Plex answer — accounts, libraries, history entries, library or episode items, an
   item's genres, external ids, media or parts — is handled like an element of that list without any field: an
   account without a positive id, a library without a key, a history entry without viewed-at time and rating key, an

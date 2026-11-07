@@ -3,7 +3,7 @@
 <!-- project:begin architecture -->
 This document describes how PlexToJellyfinSync is put together and, where the reasoning is
 recoverable from the code or existing docs, *why* it looks the way it does. It complements
-[`README.md`](../README.md) (setup and configuration), [`CONTRIBUTING.md`](CONTRIBUTING.md)
+[`README.md`](../README.md) (setup), [`CONTRIBUTING.md`](CONTRIBUTING.md)
 (workflow) and [`UNIT_TESTS.md`](UNIT_TESTS.md) (test conventions) rather than repeating them.
 The reasoning behind individual decisions — the options considered and the trade-offs accepted — is
 recorded in [`decisions/`](decisions/README.md).
@@ -252,9 +252,8 @@ that implement it.
 ## Configuration & dependency injection
 
 The settings an operator sets — sources, keys, environment variables, defaults, allowed values and the startup
-check — are stated in the [Configuration](areas/configuration.md) area; the configuration table in
-[`README.md`](../README.md#configuration) is the users' setup reference and agrees with it. This section
-describes how the settings reach the code.
+check — are stated in the [Configuration](areas/configuration.md) area. This section describes how the settings
+reach the code.
 
 - **`ServiceCollectionExtensions.AddPlexToJellyfinSync`**
   (`src/PlexToJellyfinSync.Service/ServiceCollectionExtensions.cs`) is the single DI registration

@@ -17,20 +17,27 @@ it is tier `security` only when it creates, changes or removes a security contro
 One line per area: what is protected, the concrete types, files or endpoints, and a link to the area document that
 states its rules; no limits, patterns or sequences.
 
-- **Tokens and secrets:** the Plex token and the dashboard token — read from configuration, never logged,
-  never exposed in the UI, API responses or exceptions; `SecretLogRedactor` masks them before a log entry
-  reaches the dashboard's in-memory log buffer.
-- **Dashboard authentication:** `TokenAuthMiddleware`, `LoginEndpoints`, `DashboardLoginService`,
-  `LoginThrottle`, `TokenComparer`, session cookies, security headers and CSP, `Program.cs` endpoint mapping,
-  the forwarded-header trust (`DashboardStartup`, `Dashboard:TrustedProxies`).
-- **Path mapping and file writes:** `PathMapper`, `MediaItemWriter`, `SeriesAggregateWriter`, `NfoWriter`
-  and every file write (path traversal, writing outside a configured `PathMappings:N:Local` root, symlinks).
-- **`.nfo` / XML handling:** `NfoWriter` parsing and saving (XXE, entity expansion, preserving foreign
-  content and encoding).
-- **HTTP calls to Plex:** `PlexClient`, `PlexJsonOptions`, the named `HttpClient` (TLS, timeouts, untrusted
-  JSON).
-- **Logging of external data:** the in-memory log store and provider (secrets or PII in log lines).
-- **State on disk:** `StateStore` (the high-water-mark file).
+- **Tokens and secrets** — the Plex token and the dashboard token against disclosure in logs, pages and
+  responses: `PlexOptions`, `DashboardOptions`, `SecretLogRedactor` —
+  [Dashboard and auth](../docs/areas/dashboard-and-auth.md#live-log-buffer-and-secret-masking),
+  [Configuration](../docs/areas/configuration.md)
+- **Dashboard authentication** — the dashboard routes against access without a session and against token guessing:
+  `TokenAuthMiddleware`, `LoginEndpoints`, `LoginPage`, `DashboardLoginService`, `LoginThrottle`, `TokenComparer`,
+  `DashboardStartup` (security headers, forwarded headers, `Dashboard:TrustedProxies`), the endpoint mapping in
+  `Program.cs`; `/login`, `/logout`, `/health` — [Dashboard and auth](../docs/areas/dashboard-and-auth.md)
+- **Path mapping and file writes** — the media volume against writes outside the configured local roots:
+  `PathMapper`, `MediaItemWriter`, `SeriesAggregateWriter`, `NfoWriter` —
+  [Path mapping and NFO](../docs/areas/path-mapping-and-nfo.md)
+- **`.nfo` / XML handling** — the parser against hostile XML (external entities, entity expansion) and the user's
+  files against lost content: `NfoWriter` — [Path mapping and NFO](../docs/areas/path-mapping-and-nfo.md)
+- **HTTP calls to Plex** — the request paths and the process against untrusted keys and JSON from Plex:
+  `PlexClient`, `PlexJsonOptions`, the named `HttpClient`, the DTOs in `src/PlexToJellyfinSync.Data/` —
+  [Sync pipeline](../docs/areas/sync-pipeline.md#what-is-read-from-plex)
+- **Logging of external data** — log lines against secrets and personal data: `InMemoryLogStore`,
+  `InMemoryLogProvider`, `InMemoryLogger` in `src/PlexToJellyfinSync.Service/Logging/` —
+  [Dashboard and auth](../docs/areas/dashboard-and-auth.md#live-log-buffer-and-secret-masking)
+- **State on disk** — the high-water-mark file against corruption and misreading: `StateStore`, `SyncStateFile`,
+  `SchemaVersionProbe` — [Sync pipeline](../docs/areas/sync-pipeline.md#state-file)
 
 ## Guarantees
 
@@ -38,37 +45,37 @@ Deliberate behavior that must not change without the Product Manager. One line e
 a link to its decision record where it was a real choice, and a link to the area document under `docs/areas/` that
 states it.
 
-- Existing `.nfo` files are only ever touched in their `watched` / `playcount` / `lastplayed` elements, and
-  an unchanged value skips the write entirely (`NfoWriteOutcome.Skipped`); an update saves without
-  re-indenting, a new file is UTF-8 without BOM, and an update keeps the encoding its byte-order mark
-  identifies — [Path mapping and NFO](../docs/areas/path-mapping-and-nfo.md),
-  [decision 0003](../docs/decisions/0003-nfo-only-watch-fields-touched.md)
-- Path mapping is mandatory: `PathMapper` rejects `/../` sequences and requires a matching mapping; an
-  unmapped path is skipped (in `MediaItemWriter`), never passed through unchanged; `NfoWriter`
-  independently verifies that the target stays under a configured local root —
-  [Path mapping and NFO](../docs/areas/path-mapping-and-nfo.md),
-  [decision 0004](../docs/decisions/0004-unmapped-paths-are-skipped.md)
-- Polling only, single user (the Plex owner) — [Sync pipeline](../docs/areas/sync-pipeline.md),
-  [0001](../docs/decisions/0001-polling-instead-of-webhooks.md),
-  [0002](../docs/decisions/0002-single-user-plex-owner.md)
-- `ProcessHistoryAsync` seeds the high-water mark on first run instead of replaying the whole history; a
-  periodic full reconcile complements it — [Sync pipeline](../docs/areas/sync-pipeline.md),
-  [decision 0005](../docs/decisions/0005-incremental-history-plus-full-reconcile.md)
-- Failures are isolated per item (and per show); the `Worker` loop survives them, cannot overlap runs, and
-  re-throws `OperationCanceledException` — [Sync pipeline](../docs/areas/sync-pipeline.md),
+- Existing `.nfo` files change only in their watch fields —
+  [0003](../docs/decisions/0003-nfo-only-watch-fields-touched.md),
+  [Path mapping and NFO](../docs/areas/path-mapping-and-nfo.md#updating-an-existing-file)
+- A path is written only through a matching mapping and inside a configured local root —
+  [0004](../docs/decisions/0004-unmapped-paths-are-skipped.md),
+  [Path mapping and NFO](../docs/areas/path-mapping-and-nfo.md)
+- Plex is polled, never called back — [0001](../docs/decisions/0001-polling-instead-of-webhooks.md),
+  [Sync pipeline](../docs/areas/sync-pipeline.md#polling-and-schedule)
+- Only the Plex owner's watch state is synchronized — [0002](../docs/decisions/0002-single-user-plex-owner.md),
+  [Sync pipeline](../docs/areas/sync-pipeline.md#owner-only)
+- Incremental history run seeded on first start, plus a periodic full reconcile —
+  [0005](../docs/decisions/0005-incremental-history-plus-full-reconcile.md),
+  [0027](../docs/decisions/0027-state-file-schema-version.md),
+  [Sync pipeline](../docs/areas/sync-pipeline.md#incremental-history-run)
+- Failures are isolated per item and never stop the worker —
   [0006](../docs/decisions/0006-item-level-error-isolation.md),
-  [0013](../docs/decisions/0013-worker-guards-both-orchestrator-calls.md)
-- The dashboard is open by default and optionally protected by a token: `Dashboard:Token` unset stays a
-  pass-through, `Dashboard:Enabled` false maps `/health` and nothing else —
-  [Dashboard and auth](../docs/areas/dashboard-and-auth.md),
-  [decision 0007](../docs/decisions/0007-dashboard-auth-model.md)
-- Options are validated at startup; the Plex token stays optional —
-  [Configuration](../docs/areas/configuration.md),
-  [0016](../docs/decisions/0016-options-validated-at-startup.md),
-  [0017](../docs/decisions/0017-plex-token-stays-optional.md)
+  [0013](../docs/decisions/0013-worker-guards-both-orchestrator-calls.md),
+  [Sync pipeline](../docs/areas/sync-pipeline.md#limits-and-errors)
+- The dashboard is open by default and optionally protected by a token —
+  [0007](../docs/decisions/0007-dashboard-auth-model.md),
+  [Dashboard and auth](../docs/areas/dashboard-and-auth.md)
+- Forwarded headers are trusted only from configured proxies —
+  [0022](../docs/decisions/0022-forwarded-headers-from-configured-proxies-only.md),
+  [Dashboard and auth](../docs/areas/dashboard-and-auth.md#forwarded-headers)
+- An invalid configuration stops the start — [0016](../docs/decisions/0016-options-validated-at-startup.md),
+  [Configuration](../docs/areas/configuration.md#startup-check)
+- The Plex token stays optional — [0017](../docs/decisions/0017-plex-token-stays-optional.md),
+  [Configuration](../docs/areas/configuration.md#startup-check)
 - Container images are published to Docker Hub only —
-  [Configuration](../docs/areas/configuration.md),
-  [decision 0015](../docs/decisions/0015-container-images-on-docker-hub-only.md)
+  [0015](../docs/decisions/0015-container-images-on-docker-hub-only.md),
+  [Configuration](../docs/areas/configuration.md#container)
 
 ## Integration surface
 
@@ -79,68 +86,62 @@ change with it.
 - the options class in `src/PlexToJellyfinSync.Core/Options/`, its `SectionName` and its validation
 - the binding and registration in `ServiceCollectionExtensions.AddPlexToJellyfinSync`
 - `src/PlexToJellyfinSync/appsettings.json`
-- the configuration table in `README.md` and the settings table of `docs/areas/configuration.md` — key,
-  `PLEXSYNC__`-prefixed environment variable, default value and, in the area document, the allowed range and
-  validation all have to match the code; both are updated with every option change
+- the settings table of `docs/areas/configuration.md`, the one home of key, environment variable, default and
+  allowed values; `README.md` only where its quick start uses the key
 - `ServiceCollectionExtensionsTests` (the `ServiceCollectionExtensionsBindsConfigurationSections` group)
-- the area document of the behavior the option controls (`docs/areas/sync-pipeline.md`,
-  `docs/areas/path-mapping-and-nfo.md` or `docs/areas/dashboard-and-auth.md`) when the option changes
-  documented behavior
+- the area document of the behavior the option controls
 
 **A new or changed service** touches:
-- its interface in `src/PlexToJellyfinSync.Core/Abstractions/` — every production class in this codebase
-  is consumed through one
-- registration *and lifetime* in `ServiceCollectionExtensions` (the pipeline is singleton throughout; a
-  new scoped or transient registration needs a reason)
+- its interface in `src/PlexToJellyfinSync.Core/Abstractions/` — every production class is consumed through one
+- registration and lifetime in `ServiceCollectionExtensions` (the pipeline is singleton throughout; a scoped or
+  transient registration needs a reason)
 - `ServiceCollectionExtensionsTests` for resolution and lifetime
-- the hand-written fake/stub in `tests/PlexToJellyfinSync.Tests` if other tests consume that interface
+- the hand-written double in `tests/PlexToJellyfinSync.Tests` if other tests consume that interface
 - the component list and diagram in `docs/ARCHITECTURE.md`
 
-**A change in the sync pipeline** (`Worker`, `SyncOrchestrator`, `LibraryReconciler`,
-`SeriesAggregateWriter`, `MediaItemWriter`, `WatchAggregator`, `PathMapper`, `NfoWriter`, `StateStore`)
-touches the *Guarantees* above, the stability policy in `docs/CONTRIBUTING.md` and decision 0018 (which
-collaborator owns what). A diff that changes a guarantee without saying so in the PR description is a
-finding, and so is a diff that leaves the corresponding sentence in `README.md`,
-`docs/areas/sync-pipeline.md`, `docs/areas/path-mapping-and-nfo.md`, `docs/ARCHITECTURE.md` or
-`docs/CONTRIBUTING.md` standing while making it untrue.
+**A change in the sync pipeline** (`Worker`, `SyncOrchestrator`, `LibraryReconciler`, `SeriesAggregateWriter`,
+`MediaItemWriter`, `WatchAggregator`, `PathMapper`, `NfoWriter`, `StateStore`) touches:
+- the *Guarantees* above and the stability policy in `docs/CONTRIBUTING.md`; a diff that changes a guarantee
+  without saying so in the PR description is a finding
+- `docs/areas/sync-pipeline.md` or `docs/areas/path-mapping-and-nfo.md`, and `docs/ARCHITECTURE.md` with
+  decision 0018 when the split of responsibilities changes
 
-**A change to the dashboard or its auth model** (`Program.cs`, `TokenAuthMiddleware`, `LoginEndpoints`,
-`DashboardLoginService`, `LoginThrottle`, `TokenComparer`, the Razor components) touches:
-- `SECURITY.md`, `docs/areas/dashboard-and-auth.md`, the "Web host & dashboard" section of
-  `docs/ARCHITECTURE.md`, and `README.md`
-- the unauthenticated-by-default behavior (*Guarantees*)
-- the middleware allowlist — a new public prefix or static-asset extension widens what is reachable
-  without a session cookie
-- the security headers and CSP, cookie flags (`HttpOnly`, `SameSite=Strict`, `Secure` only on HTTPS),
-  constant-time token comparison, and the throttle's backoff, pruning and bound, and the trusted-proxy list
-- `LoginEndpointsTests`, `LoginThrottleTests` and the middleware's tests
+**A change to the dashboard or its auth model** (`Program.cs`, `src/PlexToJellyfinSync/Security/`,
+`src/PlexToJellyfinSync.Service/Security/`, the Razor components) touches:
+- `docs/areas/dashboard-and-auth.md`, `SECURITY.md` and the "Web host & dashboard" section of
+  `docs/ARCHITECTURE.md`
+- the public paths of `TokenAuthMiddleware`: a new prefix or extension widens what is reachable without a session
+- `LoginEndpointsTests`, `LoginThrottleTests`, `TokenAuthMiddlewareTests`, `DashboardStartupTests`
 
 **A new Plex API call or DTO** touches:
-- `src/PlexToJellyfinSync.Data/Plex/` and the mapping in `PlexClient` — the Plex JSON shape must not leak
-  past that class into `Core` or the host
-- `PlexJsonOptions` if deserialization behavior changes
-- `FakePlexClient` / `StubHttpMessageHandler` in the test project
-- the endpoint list in `docs/ARCHITECTURE.md`
+- `src/PlexToJellyfinSync.Data/Plex/` and the mapping in `PlexClient`; the Plex JSON shape does not leave that class
+- `PlexJsonOptions` if deserialization changes
+- `FakePlexClient` / `StubHttpMessageHandler`
+- the endpoint list in `docs/ARCHITECTURE.md` and `docs/areas/sync-pipeline.md` (*What is read from Plex*)
 
-**A new logged value** touches `SecretLogRedactor` and the dashboard log buffer: the log store feeds a
-dashboard that is reachable without authentication whenever `Dashboard:Token` is empty, so a log
-statement that writes a token, a credential or a full Plex URL with query string is a finding.
+**A new logged value** touches `SecretLogRedactor` and the masking rules in `docs/areas/dashboard-and-auth.md`:
+a token, a credential or a full Plex URL with query string in a log statement is a finding.
 
 ## Test doubles
 
-No mocking library; hand-written fakes and stubs in `tests/PlexToJellyfinSync.Tests`, each implementing a
-`Core.Abstractions` interface directly (pattern and details in `docs/UNIT_TESTS.md`, *Test doubles*), one line
-each: the double, where it lives and what it stands in for; how it behaves is read in its code:
+No mocking library; hand-written fakes and stubs in `tests/PlexToJellyfinSync.Tests`, each implementing the
+interface or base type it stands in for directly (pattern and details in `docs/UNIT_TESTS.md`, *Test doubles*), one
+line each: the double, where it lives and what it stands in for; how it behaves is read in its code:
 
-- `FakePlexClient` — preconfigured libraries, history, items and episodes; records calls
-- `FakeStateStore` — in-memory high-water mark
-- `StubPathMapper` — configurable Plex-path → local-path function
-- `RecordingNfoWriter` (with `NfoWriteRecord`) — records writes instead of touching the file system; `CancellationSource` with `CancelWhen` cancels the run's token on a matching item and ends that write with an `OperationCanceledException`
-- `StubHttpMessageHandler` — canned responses for the real `HttpClient` in `PlexClientTests`
-- `FakeHttpClientFactory` — hands out a preconfigured `HttpClient` and counts requests
-- `StubDashboardLoginService` — preconfigured `LoginResult` for `LoginEndpointsTests`
-- `TestTimeProvider` — controllable clock for `LoginThrottleTests`
-- `FakeSyncOrchestrator` — configurable failures; signals when a history sync or reconcile was requested
-- `FakeSyncStatusProvider` — settable status snapshot that raises `Changed` on demand
-- `RecordingWorkerLogger`, `RecordingSyncStatusLogger`, `RecordingStateStoreLogger` — record log entries of `Worker` / `SyncStatusService` / `StateStore`
-- `StubAntiforgery` — antiforgery validation that always passes or always fails
+- `FakePlexClient` (`FakePlexClient.cs`) — `IPlexClient`
+- `FakeStateStore` (`FakeStateStore.cs`) — `IStateStore`
+- `StubPathMapper` (`StubPathMapper.cs`) — `IPathMapper`
+- `RecordingNfoWriter` (`RecordingNfoWriter.cs`, records `NfoWriteRecord`) — `INfoWriter`
+- `FakeSyncOrchestrator` (`FakeSyncOrchestrator.cs`) — `ISyncOrchestrator` for the `Worker`
+- `FakeSyncStatusProvider` (`FakeSyncStatusProvider.cs`) — `ISyncStatusProvider` for the dashboard
+- `StubDashboardLoginService` (`StubDashboardLoginService.cs`) — `IDashboardLoginService` for the login endpoints
+- `StubHttpMessageHandler` (`StubHttpMessageHandler.cs`) — Plex's HTTP answers behind the real `HttpClient`
+- `FakeHttpClientFactory` (`FakeHttpClientFactory.cs`) — `IHttpClientFactory`
+- `StubAntiforgery` (`StubAntiforgery.cs`) — ASP.NET Core's `IAntiforgery`
+- `TestTimeProvider` (`TestTimeProvider.cs`) — the clock (`TimeProvider`)
+- `RecordingWorkerLogger` (`RecordingWorkerLogger.cs`) — `ILogger<Worker>`
+- `RecordingSyncStatusLogger` (`RecordingSyncStatusLogger.cs`) — `ILogger<SyncStatusService>`
+- `RecordingStateStoreLogger` (`RecordingStateStoreLogger.cs`) — `ILogger<StateStore>`
+- `RecordingPlexClientLogger` (`RecordingPlexClientLogger.cs`) — `ILogger<PlexClient>`
+- `RecordingForwardedHeadersWarningLogger` (`RecordingForwardedHeadersWarningLogger.cs`) —
+  `ILogger<ForwardedHeadersWarning>`

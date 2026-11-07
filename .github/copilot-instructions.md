@@ -16,9 +16,9 @@ license to pick either one.
 
 <!-- project:begin overview -->
 A .NET 10 worker with an ASP.NET / Blazor Server host that **cyclically reads the Plex watch state
-and writes it into Jellyfin `.nfo` files**. Polling only (no webhooks), single user (the Plex owner),
-runs as a Docker container, and exposes a web dashboard (status + live logs). See
-[`ARCHITECTURE.md`](/docs/ARCHITECTURE.md) for how the sync pipeline, dashboard and deployment fit
+and writes it into Jellyfin `.nfo` files**, runs as a Docker container and exposes a web dashboard
+(status + live logs). What it guarantees is stated area by area in [`docs/areas/`](/docs/areas/README.md);
+[`ARCHITECTURE.md`](/docs/ARCHITECTURE.md) shows how the sync pipeline, dashboard and deployment fit
 together.
 <!-- project:end overview -->
 
@@ -109,9 +109,9 @@ All commands, with what each one checks, are listed in [`.squad/stack.md`](/.squ
 - **Solution format** is `.slnx` (XML-based) at the repository root.
 <!-- stack:end configuration -->
 <!-- project:begin configuration -->
-- **Target framework** `net10.0`; one solution, `PlexToJellyfinSync.slnx`, at the repository root.
-- Configuration keys use the `PLEXSYNC__` environment-variable prefix (see the configuration table in
-  [`README.md`](/README.md)).
+- One solution, `PlexToJellyfinSync.slnx`, at the repository root.
+- The application's settings, their `PLEXSYNC__` environment variables and defaults are listed in
+  [`docs/areas/configuration.md`](/docs/areas/configuration.md).
 <!-- project:end configuration -->
 
 ## Code style
@@ -125,11 +125,8 @@ region named after the interface, its description not ending in "implementation"
 members (English, no `<remarks>`); `.ConfigureAwait(false)` in library/service code.
 <!-- stack:end code-style -->
 <!-- project:begin code-style -->
-- CRLF line endings and no trailing newline (`.editorconfig`); 4-space indent.
-- Test classes `{Feature}Tests`, methods `{Class}{Scenario}{ExpectedResult}` (e.g.
-  `WatchAggregatorAllWatchedReturnsWatched`, not `WatchAggregator_AllWatched_ReturnsWatched`); **no mocking
-  library** — the hand-written fakes/stubs live in `tests/PlexToJellyfinSync.Tests` (`.squad/project.md`,
-  *Test doubles*).
+- Line endings and the final newline as [`.editorconfig`](/.editorconfig) sets them.
+- **No mocking library**: the hand-written test doubles are listed in `.squad/project.md` (*Test doubles*).
 <!-- project:end code-style -->
 
 ## Testing

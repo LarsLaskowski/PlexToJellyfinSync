@@ -31,15 +31,14 @@ file written by the releases up to v1.6.0 carries no version and must keep its m
 
 ## Decision
 
-Option 3. Every write records `SchemaVersion` `1`; a file without a version (or with `null`) is a version-1
-file of an earlier release; any other integer version is moved to `state.json.unsupported` and read as "no
-mark". The rules and log texts are in [Sync pipeline, *State file*](../areas/sync-pipeline.md#state-file).
+Option 3. The state file records its schema version, a file without one is read as the format of the earlier
+releases, and a file of an unknown version is set aside and read as "no mark". The values, file names and log
+texts are in [Sync pipeline, *State file*](../areas/sync-pipeline.md#state-file).
 
 ## Consequences
 
 - A future format bumps the version and branches on it when the file is read; files without a version stay
   readable as version 1.
 - A downgrade from a release with a newer version costs the mark once (seeded, then a reconcile); the newer
-  file is kept as `state.json.unsupported`, not merged back.
+  file is kept for the operator, not merged back.
 - A downgrade from this release to an earlier one keeps the mark, because earlier releases ignore the version.
-- Unknown values next to a supported version are still ignored and dropped on the next write.

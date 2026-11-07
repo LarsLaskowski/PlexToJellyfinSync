@@ -83,27 +83,9 @@ hand-written test doubles wherever possible.
 ## Test doubles
 
 There is no mocking framework in this project. Instead, `PlexToJellyfinSync.Tests` has a small set
-of hand-written fakes/stubs, each implementing a `Core.Abstractions` interface directly:
-
-- `FakePlexClient : IPlexClient` — serves preconfigured `Libraries`/`History`/`Items`/`Episodes`
-  collections and records the calls it received (call counts, last arguments) as public
-  properties, so a test can both drive scenario data in and assert on what the code under test
-  requested.
-- `FakeStateStore : IStateStore` — an in-memory high-water mark holder.
-- `StubPathMapper : IPathMapper` — a configurable Plex-path → local-path function.
-- `RecordingNfoWriter : INfoWriter` (paired with the `NfoWriteRecord` DTO) — records every write
-  call instead of touching the filesystem, for tests that only care *whether and what* was
-  written, not the resulting XML.
-- `StubHttpMessageHandler : HttpMessageHandler` — returns a preconfigured response for the real
-  `HttpClient` used by `PlexClientTests`, so JSON parsing and URL construction run for real while
-  the network call itself is intercepted.
-- `FakeHttpClientFactory : IHttpClientFactory` — returns a preconfigured `HttpClient` for every
-  request and counts how often one was requested, standing in for `PlexClient`'s injected
-  `IHttpClientFactory` in `PlexClientTests`.
-- `StubDashboardLoginService : IDashboardLoginService` — preconfigured `LoginResult` for
-  `LoginEndpointsTests`.
-- `TestTimeProvider : TimeProvider` — a controllable clock for `LoginThrottleTests`, so lockout
-  windows and backoff timing can be asserted deterministically without real delays.
+of hand-written fakes and stubs, each implementing the interface or base type it stands in for
+directly; the list of them, one line per double, is in [`.squad/project.md`](../.squad/project.md)
+(*Test doubles*), and how each one behaves is read in its code.
 
 When a new component needs a test double for one of its collaborators, follow this pattern: a
 plain `internal sealed class` implementing the interface, with public settable properties for

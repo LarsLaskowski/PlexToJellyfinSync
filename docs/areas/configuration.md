@@ -5,8 +5,7 @@
 What an operator sets and runs: where settings come from, every setting with its default and allowed values,
 the check of the settings at startup, and the container contract — image, port, volumes and user. Operators rely
 on it to install and configure the application; the other areas rely on it for the settings their behavior reads.
-The [configuration table in `README.md`](../../README.md#configuration) is the users' setup reference and agrees
-with this document.
+It is the one list of the settings; [`README.md`](../../README.md) shows a setup by example and links here.
 
 ## Behavior
 
@@ -120,6 +119,8 @@ The shipped `appsettings.json` also holds the web host's standard settings `Logg
   invalid configuration stops the start instead of failing on every sync; where the bounds come from.
 - [`decisions/0017-plex-token-stays-optional.md`](../decisions/0017-plex-token-stays-optional.md) — the Plex token
   is not required, because Plex can allow unauthenticated networks.
+- [`decisions/0030-settings-listed-once-in-the-configuration-area.md`](../decisions/0030-settings-listed-once-in-the-configuration-area.md)
+  — this document is the one list of the settings; `README.md` links it.
 
 ## Not here
 
