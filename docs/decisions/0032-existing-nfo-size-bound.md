@@ -1,6 +1,6 @@
 # 0032: An existing NFO file is read only up to a fixed size bound
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-07
 - **Area:** Path mapping and NFO
 - **Source:** Issue #275
