@@ -29,12 +29,7 @@ internal sealed class StubDashboardLoginService : IDashboardLoginService
 
     #region IDashboardLoginService
 
-    /// <summary>
-    /// Return the preconfigured result
-    /// </summary>
-    /// <param name="clientKey">Ignored client identifier</param>
-    /// <param name="token">Ignored token</param>
-    /// <returns>The preconfigured result</returns>
+    /// <inheritdoc/>
     public LoginResult Authenticate(string clientKey, string token)
     {
         return _result;

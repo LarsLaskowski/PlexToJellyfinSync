@@ -74,11 +74,11 @@ public sealed class PlexMetadataDeserializationTests
 
         var metadata = response.MediaContainer.Metadata[0];
 
-        Assert.IsNotNull(metadata.Guid, "Guid array should not be null!");
+        Assert.IsNotNull(metadata?.Guid, "Guid array should not be null!");
         Assert.HasCount(2, metadata.Guid, "Expected two external identifiers!");
-        Assert.AreEqual("imdb://tt0113277", metadata.Guid[0].Id, "First identifier mismatch!");
+        Assert.AreEqual("imdb://tt0113277", metadata.Guid[0]?.Id, "First identifier mismatch!");
         Assert.AreEqual(1995, metadata.Year, "Year should be parsed!");
-        Assert.AreEqual("/data/Movies/Heat (1995)/Heat.mkv", metadata.Media?[0].Part?[0].File, "File path should be parsed!");
+        Assert.AreEqual("/data/Movies/Heat (1995)/Heat.mkv", metadata.Media?[0]?.Part?[0]?.File, "File path should be parsed!");
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ public sealed class PlexMetadataDeserializationTests
 
         Assert.IsNotNull(response?.MediaContainer?.Metadata, "The sample should deserialize to metadata!");
         Assert.HasCount(1, response.MediaContainer.Metadata, "The sample should hold exactly one metadata entry!");
-        Assert.AreEqual(expectedSectionId, response.MediaContainer.Metadata[0].LibrarySectionId, "The numeric library section id should be read!");
+        Assert.AreEqual(expectedSectionId, response.MediaContainer.Metadata[0]?.LibrarySectionId, "The numeric library section id should be read!");
     }
 
     #endregion // Methods

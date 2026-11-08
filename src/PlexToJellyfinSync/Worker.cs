@@ -59,10 +59,9 @@ public sealed class Worker : BackgroundService
         {
             throw;
         }
-
-        // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
         catch (Exception ex)
         {
+            // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
             _logger.LogError(ex, "Full reconcile failed");
         }
     }
@@ -83,10 +82,9 @@ public sealed class Worker : BackgroundService
         {
             throw;
         }
-
-        // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
         catch (Exception ex)
         {
+            // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
             _logger.LogError(ex, "Incremental history sync failed");
         }
     }
