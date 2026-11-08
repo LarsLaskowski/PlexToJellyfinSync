@@ -46,12 +46,7 @@ public sealed class DashboardLoginService : IDashboardLoginService
 
     #region IDashboardLoginService
 
-    /// <summary>
-    /// Evaluate a login attempt for a client and the supplied token
-    /// </summary>
-    /// <param name="clientKey">Identifier for the client, e.g. its remote IP address</param>
-    /// <param name="token">Token supplied by the client</param>
-    /// <returns>The outcome of the attempt</returns>
+    /// <inheritdoc/>
     public LoginResult Authenticate(string clientKey, string token)
     {
         if (_throttle.IsLockedOut(clientKey, out var retryAfter))

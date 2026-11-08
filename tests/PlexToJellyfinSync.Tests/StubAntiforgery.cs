@@ -29,49 +29,30 @@ internal sealed class StubAntiforgery : IAntiforgery
 
     #region IAntiforgery
 
-    /// <summary>
-    /// Return a fixed, unused token set
-    /// </summary>
-    /// <param name="httpContext">Ignored HTTP context</param>
-    /// <returns>A fixed token set</returns>
+    /// <inheritdoc/>
     public AntiforgeryTokenSet GetAndStoreTokens(HttpContext httpContext)
     {
         return new AntiforgeryTokenSet("request-token", "cookie-token", "__RequestVerificationToken", null);
     }
 
-    /// <summary>
-    /// Return a fixed, unused token set
-    /// </summary>
-    /// <param name="httpContext">Ignored HTTP context</param>
-    /// <returns>A fixed token set</returns>
+    /// <inheritdoc/>
     public AntiforgeryTokenSet GetTokens(HttpContext httpContext)
     {
         return GetAndStoreTokens(httpContext);
     }
 
-    /// <summary>
-    /// Return the preconfigured validity without inspecting the request
-    /// </summary>
-    /// <param name="httpContext">Ignored HTTP context</param>
-    /// <returns>The preconfigured validity</returns>
+    /// <inheritdoc/>
     public Task<bool> IsRequestValidAsync(HttpContext httpContext)
     {
         return Task.FromResult(_isValid);
     }
 
-    /// <summary>
-    /// No-op; no cookie or header is set by this stub
-    /// </summary>
-    /// <param name="httpContext">Ignored HTTP context</param>
+    /// <inheritdoc/>
     public void SetCookieTokenAndHeader(HttpContext httpContext)
     {
     }
 
-    /// <summary>
-    /// Succeed or throw depending on the preconfigured validity, without inspecting the request
-    /// </summary>
-    /// <param name="httpContext">Ignored HTTP context</param>
-    /// <returns>Task</returns>
+    /// <inheritdoc/>
     public Task ValidateRequestAsync(HttpContext httpContext)
     {
         if (_isValid == false)
