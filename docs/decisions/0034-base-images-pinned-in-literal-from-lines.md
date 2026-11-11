@@ -25,7 +25,7 @@ refreshes keeps every release on the base image of the day it was pinned, securi
    existing pin. But Dependabot sees neither image, so both digests would be refreshed by hand only, and a
    forgotten refresh ships an outdated base image without any signal.
 2. **Literal `FROM <image>:<tag>@sha256:<index digest>` for both stages, without build arguments** — Dependabot
-   parses both lines and refreshes the digest (and, within the major, the tag) in its grouped `docker` pull
+   parses both lines and can propose a new digest (and, within the major, a new tag) in its grouped `docker` pull
    request. Costs: the `org.opencontainers.image.base.digest` label can no longer be derived from the pin, because
    Dependabot rewrites only `FROM` lines; and the images can no longer be swapped with `--build-arg`.
 3. **As 2, with the full version tag (`11.0.0-alpine3.22`)** — every refresh is a visible tag change, which
@@ -43,9 +43,12 @@ literal and no longer sets `org.opencontainers.image.base.digest`. What the imag
 
 ## Consequences
 
-- Dependabot's grouped `docker` pull request refreshes both digests; a move to the next .NET major still edits both
+- Dependabot's grouped `docker` pull request is expected to refresh both digests (verified after merge, issue
+  #290); a move to the next .NET major still edits both
   `FROM` lines and the `base.name` label by hand ([0033](0033-follow-the-current-dotnet-major.md)).
 - If Dependabot suppresses digest-only updates for a version-like tag (its experiment
   `docker_digest_only_update_suppression`), no refresh arrives; the after-merge check of issue #290 watches for the
   first one, and option 3 is the fallback.
-- The base digest of a released image is read from the `Dockerfile` at the release tag, not from a label.
+- The base digest of a released image is read from the `Dockerfile` at the release tag, not from a label. The
+  release has no provenance attestation, so the dropped `base.digest` label was the image's only machine-readable
+  record of its base; a follow-up issue adds release provenance.
