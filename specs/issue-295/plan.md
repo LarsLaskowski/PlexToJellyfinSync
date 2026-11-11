@@ -176,3 +176,11 @@ No guarantee of `.squad/project.md` changes; the container contract is only chec
   *Deployment* section lists CI, CodeQL, Dependabot and Release but not `.github/workflows/fork-scope.yml`; add a
   bullet linking `docs/CONTRIBUTING.md` (*Contributions from outside*).
 - Making *Image build* a required check (needs option 2 of 0035), and building the image on project-file changes.
+
+## Security notes
+
+Security, plan mode, verdict `APPROVED`, three non-blocking findings (verbatim):
+
+1. **Fork-run approval claim cannot be checked.** The plan says "a first-time contributor's run waits for approval" (*Security considerations*), but that depends on a repository Actions setting I could not read. `gh api repos/larslaskowski/plextojellyfinsync/actions/permissions/fork-pr-contributor-approval` returned HTTP 403 ("Access to this GitHub Actions path is not permitted through this proxy"). The plan's security argument does not depend on it (read-only token, no secrets). Smallest fix, now, as a plan wording change: replace the clause with "fork runs wait for approval as the repository's fork-pull-request approval setting requires".
+2. **Dry-run leftovers could reach `main` unnoticed.** Because *Image build* is not required, a leftover `USER 1000` or zero digest would leave only a red, non-blocking check. Smallest fix, now: add to the verification of AC2/AC3 that after reverting the dry runs the orchestrator confirms `git diff origin/main...HEAD -- Dockerfile` is empty and that both *Image* jobs are green on the final head before step 9.
+3. **Optional follow-up issue (outside this change):** `ci.yml`'s checkout keeps the default `persist-credentials` while it runs pull request code under a token with `checks: write` on same-repo branches. Proposed issue: "[CI] Set persist-credentials: false on the ci.yml checkout". This is general hardening, not a defect of this plan.
