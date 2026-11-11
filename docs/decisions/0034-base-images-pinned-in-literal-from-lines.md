@@ -1,6 +1,6 @@
 # 0034: Both base images are pinned by tag and index digest in literal FROM lines
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-11
 - **Area:** Configuration
 - **Source:** Issue #290
@@ -44,11 +44,11 @@ literal and no longer sets `org.opencontainers.image.base.digest`. What the imag
 ## Consequences
 
 - Dependabot's grouped `docker` pull request is expected to refresh both digests (verified after merge, issue
-  #290); a move to the next .NET major still edits both
+  #296); a move to the next .NET major still edits both
   `FROM` lines and the `base.name` label by hand ([0033](0033-follow-the-current-dotnet-major.md)).
 - If Dependabot suppresses digest-only updates for a version-like tag (its experiment
-  `docker_digest_only_update_suppression`), no refresh arrives; the after-merge check of issue #290 watches for the
+  `docker_digest_only_update_suppression`), no refresh arrives; the after-merge check of issue #296 watches for the
   first one, and option 3 is the fallback.
 - The base digest of a released image is read from the `Dockerfile` at the release tag, not from a label. The
   release has no provenance attestation, so the dropped `base.digest` label was the image's only machine-readable
-  record of its base; a follow-up issue adds release provenance.
+  record of its base; issue #294 adds release provenance.
