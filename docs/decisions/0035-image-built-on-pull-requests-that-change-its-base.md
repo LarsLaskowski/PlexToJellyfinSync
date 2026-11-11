@@ -1,6 +1,6 @@
 # 0035: Pull requests that change the image's base build and start it in a path-filtered workflow
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-11
 - **Area:** —
 - **Source:** Issue #295
