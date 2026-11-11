@@ -6,7 +6,7 @@
   <ItemGroup>
     <!-- Code analysis (added to every project) -->
     <PackageVersion Include="Reihitsu.Analyzer" Version="1.2.0" />
-    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.36.0.15337" />
     <!-- Runtime -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0" />
