@@ -33,8 +33,11 @@ rule (`AGENTS.md`) does not allow to stay.
   (the SDK's own message); `rollForward` stays `latestFeature`, so no later major is picked silently.
 - E3: Where several majors are installed (a CI runner, a developer machine), every place that names a major
   (target frameworks, `global.json`, the Dockerfile's images) names 11; `dotnet_major.py` reports none other.
-- E4: The runtime image is pinned by the digest of the current `aspnet:11.0-alpine`, not by the tag alone; an
-  image whose digest does not resolve fails the build rather than falling back to an unpinned image.
+- E4: The runtime image is pinned by the multi-architecture index digest of the current `aspnet:11.0-alpine`, not
+  by the tag alone and not by one platform's digest: the release builds `linux/amd64` and `linux/arm64` from it
+  (`.github/workflows/release.yml`). A digest left over from .NET 10 under the new tag is caught by the pinned
+  image's own runtime version, which `dotnet_major.py` does not read. An image whose digest does not resolve fails
+  the build rather than falling back to an unpinned image.
 - E5: CI, which installs only the SDK of `global.json`, still runs its tools (the SonarQube scanner, the
   formatter from the tool manifest) and CodeQL; a tool that needs an older runtime shows as a failed CI run, not
   as a skipped step.
@@ -58,9 +61,11 @@ rule (`AGENTS.md`) does not allow to stay.
 - AC2: The startup-validation tests of `ServiceCollectionExtensionsTests` assert the same outcomes as today (a
   valid configuration passes, an empty or invalid one fails with `OptionsValidationException`, the message leaks
   no secret) through the validation the .NET 11 host runs, with no obsolete API (E1).
-- AC3: The Dockerfile builds from `dotnet/sdk:11.0-alpine` and runs on `dotnet/aspnet:11.0-alpine` pinned by its
-  current digest; the built image starts, listens on 8080 and runs as the base image's non-root user, and its
-  base-image labels name the new tag and digest (S2, E4, N1).
+- AC3: The Dockerfile builds from `dotnet/sdk:11.0-alpine` and runs on `dotnet/aspnet:11.0-alpine` pinned by the
+  index digest that tag resolves to when the Dockerfile is edited, an index that lists `linux/amd64` and
+  `linux/arm64`; the pinned image's configuration reports `ASPNET_VERSION` 11.0.x; the image, built and started
+  locally before the pull request, listens on 8080 and runs as UID 1654 (`docker run --rm <image> id`), the same
+  UID as the .NET 10 image; its base-image labels name the new tag and digest (S2, E4, N1).
 - AC4: `README.md`, `docs/CONTRIBUTING.md`, `docs/ARCHITECTURE.md`, `.squad/stack.md`, `AGENTS.md` and
   `.github/copilot-instructions.md` name .NET 11, SDK `11.0.100`, `net11.0` and the `11.0-alpine` images; no
   document or configuration comment states .NET 10 as the current major (the major-jump comment of
@@ -97,3 +102,14 @@ rule (`AGENTS.md`) does not allow to stay.
   version today and gains none. The runtime base image is described in `docs/ARCHITECTURE.md` (deployment
   section), which names the `11.0-alpine` images.
 - No other area document names the .NET major; none changes.
+
+## Challenge
+
+- 1 (major) AC3 passes with an arm64-broken image or a .NET 10 digest, and no check before merge — accepted. AC3
+  now requires the multi-architecture index digest listing `linux/amd64` and `linux/arm64`, `ASPNET_VERSION`
+  11.0.x in the pinned image's configuration (the check `dotnet_major.py` lacks, as it reads tags only), and a
+  local build and start before the pull request, since no pull-request workflow builds the image; E4 says the same.
+  The digest the challenger saw is not copied here: it is looked up again when the Dockerfile is edited.
+- 2 (minor) "the base image's non-root user" passes a changed UID — accepted. AC3 now names UID 1654, the UID of
+  the .NET 10 image, which existing volumes are owned by
+  ([Configuration](../../docs/areas/configuration.md#container)).
