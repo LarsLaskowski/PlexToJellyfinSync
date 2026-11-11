@@ -11,8 +11,8 @@ The `PlexToJellyfinSync` repository uses Git as its source control system. If yo
 installed it, you can download it [here](https://git-scm.com/downloads) or, if you prefer a
 GUI-based approach, try [GitHub Desktop](https://desktop.github.com/).
 
-Once Git is installed, you'll also need the .NET SDK matching the version targeted by the
-solution (currently `net10.0`). Instructions and downloads for your preferred OS can be found
+Once Git is installed, you'll also need the .NET SDK that `global.json` names (currently
+`10.0.404`) or a later one of the same major (target framework `net10.0`). Instructions and downloads for your preferred OS can be found
 [here](https://dotnet.microsoft.com/download).
 
 A running Plex Media Server and Jellyfin instance are **not** required for day-to-day
