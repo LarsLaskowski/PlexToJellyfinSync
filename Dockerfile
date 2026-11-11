@@ -13,7 +13,7 @@ RUN dotnet restore src/PlexToJellyfinSync/PlexToJellyfinSync.csproj
 COPY . .
 RUN dotnet publish src/PlexToJellyfinSync/PlexToJellyfinSync.csproj -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:11.0-alpine@sha256:0000000000000000000000000000000000000000000000000000000000000000
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-alpine@sha256:d39b72ad1534fa0faf52b488bffb0762df7ba269d120f0338713d4dda2a41bf5
 
 # The label names the image and tag of the runtime FROM line above and is edited together with it.
 LABEL org.opencontainers.image.base.name="mcr.microsoft.com/dotnet/aspnet:11.0-alpine"
