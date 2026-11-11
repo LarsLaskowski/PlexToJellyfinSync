@@ -1,7 +1,7 @@
 # Spec: Migrate the solution to .NET 11
 
 Source: the user's description
-Status: Draft
+Status: Approved by Lead
 
 ## Problem
 
@@ -79,7 +79,8 @@ rule (`AGENTS.md`) does not allow to stay.
 - New .NET 11 language or library features beyond what the two diagnostics require.
 - Changes to the squad's tools: `.squad/tools/dotnet_major.py` derives the major from `global.json` and names
   `10.0` only in a docstring example; it is a squad file a product PR does not change (`AGENTS.md`).
-- Released decision records: 0031's "measured on .NET 10" is a historical fact of that decision and stays.
+- Decision record 0031: its "measured on .NET 10" states when a measurement was taken, which stays true; the
+  record is not edited (it is unreleased, `git tag --contains`, but nothing in it changes with the move).
 - Package updates other than the Microsoft.Extensions packages (Dependabot's).
 
 ## Open questions
