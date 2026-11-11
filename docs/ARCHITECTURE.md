@@ -290,9 +290,10 @@ The container contract an operator relies on — image coordinates, port, volume
 stated under [*Container*](areas/configuration.md#container) in the Configuration area. This section describes
 how the image is built and released.
 
-- Single multi-stage `Dockerfile` at the repo root: `dotnet/sdk:10.0-alpine` build stage restores
+- Single multi-stage `Dockerfile` at the repo root: `dotnet/sdk:11.0-alpine` build stage restores
   and publishes `src/PlexToJellyfinSync`, then copies the publish output onto
-  `dotnet/aspnet:10.0-alpine` (pinned by digest, with the tag kept alongside for readability).
+  `dotnet/aspnet:11.0-alpine`. Both stages are pinned by tag and multi-architecture index digest in literal `FROM`
+  lines ([decision 0034](decisions/0034-base-images-pinned-in-literal-from-lines.md)).
   `ASPNETCORE_URLS` fixes the listening address inside the container, and the final stage runs as the base
   image's predefined non-root user (`USER $APP_UID`) rather than root.
 - **CI** (`.github/workflows/ci.yml`) restores, builds, runs tests with coverage
@@ -303,13 +304,23 @@ how the image is built and released.
   them and the Code Officer clears analyzer diagnostics), with the `SonarAnalyzer.CSharp` rules running in
   every local build — see the process decision
   [Quality gates before the pull request](decisions/process.md#quality-gates-before-the-pull-request).
+- **Image build** (`.github/workflows/image.yml`) runs on a pull request to `main` that changes the `Dockerfile`,
+  `.dockerignore`, `global.json` or the workflow itself. One job per platform builds the image natively with
+  `docker build` (`linux/amd64` on `ubuntu-latest`, `linux/arm64` on `ubuntu-24.04-arm`), neither job cancelling
+  the other. Each job then checks that the image's platform matches and that it runs as UID 1654, and starts it with
+  only a Plex base URL and a state directory set, failing unless `/health` answers `"status": "ok"` within 60 seconds
+  (`docker logs` are printed otherwise). It has a read-only token, uses no secret, logs in to no registry and pushes
+  nothing. It is not a required check, because a path filter leaves it pending on every pull request it skips
+  ([decision 0035](decisions/0035-image-built-on-pull-requests-that-change-its-base.md)).
 - **CodeQL** (`.github/workflows/codeql.yml`) runs on push/PR to `main` and weekly on a schedule,
   analyzing C#, JavaScript/TypeScript and the GitHub Actions workflows in `build-mode: none` (no
   compiled build needed for CodeQL's extraction).
 - **Dependabot** (`.github/dependabot.yml`) checks weekly for `github-actions`, `nuget`, `dotnet-sdk`
   (the SDK of `global.json`) and `docker` updates; the `github-actions`, `nuget` and `docker` updates
   are each grouped into a single PR per ecosystem instead of one PR per dependency, and a move to the
-  next .NET major (SDK, Microsoft.Extensions packages, .NET images) is never proposed.
+  next .NET major (SDK, Microsoft.Extensions packages, .NET images) is never proposed; its docker updates read the
+  two literal FROM lines and propose a new digest within the .NET major (decision 0034);
+  its `docker` and `dotnet-sdk` pull requests run the *Image build* workflow.
 - **Release** (`.github/workflows/release.yml`) triggers when a release is published on GitHub (the tag is
   created with it), never by merging a PR. The maintainer publishes it as a pre-release
   ([decision 0026](decisions/0026-releases-published-as-pre-release-and-promoted.md)). The workflow checks that the

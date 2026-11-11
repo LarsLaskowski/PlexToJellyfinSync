@@ -1,0 +1,91 @@
+name: Image build
+
+# Builds the container image natively on both platforms and starts it, for a
+# pull request that changes what the image is built from: the Dockerfile (its
+# base image digests, decision 0034), .dockerignore, global.json (the SDK the
+# build stage resolves) and this file. A change to project files is covered by
+# the Image build check in .squad/stack.md, not here.
+#
+# Keep this check non-required: a path filter leaves it pending on every pull
+# request it skips, and a required pending check blocks the merge (decision
+# 0035). It pushes nothing, logs in nowhere and uses no secret. Never switch the
+# trigger to pull_request_target: this workflow runs the pull request's code.
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - global.json
+      - .github/workflows/image.yml
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Image (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --tag plextojellyfinsync:ci .
+
+      - name: Check platform and user
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          actual="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' plextojellyfinsync:ci)"
+          uid="$(docker run --rm --entrypoint id plextojellyfinsync:ci -u)"
+          echo "Image platform: ${actual}"
+          echo "Image user id: ${uid}"
+          if [ "${actual}" != "${PLATFORM}" ]; then
+            echo "::error::The image is ${actual}, expected ${PLATFORM}"
+            exit 1
+          fi
+          if [ "${uid}" != "1654" ]; then
+            echo "::error::The image runs as UID ${uid}, expected 1654"
+            exit 1
+          fi
+
+      - name: Start and check /health
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name app -p 127.0.0.1:8080:8080 \
+            -e PLEXSYNC__Plex__BaseUrl=http://127.0.0.1:9 \
+            -e PLEXSYNC__State__Directory=/tmp \
+            plextojellyfinsync:ci
+          deadline=$((SECONDS + 60))
+          while [ "${SECONDS}" -lt "${deadline}" ]; do
+            if answer="$(curl -fsS --max-time 2 http://127.0.0.1:8080/health)" \
+              && echo "${answer}" | jq -e '.status == "ok"' > /dev/null; then
+              echo "Health answer: ${answer}"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs app
+          echo '::error::/health did not answer "status": "ok" within 60 seconds'
+          exit 1

@@ -1,9 +1,6 @@
-ARG BASE_SDK="mcr.microsoft.com/dotnet/sdk:10.0-alpine"
-ARG BASE_RUNTIME_IMAGE="mcr.microsoft.com/dotnet/aspnet"
-ARG BASE_RUNTIME_TAG="10.0-alpine"
-ARG BASE_RUNTIME_DIGEST="sha256:27b6b84beeede74fd16886177d360799c8e4299ceadfbd64eef57bafead7878a"
-
-FROM ${BASE_SDK} AS build
+# Both base images are pinned by tag and multi-architecture index digest in the FROM line itself, the only place
+# Dependabot's docker updates read (decision 0034).
+FROM mcr.microsoft.com/dotnet/sdk:11.0-alpine@sha256:52556c0fb9d0f609ae9aeab9efeeba96f4acc2f7038f7696f2235ccbdbb8e290 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props PlexToJellyfinSync.slnx ./
@@ -16,13 +13,10 @@ RUN dotnet restore src/PlexToJellyfinSync/PlexToJellyfinSync.csproj
 COPY . .
 RUN dotnet publish src/PlexToJellyfinSync/PlexToJellyfinSync.csproj -c Release -o /app/publish
 
-FROM ${BASE_RUNTIME_IMAGE}@${BASE_RUNTIME_DIGEST}
-ARG BASE_RUNTIME_IMAGE
-ARG BASE_RUNTIME_TAG
-ARG BASE_RUNTIME_DIGEST
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-alpine@sha256:d39b72ad1534fa0faf52b488bffb0762df7ba269d120f0338713d4dda2a41bf5
 
-LABEL org.opencontainers.image.base.name="${BASE_RUNTIME_IMAGE}:${BASE_RUNTIME_TAG}"
-LABEL org.opencontainers.image.base.digest="${BASE_RUNTIME_DIGEST}"
+# The label names the image and tag of the runtime FROM line above and is edited together with it.
+LABEL org.opencontainers.image.base.name="mcr.microsoft.com/dotnet/aspnet:11.0-alpine"
 LABEL org.opencontainers.image.description="Cyclically syncs Plex watch state into Jellyfin NFO files"
 LABEL org.opencontainers.image.licenses="MIT"
 

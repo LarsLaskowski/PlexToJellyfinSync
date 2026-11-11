@@ -20,7 +20,7 @@ updates:
       nuget-dependencies:
         patterns:
           - "*"
-    # The next major of the .NET packages (Microsoft.Extensions.* 11.0.0) belongs to the next .NET: it comes with the
+    # The next major of the .NET packages (Microsoft.Extensions.* 12.0.0) belongs to the next .NET: it comes with the
     # change of the target framework, not alone.
     ignore:
       - dependency-name: "Microsoft.Extensions.*"
@@ -28,7 +28,7 @@ updates:
       - dependency-name: "Microsoft.AspNetCore.*"
         update-types: ["version-update:semver-major"]
 
-  # The SDK of global.json: patch and feature bands as they are released; the next major (10 to 11) comes with the
+  # The SDK of global.json: patch and feature bands as they are released; the next major (11 to 12) comes with the
   # change of the target framework, never alone.
   - package-ecosystem: dotnet-sdk
     directory: "/"
@@ -43,8 +43,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
-    # The .NET images move to the next major with the target framework, as the SDK does. They come from build
-    # arguments in the Dockerfile (BASE_SDK, BASE_RUNTIME_IMAGE, BASE_RUNTIME_TAG).
+    # The .NET images move to the next major with the target framework, as the SDK does. Dependabot reads
+    # only FROM lines that name the image, so both images stand there literally with tag and digest (decision 0034).
     ignore:
       - dependency-name: "mcr.microsoft.com/dotnet/*"
         update-types: ["version-update:semver-major"]

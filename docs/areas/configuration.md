@@ -87,6 +87,9 @@ The shipped `appsettings.json` also holds the web host's standard settings `Logg
   the host file's owner and mode.
 - The image defines no container health check; `/health` ([Dashboard and auth](dashboard-and-auth.md)) can serve
   as one.
+- **Base image:** the image is built on `mcr.microsoft.com/dotnet/aspnet:<major>.0-alpine`, pinned by digest; its
+  `org.opencontainers.image.base.name` label names that image and tag. It carries no
+  `org.opencontainers.image.base.digest` label: the digest of a release is the one in the `Dockerfile` at its tag.
 - Implemented in the `Dockerfile` and `.github/workflows/release.yml`.
 
 ## Limits and errors

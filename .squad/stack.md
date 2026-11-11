@@ -6,8 +6,8 @@ profile and owned by this repository: keep it true when the build changes.
 
 ## Toolchain
 
-- .NET SDK of `global.json` (seeded as the newest SDK of the major, `10.0.404`; `rollForward` `latestFeature`: the
-  newest installed feature band of that major, never the next major), target framework `net10.0`, solution
+- .NET SDK of `global.json` (seeded as the newest SDK of the major, `11.0.100`; `rollForward` `latestFeature`: the
+  newest installed feature band of that major, never the next major), target framework `net11.0`, solution
   `PlexToJellyfinSync.slnx`. Several majors may be installed side by side (a machine, CI); the repository is built for
   one: every project's target framework, `global.json` and every .NET image name the same major, which
   `dotnet_major.py` checks in the *Analyzer gate*, and a new project gets it from the SDK `global.json` selects.
@@ -117,7 +117,7 @@ ls "$scratch"/publish/wwwroot/_framework/blazor.web.js
 
 Keep the first copy equal to the `COPY` lines before `RUN dotnet restore` in the Dockerfile. A publish that
 fails, or an output that is missing, is the defect the release build
-(`.github/workflows/release.yml`, started by publishing a release) would report only after the merge; no pull request check builds the image.
+(`.github/workflows/release.yml`, started by publishing a release) would report only after the merge, unless the change is covered by the *Image build* workflow (`.github/workflows/image.yml`): a pull request that changes the `Dockerfile`, `.dockerignore`, `global.json` or that workflow builds and starts the image there on `linux/amd64` and `linux/arm64`. A change to the `Dockerfile` or `global.json` is proven by that workflow, not by the reproduction above, which builds with the sandbox's own SDK and so cannot see a `global.json` that names a newer SDK than the image's; a change to any other input listed above is covered only by the reproduction (or `docker build` where Docker runs), because the workflow does not run for it.
 
 ## Coverage exclusions
 

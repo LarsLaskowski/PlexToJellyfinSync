@@ -14,6 +14,25 @@ namespace PlexToJellyfinSync.Tests;
 [TestClass]
 public sealed class ServiceCollectionExtensionsTests
 {
+    #region Fields
+
+    private readonly TestContext _testContext;
+
+    #endregion // Fields
+
+    #region Constructors
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="testContext">Test context</param>
+    public ServiceCollectionExtensionsTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
+    #endregion // Constructors
+
     #region Methods
 
     /// <summary>
@@ -172,8 +191,10 @@ public sealed class ServiceCollectionExtensionsTests
     /// <summary>
     /// With a valid base URL only, every options type resolves and the startup validation succeeds
     /// </summary>
+    /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
-    public void ServiceCollectionExtensionsMinimalConfigurationIsValid()
+    [TestCategory("AC2")]
+    public async Task ServiceCollectionExtensionsMinimalConfigurationIsValid()
     {
         using var provider = BuildProvider();
 
@@ -183,71 +204,84 @@ public sealed class ServiceCollectionExtensionsTests
         Assert.IsNotNull(provider.GetRequiredService<IOptions<DashboardOptions>>().Value, "The dashboard options should resolve!");
         Assert.IsNotNull(provider.GetRequiredService<IOptions<NfoOptions>>().Value, "The NFO options should resolve!");
 
-        provider.GetRequiredService<IStartupValidator>().Validate();
+        await provider.GetRequiredService<IAsyncStartupValidator>()
+                      .ValidateAsync(_testContext.CancellationToken);
     }
 
     /// <summary>
     /// An empty configuration fails the startup validation without any options having been resolved
     /// </summary>
+    /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
-    public void ServiceCollectionExtensionsEmptyConfigurationFailsStartupValidation()
+    [TestCategory("AC2")]
+    public async Task ServiceCollectionExtensionsEmptyConfigurationFailsStartupValidation()
     {
         using var provider = BuildProvider(new Dictionary<string, string?>(StringComparer.Ordinal));
 
-        var validator = provider.GetRequiredService<IStartupValidator>();
+        var validator = provider.GetRequiredService<IAsyncStartupValidator>();
 
-        Assert.Throws<OptionsValidationException>(validator.Validate, "A missing base URL should fail the startup validation!");
+        await Assert.ThrowsAsync<OptionsValidationException>(() => validator.ValidateAsync(_testContext.CancellationToken), "A missing base URL should fail the startup validation!");
     }
 
     /// <summary>
     /// An out-of-range sync option fails the startup validation and the options resolution
     /// </summary>
+    /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
-    public void ServiceCollectionExtensionsInvalidSyncOptionsFailValidation()
+    [TestCategory("AC2")]
+    public async Task ServiceCollectionExtensionsInvalidSyncOptionsFailValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("Sync:PollIntervalSeconds", "0"));
 
-        AssertInvalid<SyncOptions>(provider);
+        await AssertInvalidAsync<SyncOptions>(provider);
     }
 
     /// <summary>
     /// An out-of-range dashboard option fails the startup validation and the options resolution
     /// </summary>
+    /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
-    public void ServiceCollectionExtensionsInvalidDashboardOptionsFailValidation()
+    [TestCategory("AC2")]
+    public async Task ServiceCollectionExtensionsInvalidDashboardOptionsFailValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("Dashboard:LogBufferSize", "0"));
 
-        AssertInvalid<DashboardOptions>(provider);
+        await AssertInvalidAsync<DashboardOptions>(provider);
     }
 
     /// <summary>
     /// An invalid trusted proxy entry fails the startup validation and the options resolution
     /// </summary>
+    /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
-    public void ServiceCollectionExtensionsInvalidTrustedProxyFailsValidation()
+    [TestCategory("AC2")]
+    public async Task ServiceCollectionExtensionsInvalidTrustedProxyFailsValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("Dashboard:TrustedProxies:0", "proxy.local"));
 
-        AssertInvalid<DashboardOptions>(provider);
+        await AssertInvalidAsync<DashboardOptions>(provider);
     }
 
     /// <summary>
     /// A blank state directory fails the startup validation and the options resolution
     /// </summary>
+    /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
-    public void ServiceCollectionExtensionsBlankStateDirectoryFailsValidation()
+    [TestCategory("AC2")]
+    public async Task ServiceCollectionExtensionsBlankStateDirectoryFailsValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("State:Directory", " "));
 
-        AssertInvalid<StateOptions>(provider);
+        await AssertInvalidAsync<StateOptions>(provider);
     }
 
     /// <summary>
     /// The startup validation message does not contain the configured token or URL credentials
     /// </summary>
+    /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
-    public void ServiceCollectionExtensionsValidationMessageDoesNotLeakSecrets()
+    [TestCategory("AC2")]
+    public async Task ServiceCollectionExtensionsValidationMessageDoesNotLeakSecrets()
     {
         using var provider = BuildProvider(new Dictionary<string, string?>(StringComparer.Ordinal)
                                            {
@@ -255,8 +289,8 @@ public sealed class ServiceCollectionExtensionsTests
                                                ["Plex:Token"] = "tok-secret-123"
                                            });
 
-        var validator = provider.GetRequiredService<IStartupValidator>();
-        var exception = Assert.Throws<OptionsValidationException>(validator.Validate, "A base URL without a host should fail the startup validation!");
+        var validator = provider.GetRequiredService<IAsyncStartupValidator>();
+        var exception = await Assert.ThrowsAsync<OptionsValidationException>(() => validator.ValidateAsync(_testContext.CancellationToken), "A base URL without a host should fail the startup validation!");
 
         Assert.DoesNotContain("hunter2", exception.Message, "The message should not contain the URL credentials!");
         Assert.DoesNotContain("tok-secret-123", exception.Message, "The message should not contain the token!");
@@ -278,23 +312,6 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     /// <summary>
-    /// Assert that the startup validation and the options resolution of the given type fail
-    /// </summary>
-    /// <typeparam name="TOptions">Options type</typeparam>
-    /// <param name="provider">Service provider</param>
-    private static void AssertInvalid<TOptions>(ServiceProvider provider)
-        where TOptions : class
-    {
-        var validator = provider.GetRequiredService<IStartupValidator>();
-
-        Assert.Throws<OptionsValidationException>(validator.Validate, "The startup validation should fail!");
-
-        var exception = Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<TOptions>>().Value, "The options resolution should fail!");
-
-        Assert.AreEqual(typeof(TOptions), exception.OptionsType, "The exception should name the affected options type!");
-    }
-
-    /// <summary>
     /// Build a service provider from the given configuration values
     /// </summary>
     /// <param name="values">Configuration values, or <c>null</c> for a minimal valid configuration</param>
@@ -312,6 +329,24 @@ public sealed class ServiceCollectionExtensionsTests
         services.AddPlexToJellyfinSync(configuration);
 
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Assert that the startup validation and the options resolution of the given type fail
+    /// </summary>
+    /// <typeparam name="TOptions">Options type</typeparam>
+    /// <param name="provider">Service provider</param>
+    /// <returns>A task that completes when the assertions have run</returns>
+    private async Task AssertInvalidAsync<TOptions>(ServiceProvider provider)
+        where TOptions : class
+    {
+        var validator = provider.GetRequiredService<IAsyncStartupValidator>();
+
+        await Assert.ThrowsAsync<OptionsValidationException>(() => validator.ValidateAsync(_testContext.CancellationToken), "The startup validation should fail!");
+
+        var exception = Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<TOptions>>().Value, "The options resolution should fail!");
+
+        Assert.AreEqual(typeof(TOptions), exception.OptionsType, "The exception should name the affected options type!");
     }
 
     #endregion // Methods
