@@ -193,6 +193,7 @@ public sealed class ServiceCollectionExtensionsTests
     /// </summary>
     /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
+    [TestCategory("AC2")]
     public async Task ServiceCollectionExtensionsMinimalConfigurationIsValid()
     {
         using var provider = BuildProvider();
@@ -212,6 +213,7 @@ public sealed class ServiceCollectionExtensionsTests
     /// </summary>
     /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
+    [TestCategory("AC2")]
     public async Task ServiceCollectionExtensionsEmptyConfigurationFailsStartupValidation()
     {
         using var provider = BuildProvider(new Dictionary<string, string?>(StringComparer.Ordinal));
@@ -226,6 +228,7 @@ public sealed class ServiceCollectionExtensionsTests
     /// </summary>
     /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
+    [TestCategory("AC2")]
     public async Task ServiceCollectionExtensionsInvalidSyncOptionsFailValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("Sync:PollIntervalSeconds", "0"));
@@ -238,6 +241,7 @@ public sealed class ServiceCollectionExtensionsTests
     /// </summary>
     /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
+    [TestCategory("AC2")]
     public async Task ServiceCollectionExtensionsInvalidDashboardOptionsFailValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("Dashboard:LogBufferSize", "0"));
@@ -250,6 +254,7 @@ public sealed class ServiceCollectionExtensionsTests
     /// </summary>
     /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
+    [TestCategory("AC2")]
     public async Task ServiceCollectionExtensionsInvalidTrustedProxyFailsValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("Dashboard:TrustedProxies:0", "proxy.local"));
@@ -262,6 +267,7 @@ public sealed class ServiceCollectionExtensionsTests
     /// </summary>
     /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
+    [TestCategory("AC2")]
     public async Task ServiceCollectionExtensionsBlankStateDirectoryFailsValidation()
     {
         using var provider = BuildProvider(WithBaseUrl("State:Directory", " "));
@@ -274,6 +280,7 @@ public sealed class ServiceCollectionExtensionsTests
     /// </summary>
     /// <returns>A task that completes when the test has run</returns>
     [TestMethod]
+    [TestCategory("AC2")]
     public async Task ServiceCollectionExtensionsValidationMessageDoesNotLeakSecrets()
     {
         using var provider = BuildProvider(new Dictionary<string, string?>(StringComparer.Ordinal)
