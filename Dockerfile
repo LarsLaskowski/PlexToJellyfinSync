@@ -23,6 +23,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_URLS=http://+:8081
 
 COPY --from=build /app/publish .
 
@@ -32,6 +33,6 @@ RUN chown -R "$APP_UID:$APP_UID" /app
 
 # Run as the base image's predefined non-root user instead of root; the mounted media
 # and /config volumes must be writable by this UID (check it with `docker run --rm <image> id`).
-USER $APP_UID
+USER 1000
 
 ENTRYPOINT ["dotnet", "PlexToJellyfinSync.dll"]
