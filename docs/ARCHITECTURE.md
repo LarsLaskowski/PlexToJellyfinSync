@@ -306,9 +306,10 @@ how the image is built and released.
 - **CodeQL** (`.github/workflows/codeql.yml`) runs on push/PR to `main` and weekly on a schedule,
   analyzing C#, JavaScript/TypeScript and the GitHub Actions workflows in `build-mode: none` (no
   compiled build needed for CodeQL's extraction).
-- **Dependabot** (`.github/dependabot.yml`) checks weekly for `github-actions`, `nuget`, and
-  `docker` updates, each grouped into a single PR per ecosystem (capped at 10 open PRs) instead of
-  one PR per dependency.
+- **Dependabot** (`.github/dependabot.yml`) checks weekly for `github-actions`, `nuget`, `dotnet-sdk`
+  (the SDK of `global.json`) and `docker` updates; the `github-actions`, `nuget` and `docker` updates
+  are each grouped into a single PR per ecosystem instead of one PR per dependency, and a move to the
+  next .NET major (SDK, Microsoft.Extensions packages, .NET images) is never proposed.
 - **Release** (`.github/workflows/release.yml`) triggers when a release is published on GitHub (the tag is
   created with it), never by merging a PR. The maintainer publishes it as a pre-release
   ([decision 0026](decisions/0026-releases-published-as-pre-release-and-promoted.md)). The workflow checks that the
