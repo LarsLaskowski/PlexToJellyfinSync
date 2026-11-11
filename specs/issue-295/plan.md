@@ -74,7 +74,8 @@ step 6 after the Dev (*Dry-run artifacts*), applied and reverted by the orchestr
 - AC1: CI: on the Early draft PR both jobs *Image (linux/amd64)* and *Image (linux/arm64)* run (the workflow file is
   in its own `paths`) and pass, orchestrator; the negative half: check: the `paths` list read by the Reviewer.
 - AC2: CI: dry run A — the runtime `FROM` digest replaced by `sha256:` and 64 zeros; both jobs fail in the build
-  step, orchestrator.
+  step, orchestrator. After both dry runs are reverted, the orchestrator confirms before step 9 that
+  `git diff origin/main...HEAD -- Dockerfile` is empty and that both *Image* jobs are green on the final head.
 - AC3: CI: dry run B — `USER $APP_UID` replaced by `USER 1000` and `ASPNETCORE_URLS` set to `http://+:8081` in one
   patch; both jobs fail the user step and the health step (both run after a successful build, *Approach*), and the health
   step prints the container log, orchestrator. The platform half: check: the green run's log shows
@@ -164,7 +165,7 @@ No guarantee of `.squad/project.md` changes; the container contract is only chec
 - [x] No limits on parsed input.
 - [x] No exception reaches a user: CI output only; `docker logs` of a container started without token or secret.
 - Fork pull requests run the `Dockerfile` of the fork with a read-only token and no secrets, as `ci.yml` already
-  runs fork code; a first-time contributor's run waits for approval.
+  runs fork code; fork runs wait for approval as the repository's fork-pull-request approval setting requires.
 
 ## Decision records
 
@@ -175,6 +176,10 @@ No guarantee of `.squad/project.md` changes; the container contract is only chec
 - Proposed issue: "[Docs] List the Fork scope workflow under Deployment in ARCHITECTURE.md" — body: the
   *Deployment* section lists CI, CodeQL, Dependabot and Release but not `.github/workflows/fork-scope.yml`; add a
   bullet linking `docs/CONTRIBUTING.md` (*Contributions from outside*).
+- Proposed issue: "[CI] Set persist-credentials: false on the ci.yml checkout" — body: the checkout in
+  `.github/workflows/ci.yml` keeps the default `persist-credentials` while it runs pull request code under a token
+  with `checks: write` on same-repository branches; set `persist-credentials: false`, as `release.yml` and
+  `fork-scope.yml` do.
 - Making *Image build* a required check (needs option 2 of 0035), and building the image on project-file changes.
 
 ## Security notes
@@ -184,3 +189,7 @@ Security, plan mode, verdict `APPROVED`, three non-blocking findings (verbatim):
 1. **Fork-run approval claim cannot be checked.** The plan says "a first-time contributor's run waits for approval" (*Security considerations*), but that depends on a repository Actions setting I could not read. `gh api repos/larslaskowski/plextojellyfinsync/actions/permissions/fork-pr-contributor-approval` returned HTTP 403 ("Access to this GitHub Actions path is not permitted through this proxy"). The plan's security argument does not depend on it (read-only token, no secrets). Smallest fix, now, as a plan wording change: replace the clause with "fork runs wait for approval as the repository's fork-pull-request approval setting requires".
 2. **Dry-run leftovers could reach `main` unnoticed.** Because *Image build* is not required, a leftover `USER 1000` or zero digest would leave only a red, non-blocking check. Smallest fix, now: add to the verification of AC2/AC3 that after reverting the dry runs the orchestrator confirms `git diff origin/main...HEAD -- Dockerfile` is empty and that both *Image* jobs are green on the final head before step 9.
 3. **Optional follow-up issue (outside this change):** `ci.yml`'s checkout keeps the default `persist-credentials` while it runs pull request code under a token with `checks: write` on same-repo branches. Proposed issue: "[CI] Set persist-credentials: false on the ci.yml checkout". This is general hardening, not a defect of this plan.
+
+Answered by the Lead: note 1 — *Security considerations* reworded as proposed; note 2 — the Dockerfile diff
+and green-head confirmation added to the dry-run verification in *Verification without tests*; note 3 — listed as
+a proposed issue under *Out of scope / follow-ups*.
