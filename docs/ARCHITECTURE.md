@@ -292,7 +292,8 @@ how the image is built and released.
 
 - Single multi-stage `Dockerfile` at the repo root: `dotnet/sdk:11.0-alpine` build stage restores
   and publishes `src/PlexToJellyfinSync`, then copies the publish output onto
-  `dotnet/aspnet:11.0-alpine` (pinned by digest, with the tag kept alongside for readability).
+  `dotnet/aspnet:11.0-alpine`. Both stages are pinned by tag and multi-architecture index digest in literal `FROM`
+  lines ([decision 0034](decisions/0034-base-images-pinned-in-literal-from-lines.md)).
   `ASPNETCORE_URLS` fixes the listening address inside the container, and the final stage runs as the base
   image's predefined non-root user (`USER $APP_UID`) rather than root.
 - **CI** (`.github/workflows/ci.yml`) restores, builds, runs tests with coverage
@@ -309,7 +310,8 @@ how the image is built and released.
 - **Dependabot** (`.github/dependabot.yml`) checks weekly for `github-actions`, `nuget`, `dotnet-sdk`
   (the SDK of `global.json`) and `docker` updates; the `github-actions`, `nuget` and `docker` updates
   are each grouped into a single PR per ecosystem instead of one PR per dependency, and a move to the
-  next .NET major (SDK, Microsoft.Extensions packages, .NET images) is never proposed.
+  next .NET major (SDK, Microsoft.Extensions packages, .NET images) is never proposed; its docker updates read the
+  two literal FROM lines and propose a new digest within the .NET major (decision 0034).
 - **Release** (`.github/workflows/release.yml`) triggers when a release is published on GitHub (the tag is
   created with it), never by merging a PR. The maintainer publishes it as a pre-release
   ([decision 0026](decisions/0026-releases-published-as-pre-release-and-promoted.md)). The workflow checks that the
