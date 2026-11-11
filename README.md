@@ -5,7 +5,7 @@ files, so that everything you watch in Plex shows up as watched in Jellyfin. In 
 only the watch fields (`watched`, `playcount`, `lastplayed`) change, and every other element keeps its
 content; missing `.nfo` files are generated from the Plex metadata.
 
-Built with **C# / .NET 10**, runs as a small container, and ships a **web dashboard** for status and
+Built with **C# / .NET 11**, runs as a small container, and ships a **web dashboard** for status and
 live logs.
 
 > Inspired by [`2dee11/PlexXMLtoJellyfinNFO`](https://github.com/2dee11/PlexXMLtoJellyfinNFO) –

@@ -290,9 +290,9 @@ The container contract an operator relies on — image coordinates, port, volume
 stated under [*Container*](areas/configuration.md#container) in the Configuration area. This section describes
 how the image is built and released.
 
-- Single multi-stage `Dockerfile` at the repo root: `dotnet/sdk:10.0-alpine` build stage restores
+- Single multi-stage `Dockerfile` at the repo root: `dotnet/sdk:11.0-alpine` build stage restores
   and publishes `src/PlexToJellyfinSync`, then copies the publish output onto
-  `dotnet/aspnet:10.0-alpine` (pinned by digest, with the tag kept alongside for readability).
+  `dotnet/aspnet:11.0-alpine` (pinned by digest, with the tag kept alongside for readability).
   `ASPNETCORE_URLS` fixes the listening address inside the container, and the final stage runs as the base
   image's predefined non-root user (`USER $APP_UID`) rather than root.
 - **CI** (`.github/workflows/ci.yml`) restores, builds, runs tests with coverage

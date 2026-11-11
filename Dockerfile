@@ -1,7 +1,7 @@
-ARG BASE_SDK="mcr.microsoft.com/dotnet/sdk:10.0-alpine"
+ARG BASE_SDK="mcr.microsoft.com/dotnet/sdk:11.0-alpine"
 ARG BASE_RUNTIME_IMAGE="mcr.microsoft.com/dotnet/aspnet"
-ARG BASE_RUNTIME_TAG="10.0-alpine"
-ARG BASE_RUNTIME_DIGEST="sha256:27b6b84beeede74fd16886177d360799c8e4299ceadfbd64eef57bafead7878a"
+ARG BASE_RUNTIME_TAG="11.0-alpine"
+ARG BASE_RUNTIME_DIGEST="sha256:d39b72ad1534fa0faf52b488bffb0762df7ba269d120f0338713d4dda2a41bf5"
 
 FROM ${BASE_SDK} AS build
 WORKDIR /src

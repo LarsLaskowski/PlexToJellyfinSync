@@ -6,8 +6,8 @@ profile and owned by this repository: keep it true when the build changes.
 
 ## Toolchain
 
-- .NET SDK of `global.json` (seeded as the newest SDK of the major, `10.0.404`; `rollForward` `latestFeature`: the
-  newest installed feature band of that major, never the next major), target framework `net10.0`, solution
+- .NET SDK of `global.json` (seeded as the newest SDK of the major, `11.0.100`; `rollForward` `latestFeature`: the
+  newest installed feature band of that major, never the next major), target framework `net11.0`, solution
   `PlexToJellyfinSync.slnx`. Several majors may be installed side by side (a machine, CI); the repository is built for
   one: every project's target framework, `global.json` and every .NET image name the same major, which
   `dotnet_major.py` checks in the *Analyzer gate*, and a new project gets it from the SDK `global.json` selects.

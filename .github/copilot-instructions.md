@@ -15,7 +15,7 @@ license to pick either one.
 ## What this project is
 
 <!-- project:begin overview -->
-A .NET 10 worker with an ASP.NET / Blazor Server host that **cyclically reads the Plex watch state
+A .NET 11 worker with an ASP.NET / Blazor Server host that **cyclically reads the Plex watch state
 and writes it into Jellyfin `.nfo` files**, runs as a Docker container and exposes a web dashboard
 (status + live logs). What it guarantees is stated area by area in [`docs/areas/`](/docs/areas/README.md);
 [`ARCHITECTURE.md`](/docs/ARCHITECTURE.md) shows how the sync pipeline, dashboard and deployment fit

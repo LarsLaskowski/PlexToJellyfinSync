@@ -20,7 +20,7 @@ updates:
       nuget-dependencies:
         patterns:
           - "*"
-    # The next major of the .NET packages (Microsoft.Extensions.* 11.0.0) belongs to the next .NET: it comes with the
+    # The next major of the .NET packages (Microsoft.Extensions.* 12.0.0) belongs to the next .NET: it comes with the
     # change of the target framework, not alone.
     ignore:
       - dependency-name: "Microsoft.Extensions.*"
@@ -28,7 +28,7 @@ updates:
       - dependency-name: "Microsoft.AspNetCore.*"
         update-types: ["version-update:semver-major"]
 
-  # The SDK of global.json: patch and feature bands as they are released; the next major (10 to 11) comes with the
+  # The SDK of global.json: patch and feature bands as they are released; the next major (11 to 12) comes with the
   # change of the target framework, never alone.
   - package-ecosystem: dotnet-sdk
     directory: "/"
