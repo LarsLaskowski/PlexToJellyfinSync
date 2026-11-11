@@ -25,3 +25,5 @@ are quoted in full.
 | 2026-11-11 13:44 | 6 Coverage skipped (G2) | Orchestrator | Tester pass not due: G2 changes only the Dockerfile, no code; no uncovered lines, no deferred tests. |
 | 2026-11-11 13:44 | 4 Skeleton skipped (G3) | Orchestrator | skipped: task 5 states the change adds no API. |
 | 2026-11-11 13:44 | 5 Tests first skipped (G3) | Orchestrator | skipped: G3 is documentation and Dependabot comments; AC4 is verified by the grep sweep and config-check.py. |
+| 2026-11-11 13:46 | 6 Implement (G3) | Dev | Docs, Dependabot comments, AGENTS.md and copilot-instructions.md updated to .NET 11; AC4 sweep clean outside docs/decisions and .squad/tools, config-check PASS, Format 0 files, Build 0 warnings, Test 640/640. The orchestrator wrote the two substitutions in .squad/stack.md lines 9-10. (sonnet/medium · 4,796 tokens · 3 tool uses · 52 s · 8 in · 2,163 out · 277,964 cache read · 5,465 cache write · 45,451 weighted · continued) |
+| 2026-11-11 13:46 | 6 Coverage skipped (G3) | Orchestrator | Tester pass not due: G3 changes only documentation and comments; no uncovered lines, no deferred tests. |
