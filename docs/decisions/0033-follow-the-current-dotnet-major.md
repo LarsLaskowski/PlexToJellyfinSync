@@ -1,6 +1,6 @@
 # 0033: The solution moves to .NET 11, an STS release, instead of staying on .NET 10 LTS
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-11
 - **Area:** —
 - **Source:** the user's request to migrate to .NET 11 (squad work folder `specs/feature-dotnet-11-migration/`)

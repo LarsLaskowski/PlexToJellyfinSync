@@ -93,5 +93,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0030](0030-settings-listed-once-in-the-configuration-area.md) | The settings are listed once, in the Configuration area | Accepted | 2026-11-07 |
 | [0031](0031-nfo-with-a-dtd-is-refused.md) | An existing NFO file with a document type declaration is refused, not parsed | Accepted | 2026-11-07 |
 | [0032](0032-existing-nfo-size-bound.md) | An existing NFO file is read only up to a fixed size bound | Accepted | 2026-11-07 |
-| [0033](0033-follow-the-current-dotnet-major.md) | The solution moves to .NET 11, an STS release, instead of staying on .NET 10 LTS | Proposed | 2026-11-11 |
+| [0033](0033-follow-the-current-dotnet-major.md) | The solution moves to .NET 11, an STS release, instead of staying on .NET 10 LTS | Accepted | 2026-11-11 |
 <!-- project:end index -->
