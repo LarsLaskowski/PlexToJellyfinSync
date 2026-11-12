@@ -48,8 +48,9 @@ the application needs.
 Project references form a straight line, `Core ← Data ← Service ← host`, except the host project
 depends on `Core` and `Service` but **not** on `Data` directly — the Plex JSON DTOs never need to
 be visible outside `PlexToJellyfinSync.Service`, which is the only project that talks to the Plex
-API. Every project links the same `src/GlobalSuppressions.cs` (SonarCloud suppressions for
-`S1125`, `S2325`, `S1244`, `S6968`) rather than each carrying its own.
+API. Every project gets its target framework, build switches and analyzers from `Directory.Build.props` and
+its analyzer rules from the template's blocks in `.editorconfig` (`.squad/stack.md`, *Toolchain* and *Analyzer
+gate*); there are no assembly-wide suppressions.
 
 The solution file is `.slnx` rather than the legacy `.sln` format — this is the current Visual
 Studio standard for solution files, not a migration artifact.

@@ -116,7 +116,8 @@ All commands, with what each one checks, are listed in [`.squad/stack.md`](/.squ
 - **Solution format** is `.slnx` (XML-based) at the repository root.
 <!-- stack:end configuration -->
 <!-- project:begin configuration -->
-- One solution, `PlexToJellyfinSync.slnx`, at the repository root.
+- One solution, `PlexToJellyfinSync.slnx`, at the repository root; target framework `net11.0` in
+  `Directory.Build.props`, which also sets this repository's own `LangVersion` `latest` and `Deterministic` `False`.
 - The application's settings, their `PLEXSYNC__` environment variables and defaults are listed in
   [`docs/areas/configuration.md`](/docs/areas/configuration.md).
 <!-- project:end configuration -->
