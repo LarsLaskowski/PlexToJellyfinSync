@@ -132,14 +132,13 @@ in [`AGENTS.md`](../AGENTS.md).
 [TestMethod]
 public void WatchAggregatorAllWatchedReturnsWatched()
 {
-    var aggregator = new WatchAggregator();
     var children = new List<WatchInfo>
                    {
                        new() { Watched = true, PlayCount = 1, LastPlayed = DateTimeOffset.UnixEpoch.AddDays(1) },
                        new() { Watched = true, PlayCount = 2, LastPlayed = DateTimeOffset.UnixEpoch.AddDays(2) }
                    };
 
-    var result = aggregator.Aggregate(children);
+    var result = WatchAggregator.Aggregate(children);
 
     Assert.IsTrue(result.Watched, "Aggregate should be watched!");
     Assert.AreEqual(DateTimeOffset.UnixEpoch.AddDays(2), result.LastPlayed, "Last played should be the maximum!");

@@ -62,7 +62,7 @@ public sealed class LibraryReconciler : ILibraryReconciler
     /// <param name="ratingKey">Rating key of the item that failed to process</param>
     private void HandleItemError(Exception ex, string ratingKey)
     {
-        _logger.LogError(ex, "Processing item {RatingKey} failed, skipping it", ratingKey);
+        LibraryReconcilerLog.ItemFailed(_logger, ex, ratingKey);
         _status.Update(s =>
                        {
                            s.Errors++;

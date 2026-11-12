@@ -5,7 +5,7 @@ namespace PlexToJellyfinSync.Service;
 /// <summary>
 /// Aggregates episode watch states into season and series watch states
 /// </summary>
-public sealed class WatchAggregator
+public static class WatchAggregator
 {
     #region Methods
 
@@ -14,7 +14,7 @@ public sealed class WatchAggregator
     /// </summary>
     /// <param name="children">Child watch states (for example episodes of a season)</param>
     /// <returns>Aggregated watch state</returns>
-    public WatchInfo Aggregate(IReadOnlyCollection<WatchInfo> children)
+    public static WatchInfo Aggregate(IReadOnlyCollection<WatchInfo> children)
     {
         if (children.Count == 0)
         {

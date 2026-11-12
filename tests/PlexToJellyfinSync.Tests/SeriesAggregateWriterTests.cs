@@ -496,7 +496,7 @@ public sealed class SeriesAggregateWriterTests
     {
         var itemWriter = new MediaItemWriter(_nfoWriter, _pathMapper, _status, NullLogger<MediaItemWriter>.Instance);
 
-        return new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter, new WatchAggregator());
+        return new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter);
     }
 
     #endregion // Methods

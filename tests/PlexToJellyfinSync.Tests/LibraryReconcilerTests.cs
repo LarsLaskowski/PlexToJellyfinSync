@@ -759,7 +759,7 @@ public sealed class LibraryReconcilerTests
     private LibraryReconciler CreateReconciler(SyncOptions? syncOptions = null)
     {
         var itemWriter = new MediaItemWriter(_nfoWriter, _pathMapper, _status, NullLogger<MediaItemWriter>.Instance);
-        var aggregateWriter = new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter, new WatchAggregator());
+        var aggregateWriter = new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter);
 
         return new LibraryReconciler(_plexClient,
                                      itemWriter,

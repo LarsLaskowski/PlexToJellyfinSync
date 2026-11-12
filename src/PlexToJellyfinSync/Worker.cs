@@ -62,7 +62,7 @@ public sealed class Worker : BackgroundService
         catch (Exception ex)
         {
             // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
-            _logger.LogError(ex, "Full reconcile failed");
+            WorkerLog.ReconcileFailed(_logger, ex);
         }
     }
 
@@ -85,7 +85,7 @@ public sealed class Worker : BackgroundService
         catch (Exception ex)
         {
             // Defense-in-depth: SyncOrchestrator already handles its errors, but any ISyncOrchestrator that throws must not stop the host
-            _logger.LogError(ex, "Incremental history sync failed");
+            WorkerLog.HistorySyncFailed(_logger, ex);
         }
     }
 
@@ -101,7 +101,7 @@ public sealed class Worker : BackgroundService
 
         if (_logger.IsEnabled(LogLevel.Information))
         {
-            _logger.LogInformation("Worker started; poll every {Poll}, reconcile every {Reconcile}", pollInterval, reconcileInterval);
+            WorkerLog.Started(_logger, pollInterval, reconcileInterval);
         }
 
         await SafeReconcileAsync(stoppingToken).ConfigureAwait(false);
@@ -132,7 +132,7 @@ public sealed class Worker : BackgroundService
             }
         }
 
-        _logger.LogInformation("Worker stopping");
+        WorkerLog.Stopping(_logger);
     }
 
     #endregion // BackgroundService

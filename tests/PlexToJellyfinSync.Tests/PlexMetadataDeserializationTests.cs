@@ -74,9 +74,9 @@ public sealed class PlexMetadataDeserializationTests
 
         var metadata = response.MediaContainer.Metadata[0];
 
-        Assert.IsNotNull(metadata?.Guid, "Guid array should not be null!");
-        Assert.HasCount(2, metadata.Guid, "Expected two external identifiers!");
-        Assert.AreEqual("imdb://tt0113277", metadata.Guid[0]?.Id, "First identifier mismatch!");
+        Assert.IsNotNull(metadata?.ExternalIds, "Guid array should not be null!");
+        Assert.HasCount(2, metadata.ExternalIds, "Expected two external identifiers!");
+        Assert.AreEqual("imdb://tt0113277", metadata.ExternalIds[0]?.Id, "First identifier mismatch!");
         Assert.AreEqual(1995, metadata.Year, "Year should be parsed!");
         Assert.AreEqual("/data/Movies/Heat (1995)/Heat.mkv", metadata.Media?[0]?.Part?[0]?.File, "File path should be parsed!");
     }

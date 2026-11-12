@@ -69,7 +69,7 @@ public sealed class MediaItemWriter : IMediaItemWriter
     {
         if (string.IsNullOrWhiteSpace(item.FilePath))
         {
-            _logger.LogWarning("Item {RatingKey} ({Title}) has no file path, skipping", item.RatingKey, item.Title);
+            MediaItemWriterLog.ItemWithoutFilePath(_logger, item.RatingKey, item.Title);
 
             return;
         }
@@ -78,7 +78,7 @@ public sealed class MediaItemWriter : IMediaItemWriter
 
         if (localPath is null)
         {
-            _logger.LogWarning("No path mapping for {FilePath}, skipping", item.FilePath);
+            MediaItemWriterLog.NoPathMapping(_logger, item.FilePath);
 
             return;
         }

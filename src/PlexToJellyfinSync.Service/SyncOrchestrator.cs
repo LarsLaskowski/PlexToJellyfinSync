@@ -15,14 +15,6 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 {
     #region Fields
 
-    private static readonly Action<ILogger, string, Exception?> _logItemKindSkipped = LoggerMessage.Define<string>(LogLevel.Debug,
-                                                                                                                   new EventId(1, "ItemKindSkipped"),
-                                                                                                                   "Item {RatingKey} is neither a movie nor an episode, skipping");
-
-    private static readonly Action<ILogger, string, string?, Exception?> _logLibrarySkipped = LoggerMessage.Define<string, string?>(LogLevel.Debug,
-                                                                                                                                    new EventId(2, "LibrarySkipped"),
-                                                                                                                                    "History entry {RatingKey} belongs to library {LibrarySectionKey}, which Plex:Libraries does not list, skipping");
-
     private readonly IPlexClient _plexClient;
     private readonly IMediaItemWriter _itemWriter;
     private readonly ISeriesAggregateWriter _aggregateWriter;
@@ -85,7 +77,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <param name="plexRequestFailed"><c>true</c> if the run failed on a request to Plex, which clears the Plex connection flag</param>
     private void HandleError(Exception ex, bool plexRequestFailed)
     {
-        _logger.LogError(ex, "Synchronization run failed");
+        SyncOrchestratorLog.RunFailed(_logger, ex);
         _ownerAccountId = null;
         _status.Update(s =>
                        {
@@ -107,7 +99,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
     /// <param name="ratingKey">Rating key of the item that failed to process</param>
     private void HandleItemError(Exception ex, string ratingKey)
     {
-        _logger.LogError(ex, "Processing item {RatingKey} failed, skipping it", ratingKey);
+        SyncOrchestratorLog.ItemFailed(_logger, ex, ratingKey);
         _status.Update(s =>
                        {
                            s.Errors++;
@@ -132,7 +124,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
 
         if (item.Kind is not (MediaKind.Movie or MediaKind.Episode))
         {
-            _logItemKindSkipped(_logger, ratingKey, null);
+            SyncOrchestratorLog.ItemKindSkipped(_logger, ratingKey);
 
             return null;
         }
@@ -174,7 +166,7 @@ public sealed class SyncOrchestrator : ISyncOrchestrator
             }
             else
             {
-                _logLibrarySkipped(_logger, entry.RatingKey, entry.LibrarySectionKey, null);
+                SyncOrchestratorLog.LibrarySkipped(_logger, entry.RatingKey, entry.LibrarySectionKey);
             }
 
             if (entry.ViewedAt > maxViewed)

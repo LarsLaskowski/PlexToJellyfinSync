@@ -121,7 +121,8 @@ Plex path becomes a local path and what a write changes in an `.nfo` file is sta
      [*Limits and errors*](areas/sync-pipeline.md#limits-and-errors) of the area.
 3. **`WatchAggregator`** (`src/PlexToJellyfinSync.Service/WatchAggregator.cs`) has one job: deriving a
    season's or series' watch state from its episodes' `WatchInfo`. It is the single implementation of the
-   [aggregation rule](areas/sync-pipeline.md#season-and-series-aggregates).
+   [aggregation rule](areas/sync-pipeline.md#season-and-series-aggregates). It is a static class with no state:
+   `SeriesAggregateWriter` calls `WatchAggregator.Aggregate` directly, and nothing registers or injects it.
 4. **`PlexClient`** (`src/PlexToJellyfinSync.Service/PlexClient.cs`) is the only component that
    talks to the Plex HTTP API (`GET /accounts`, `/library/sections`,
    `/status/sessions/history/all`, `/library/metadata/{key}`, `/library/metadata/{key}/allLeaves`,
@@ -313,6 +314,14 @@ how the image is built and released.
   (`docker logs` are printed otherwise). It has a read-only token, uses no secret, logs in to no registry and pushes
   nothing. It is not a required check, because a path filter leaves it pending on every pull request it skips
   ([decision 0035](decisions/0035-image-built-on-pull-requests-that-change-its-base.md)).
+- **Fork scope** (`.github/workflows/fork-scope.yml`) runs on a pull request to `main` from a fork (its job is
+  skipped for any other pull request) and fails unless the pull request changes the product only: no file of the AI
+  squad or the agent instructions, no template-managed text outside the project blocks of the marked files, no
+  working record under `specs/` and no control character in a changed Markdown file (`.squad/tools/scope-check.py`;
+  see [*Contributions from outside*](CONTRIBUTING.md#contributions-from-outside)). It is triggered by
+  `pull_request_target`, so the workflow and the check run as they are on `main` and a fork cannot weaken them in
+  its own pull request; the fork is never checked out — the changed files and their text are read through the GitHub
+  API with a read-only token (`contents: read`, `pull-requests: read`).
 - **CodeQL** (`.github/workflows/codeql.yml`) runs on push/PR to `main` and weekly on a schedule,
   analyzing C#, JavaScript/TypeScript and the GitHub Actions workflows in `build-mode: none` (no
   compiled build needed for CodeQL's extraction).

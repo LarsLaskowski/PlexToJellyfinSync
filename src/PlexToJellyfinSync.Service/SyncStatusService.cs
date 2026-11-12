@@ -91,7 +91,7 @@ public sealed class SyncStatusService : ISyncStatusProvider
             }
             catch (Exception exception)
             {
-                _logger.LogWarning(exception, "A status change subscriber threw an exception and was skipped");
+                SyncStatusServiceLog.SubscriberFailed(_logger, exception);
             }
         }
     }

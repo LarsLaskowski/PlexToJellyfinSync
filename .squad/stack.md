@@ -164,6 +164,12 @@ record — never to `sonar.exclusions`, which would drop it from the analysis to
   with `_camelCase` readonly fields, `.ConfigureAwait(false)` in library/service code.
 - Guards an analyzer asks for (e.g. `if (_logger.IsEnabled(...))` for CA1873) are written by the Dev,
   not added later by the Code Officer.
+- Log through `[LoggerMessage]` methods of an `internal static partial class <Type>Log` next to the type
+  (`NfoWriterLog`, `PlexClientLog`), never through the `LoggerExtensions` methods (`LogInformation`, `LogError`, …)
+  or `LoggerMessage.Define` delegates (CA1848). Event ids count from 1 per class, each method carries an `EventName`,
+  and the message template and the argument names of the placeholders are written once there. Tests that must reach
+  a logger directly call `ILogger.Log(level, eventId, state, exception, formatter)` through a small helper, because
+  a generated method checks `IsEnabled` first.
 - Names the analyzers refuse, checked by the Lead before a name goes into the plan's *Signatures*: an enum
   whose name ends in `Flags` or `Enum` (S2344), and a nested type of any
   visibility (RH2101 class, RH2104 struct, RH2105 interface, RH2106 record, RH2107 enum, RH2108 delegate).
