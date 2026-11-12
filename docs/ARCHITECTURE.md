@@ -121,7 +121,8 @@ Plex path becomes a local path and what a write changes in an `.nfo` file is sta
      [*Limits and errors*](areas/sync-pipeline.md#limits-and-errors) of the area.
 3. **`WatchAggregator`** (`src/PlexToJellyfinSync.Service/WatchAggregator.cs`) has one job: deriving a
    season's or series' watch state from its episodes' `WatchInfo`. It is the single implementation of the
-   [aggregation rule](areas/sync-pipeline.md#season-and-series-aggregates).
+   [aggregation rule](areas/sync-pipeline.md#season-and-series-aggregates). It is a static class with no state:
+   `SeriesAggregateWriter` calls `WatchAggregator.Aggregate` directly, and nothing registers or injects it.
 4. **`PlexClient`** (`src/PlexToJellyfinSync.Service/PlexClient.cs`) is the only component that
    talks to the Plex HTTP API (`GET /accounts`, `/library/sections`,
    `/status/sessions/history/all`, `/library/metadata/{key}`, `/library/metadata/{key}/allLeaves`,

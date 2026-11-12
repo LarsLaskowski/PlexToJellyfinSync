@@ -46,7 +46,7 @@ public sealed class ForwardedHeadersWarning
         {
             var sender = context.Connection.RemoteIpAddress;
 
-            _logger.LogWarning("Forwarded headers from {Sender} were not applied: the sender is not a trusted proxy or the header is malformed. List the reverse proxy in Dashboard:TrustedProxies (environment variable PLEXSYNC__Dashboard__TrustedProxies__0). This warning is logged once.", sender);
+            ForwardedHeadersWarningLog.ForwardedHeadersNotApplied(_logger, sender);
         }
     }
 
