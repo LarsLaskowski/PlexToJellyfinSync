@@ -24,7 +24,7 @@ public sealed class PathMapper : IPathMapper
     /// <param name="mappings">Configured path mappings</param>
     public PathMapper(IOptions<List<PathMapping>> mappings)
     {
-        _mappings = mappings.Value ?? new List<PathMapping>();
+        _mappings = mappings.Value ?? [];
     }
 
     #endregion // Constructors
@@ -92,7 +92,7 @@ public sealed class PathMapper : IPathMapper
         }
 
         var localPrefix = Normalize(best.Local).TrimEnd('/');
-        var remainder = input.Substring(Normalize(best.Plex).TrimEnd('/').Length);
+        var remainder = input[Normalize(best.Plex).TrimEnd('/').Length..];
 
         return localPrefix + remainder;
     }

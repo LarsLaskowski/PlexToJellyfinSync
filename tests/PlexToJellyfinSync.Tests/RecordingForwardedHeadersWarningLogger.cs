@@ -14,7 +14,7 @@ internal sealed class RecordingForwardedHeadersWarningLogger : ILogger<Forwarded
     /// <summary>
     /// Synchronizes access to the recorded entries
     /// </summary>
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     /// <summary>
     /// Recorded entries

@@ -166,6 +166,28 @@ public sealed class NfoWriter : INfoWriter
     }
 
     /// <summary>
+    /// Add a uniqueid element for every provider id of an item
+    /// </summary>
+    /// <param name="root">Root element</param>
+    /// <param name="uniqueIds">Provider ids of the item</param>
+    private static void AddUniqueIds(XElement root, IEnumerable<Core.Models.UniqueId> uniqueIds)
+    {
+        foreach (var uniqueId in uniqueIds)
+        {
+            var element = new XElement("uniqueid", uniqueId.Value);
+
+            element.SetAttributeValue("type", uniqueId.Type);
+
+            if (uniqueId.IsDefault)
+            {
+                element.SetAttributeValue("default", "true");
+            }
+
+            root.Add(element);
+        }
+    }
+
+    /// <summary>
     /// Parse an existing NFO file's content with a reader that prohibits document type declarations and resolves nothing
     /// </summary>
     /// <param name="xml">Existing NFO file content</param>
@@ -197,30 +219,33 @@ public sealed class NfoWriter : INfoWriter
     /// <returns>File content and the encoding detected from its byte order mark, if any; null when the file is larger than the size bound</returns>
     private static async Task<(string Content, Encoding Encoding)?> ReadExistingAsync(string path, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-        var buffer = ArrayPool<byte>.Shared.Rent(MaxExistingFileBytes + 1);
-
-        try
+        await using (stream.ConfigureAwait(false))
         {
-            var bytesRead = await stream.ReadAtLeastAsync(buffer.AsMemory(0, MaxExistingFileBytes + 1), MaxExistingFileBytes + 1, throwOnEndOfStream: false, cancellationToken)
-                                        .ConfigureAwait(false);
+            var buffer = ArrayPool<byte>.Shared.Rent(MaxExistingFileBytes + 1);
 
-            if (bytesRead > MaxExistingFileBytes)
+            try
             {
-                return null;
+                var bytesRead = await stream.ReadAtLeastAsync(buffer.AsMemory(0, MaxExistingFileBytes + 1), MaxExistingFileBytes + 1, throwOnEndOfStream: false, cancellationToken)
+                                            .ConfigureAwait(false);
+
+                if (bytesRead > MaxExistingFileBytes)
+                {
+                    return null;
+                }
+
+                using var content = new MemoryStream(buffer, 0, bytesRead, writable: false);
+                using var reader = new StreamReader(content, _utf8NoBom, detectEncodingFromByteOrderMarks: true);
+
+                var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
+                return (text, reader.CurrentEncoding);
             }
-
-            using var content = new MemoryStream(buffer, 0, bytesRead, writable: false);
-            using var reader = new StreamReader(content, _utf8NoBom, detectEncodingFromByteOrderMarks: true);
-
-            var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-
-            return (text, reader.CurrentEncoding);
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
     }
 
@@ -271,11 +296,18 @@ public sealed class NfoWriter : INfoWriter
     /// <returns>Task</returns>
     private static async Task WriteTempFileAsync(XDocument document, string tempPath, XmlWriterSettings settings, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await using var writer = XmlWriter.Create(stream, settings);
+        var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
-        await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
-        await writer.FlushAsync().ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
+        {
+            var writer = XmlWriter.Create(stream, settings);
+
+            await using (writer.ConfigureAwait(false))
+            {
+                await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
+                await writer.FlushAsync().ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>
@@ -498,19 +530,7 @@ public sealed class NfoWriter : INfoWriter
             root.Add(new XElement(item.Kind == MediaKind.Episode ? "aired" : "premiered", formatted));
         }
 
-        foreach (var uniqueId in item.UniqueIds)
-        {
-            var element = new XElement("uniqueid", uniqueId.Value);
-
-            element.SetAttributeValue("type", uniqueId.Type);
-
-            if (uniqueId.IsDefault)
-            {
-                element.SetAttributeValue("default", "true");
-            }
-
-            root.Add(element);
-        }
+        AddUniqueIds(root, item.UniqueIds);
 
         if (item.Kind == MediaKind.Movie && item.DateAdded.HasValue)
         {
@@ -533,7 +553,7 @@ public sealed class NfoWriter : INfoWriter
 
         if (IsUnderMappedLocalRoot(targetPath) == false)
         {
-            _logger.LogWarning("Refusing to write NFO for {Path}: resolved target {TargetPath} escapes every mapped local root", localPath, targetPath);
+            NfoWriterLog.TargetOutsideMappedRoots(_logger, localPath, targetPath);
 
             return NfoWriteOutcome.Skipped;
         }
@@ -550,7 +570,7 @@ public sealed class NfoWriter : INfoWriter
 
                 if (existing is null)
                 {
-                    _logger.LogWarning("Skipping oversized NFO {Path}: existing file is larger than {MaxBytes} bytes", targetPath, MaxExistingFileBytes);
+                    NfoWriterLog.OversizedNfoSkipped(_logger, targetPath, MaxExistingFileBytes);
 
                     return NfoWriteOutcome.Skipped;
                 }
@@ -565,7 +585,7 @@ public sealed class NfoWriter : INfoWriter
                 }
                 catch (XmlException exception)
                 {
-                    _logger.LogWarning(exception, "Skipping malformed NFO {Path}: existing content could not be parsed as XML", targetPath);
+                    NfoWriterLog.MalformedNfoSkipped(_logger, exception, targetPath);
 
                     return NfoWriteOutcome.Skipped;
                 }
@@ -580,10 +600,7 @@ public sealed class NfoWriter : INfoWriter
 
                 await SaveAsync(document, targetPath, indent: false, encoding, cancellationToken).ConfigureAwait(false);
 
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation("Updated watch state in {Path}", targetPath);
-                }
+                NfoWriterLog.WatchStateUpdated(_logger, targetPath);
 
                 return NfoWriteOutcome.Updated;
             }
@@ -604,10 +621,7 @@ public sealed class NfoWriter : INfoWriter
 
             await SaveAsync(newDocument, targetPath, indent: true, _utf8NoBom, cancellationToken).ConfigureAwait(false);
 
-            if (_logger.IsEnabled(LogLevel.Information))
-            {
-                _logger.LogInformation("Created NFO {Path}", targetPath);
-            }
+            NfoWriterLog.NfoCreated(_logger, targetPath);
 
             return NfoWriteOutcome.Created;
         }

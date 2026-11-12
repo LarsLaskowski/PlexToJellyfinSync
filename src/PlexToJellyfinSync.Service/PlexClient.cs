@@ -153,13 +153,13 @@ public sealed class PlexClient : IPlexClient
                        .Select((id, index) =>
                                {
                                    var separatorIndex = id.IndexOf("://", StringComparison.Ordinal);
-                                   var type = id.Substring(0, separatorIndex);
-                                   var value = id.Substring(separatorIndex + 3);
+                                   var type = id[..separatorIndex];
+                                   var value = id[(separatorIndex + 3)..];
                                    var queryIndex = value.IndexOf('?', StringComparison.Ordinal);
 
                                    if (queryIndex >= 0)
                                    {
-                                       value = value.Substring(0, queryIndex);
+                                       value = value[..queryIndex];
                                    }
 
                                    return new UniqueId
@@ -236,7 +236,7 @@ public sealed class PlexClient : IPlexClient
 
         var end = maxLength > 0 && char.IsHighSurrogate(text[maxLength - 1]) ? maxLength - 1 : maxLength;
 
-        return text.Substring(0, end);
+        return text[..end];
     }
 
     /// <summary>
@@ -306,7 +306,7 @@ public sealed class PlexClient : IPlexClient
 
             if (IsValidKey(entry.RatingKey) == false)
             {
-                _logger.LogWarning("Skipping a Plex history entry with an invalid rating key");
+                PlexClientLog.InvalidHistoryRatingKey(_logger);
 
                 continue;
             }
@@ -340,7 +340,7 @@ public sealed class PlexClient : IPlexClient
             return metadata.GrandparentRatingKey;
         }
 
-        _logger.LogWarning("Item {RatingKey} reported an invalid show rating key, dropping it", metadata.RatingKey);
+        PlexClientLog.InvalidShowRatingKey(_logger, metadata.RatingKey);
 
         return null;
     }
@@ -362,7 +362,7 @@ public sealed class PlexClient : IPlexClient
             return true;
         }
 
-        _logger.LogWarning("Skipping a Plex library with an invalid key");
+        PlexClientLog.InvalidLibraryKey(_logger);
 
         return false;
     }
@@ -376,7 +376,7 @@ public sealed class PlexClient : IPlexClient
     {
         if (metadata is null || IsValidKey(metadata.RatingKey) == false)
         {
-            _logger.LogWarning("Skipping a Plex item with a missing or invalid rating key");
+            PlexClientLog.InvalidItemRatingKey(_logger);
 
             return null;
         }
@@ -390,7 +390,7 @@ public sealed class PlexClient : IPlexClient
 
         if (sanitizedFilePath is null && string.IsNullOrWhiteSpace(filePath) == false)
         {
-            _logger.LogWarning("Item {RatingKey} reported an invalid file path, treating it as missing", metadata.RatingKey);
+            PlexClientLog.InvalidFilePath(_logger, metadata.RatingKey);
         }
 
         var showRatingKey = ResolveShowRatingKey(metadata);
@@ -480,7 +480,7 @@ public sealed class PlexClient : IPlexClient
 
             if (hasPreviousPage && firstRatingKey == previousFirstRatingKey)
             {
-                _logger.LogWarning("Plex server returned a non-advancing page for {BaseUrl}, stopping pagination", baseUrl);
+                PlexClientLog.NonAdvancingPage(_logger, baseUrl);
 
                 yield break;
             }
@@ -520,9 +520,12 @@ public sealed class PlexClient : IPlexClient
 
         response.EnsureSuccessStatusCode();
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
 
-        return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
+        {
+            return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     #endregion // Methods
@@ -555,7 +558,7 @@ public sealed class PlexClient : IPlexClient
                 }
             }
 
-            _logger.LogWarning("Could not auto-detect the Plex owner account id: the account list contains no account with a positive id, defaulting to 1 (set Plex:OwnerAccountId to choose the owner)");
+            PlexClientLog.NoPositiveOwnerId(_logger);
         }
         catch (OperationCanceledException)
         {
@@ -568,7 +571,7 @@ public sealed class PlexClient : IPlexClient
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException)
         {
-            _logger.LogWarning(ex, "Could not auto-detect the Plex owner account id, defaulting to 1");
+            PlexClientLog.OwnerDetectionFailed(_logger, ex);
         }
 
         return 1;
@@ -618,7 +621,7 @@ public sealed class PlexClient : IPlexClient
 
             if (previousFirstEntry is not null && firstEntry == previousFirstEntry)
             {
-                _logger.LogWarning("Plex server returned a non-advancing history page, stopping pagination");
+                PlexClientLog.NonAdvancingHistoryPage(_logger);
 
                 break;
             }

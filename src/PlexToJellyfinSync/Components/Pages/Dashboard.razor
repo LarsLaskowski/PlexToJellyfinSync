@@ -51,7 +51,7 @@
     </div>
 </div>
 
-@if (string.IsNullOrWhiteSpace(_status.LastError) == false)
+@if (HasLastError)
 {
     <div class="last-error">
         <strong>Last error:</strong> @_status.LastError

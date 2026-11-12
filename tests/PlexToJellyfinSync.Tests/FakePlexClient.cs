@@ -41,17 +41,17 @@ internal sealed class FakePlexClient : IPlexClient
     /// <summary>
     /// Media items keyed by rating key
     /// </summary>
-    public Dictionary<string, MediaItem> Items { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, MediaItem> Items { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Episodes keyed by the rating key of their series
     /// </summary>
-    public Dictionary<string, List<MediaItem>> Episodes { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<MediaItem>> Episodes { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Library items keyed by library section key
     /// </summary>
-    public Dictionary<string, List<MediaItem>> LibraryItems { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<MediaItem>> LibraryItems { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Exception thrown when the history is requested, if any
@@ -71,21 +71,21 @@ internal sealed class FakePlexClient : IPlexClient
     /// <summary>
     /// Exceptions thrown when a given library's items are requested, keyed by library section key
     /// </summary>
-    public Dictionary<string, Exception> LibraryItemsExceptions { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, Exception> LibraryItemsExceptions { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Tasks awaited immediately before throwing the configured <see cref="LibraryItemsExceptions"/> entry for a
     /// given library, keyed by library section key, so a test can hold the failure in flight until a sibling
     /// library has observably reached some concurrent state first
     /// </summary>
-    public Dictionary<string, Task> LibraryItemsGates { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, Task> LibraryItemsGates { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Number of items to stream before throwing, and the exception to throw, keyed by library section key, so a
     /// test can prove that items streamed before a mid-page failure are still processed instead of the whole
     /// library being discarded
     /// </summary>
-    public Dictionary<string, (int Count, Exception? Exception)> LibraryItemsFailAfter { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, (int Count, Exception? Exception)> LibraryItemsFailAfter { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Lower bound passed to the last history request, if any
@@ -115,7 +115,7 @@ internal sealed class FakePlexClient : IPlexClient
     /// <summary>
     /// Exceptions thrown when the episodes of a given series are requested, keyed by the rating key of the series
     /// </summary>
-    public Dictionary<string, Exception> EpisodesExceptions { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, Exception> EpisodesExceptions { get; } = [with(StringComparer.Ordinal)];
 
     #endregion // Properties
 

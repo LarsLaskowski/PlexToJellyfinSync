@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Xml.Linq;
@@ -96,6 +97,43 @@ public sealed class NfoWriterTests
 
         Assert.Contains("<watched>true</watched>", content, "Watched flag missing!");
         Assert.Contains("<title>Heat</title>", content, "Title missing!");
+    }
+
+    /// <summary>
+    /// A new NFO carries one uniqueid element per provider id, the default one marked
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterMovieWithUniqueIdsWritesUniqueIdElements()
+    {
+        var writer = CreateWriter(createMissing: true);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Heat",
+                       UniqueIds = [
+                                       new UniqueId
+                                       {
+                                           Type = "imdb",
+                                           Value = "tt0113277",
+                                           IsDefault = true
+                                       },
+                                       new UniqueId
+                                       {
+                                           Type = "tmdb",
+                                           Value = "949"
+                                       }
+                                   ],
+                       Watch = new WatchInfo()
+                   };
+
+        await writer.WriteAsync(item, moviePath, CancellationToken.None);
+
+        var content = await File.ReadAllTextAsync(Path.ChangeExtension(moviePath, ".nfo"), _testContext.CancellationToken);
+
+        Assert.Contains("<uniqueid type=\"imdb\" default=\"true\">tt0113277</uniqueid>", content, "Default provider id missing!");
+        Assert.Contains("<uniqueid type=\"tmdb\">949</uniqueid>", content, "Second provider id missing!");
     }
 
     /// <summary>
@@ -871,10 +909,10 @@ public sealed class NfoWriterTests
         {
             var reference = $"&e{level - 1};";
 
-            builder.Append($"<!ENTITY e{level} '{string.Concat(Enumerable.Repeat(reference, 10))}'>");
+            builder.Append(CultureInfo.InvariantCulture, $"<!ENTITY e{level} '{string.Concat(Enumerable.Repeat(reference, 10))}'>");
         }
 
-        builder.Append($"]><movie><title>&e{levels};</title></movie>");
+        builder.Append(CultureInfo.InvariantCulture, $"]><movie><title>&e{levels};</title></movie>");
 
         return builder.ToString();
     }
@@ -905,7 +943,7 @@ public sealed class NfoWriterTests
         Encoding encoding = utf16 ? new UnicodeEncoding(bigEndian: false, byteOrderMark: true) : new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         var preambleLength = encoding.GetPreamble().Length;
         var bytesPerChar = utf16 ? 2 : 1;
-        var paddingLength = (fileLength - preambleLength) / bytesPerChar - xml.Length;
+        var paddingLength = ((fileLength - preambleLength) / bytesPerChar) - xml.Length;
         var text = xml + new string(' ', paddingLength);
 
         return [.. encoding.GetPreamble(), .. encoding.GetBytes(text)];

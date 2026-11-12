@@ -12,7 +12,7 @@ namespace PlexToJellyfinSync.Service.State;
 /// <summary>
 /// Persists the synchronization state to a JSON file
 /// </summary>
-public sealed class StateStore : IStateStore
+public sealed class StateStore : IStateStore, IDisposable
 {
     #region Fields
 
@@ -85,9 +85,12 @@ public sealed class StateStore : IStateStore
     /// <returns>Task</returns>
     private static async Task WriteTempFileAsync(string tempPath, SyncStateFile state, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
-        await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
+        {
+            await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -126,18 +129,18 @@ public sealed class StateStore : IStateStore
 
             if (PreserveFile(corruptPath))
             {
-                _logger.LogError(ex, "State file {Path} is corrupt, preserved as {CorruptPath}; starting fresh with no high-water mark", _filePath, corruptPath);
+                StateStoreLog.CorruptFilePreserved(_logger, ex, _filePath, corruptPath);
             }
             else
             {
-                _logger.LogError(ex, "State file {Path} is corrupt and could not be preserved; starting fresh with no high-water mark", _filePath);
+                StateStoreLog.CorruptFileNotPreserved(_logger, ex, _filePath);
             }
 
             return new SyncStateFile();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not read state file {Path}, starting fresh", _filePath);
+            StateStoreLog.ReadFailed(_logger, ex, _filePath);
 
             return new SyncStateFile();
         }
@@ -184,11 +187,11 @@ public sealed class StateStore : IStateStore
 
         if (PreserveFile(unsupportedPath))
         {
-            _logger.LogError("State file {Path} has unsupported schema version {SchemaVersion}, preserved as {PreservedPath}; starting fresh with no high-water mark", _filePath, schemaVersion, unsupportedPath);
+            StateStoreLog.UnsupportedFilePreserved(_logger, _filePath, schemaVersion, unsupportedPath);
         }
         else
         {
-            _logger.LogError("State file {Path} has unsupported schema version {SchemaVersion} and could not be preserved; starting fresh with no high-water mark", _filePath, schemaVersion);
+            StateStoreLog.UnsupportedFileNotPreserved(_logger, _filePath, schemaVersion);
         }
     }
 
@@ -274,4 +277,14 @@ public sealed class StateStore : IStateStore
     }
 
     #endregion // IStateStore
+
+    #region IDisposable
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        _gate.Dispose();
+    }
+
+    #endregion // IDisposable
 }

@@ -13,13 +13,13 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// <summary>
     /// JSON payloads keyed by the absolute request path
     /// </summary>
-    public Dictionary<string, string> Responses { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> Responses { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// JSON payloads to be served in order for successive requests to the same path, keyed by the
     /// absolute request path; checked before <see cref="Responses"/> and consumed one at a time
     /// </summary>
-    public Dictionary<string, Queue<string>> ResponseSequences { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, Queue<string>> ResponseSequences { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Path and query of every received request, in order
@@ -30,14 +30,14 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     /// Status codes to serve for a given absolute request path instead of the default 200/404,
     /// checked before <see cref="Responses"/> is consulted
     /// </summary>
-    public Dictionary<string, HttpStatusCode> StatusCodes { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, HttpStatusCode> StatusCodes { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Exceptions to throw for a given absolute request path instead of returning a response, checked
     /// before <see cref="StatusCodes"/>; used to simulate transport failures such as an
     /// <see cref="HttpClient"/>-internal timeout that is unrelated to the caller's own cancellation token
     /// </summary>
-    public Dictionary<string, Func<Exception>> Exceptions { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, Func<Exception>> Exceptions { get; } = [with(StringComparer.Ordinal)];
 
     #endregion // Properties
 

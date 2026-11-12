@@ -7,19 +7,28 @@ profile and owned by this repository: keep it true when the build changes.
 ## Toolchain
 
 - .NET SDK of `global.json` (seeded as the newest SDK of the major, `11.0.100`; `rollForward` `latestFeature`: the
-  newest installed feature band of that major, never the next major), target framework `net11.0`, solution
-  `PlexToJellyfinSync.slnx`. Several majors may be installed side by side (a machine, CI); the repository is built for
+  newest installed feature band of that major, never the next major), target framework `net11.0` (set once in
+  `Directory.Build.props`), solution `PlexToJellyfinSync.slnx`. Several majors may be installed side by side (a machine, CI); the repository is built for
   one: every project's target framework, `global.json` and every .NET image name the same major, which
   `dotnet_major.py` checks in the *Analyzer gate*, and a new project gets it from the SDK `global.json` selects.
-  Dependabot keeps the SDK, the packages and the images current within that major; the move to the next one (target
+  Dependabot keeps the SDK, the packages and the images the Dockerfile's `FROM` lines name current within that major
+  (both name their image directly, no build argument); the move to the next one (target
   frameworks, `global.json`, the Microsoft.Extensions packages, the images) is one change of its own.
 - Formatter: `reihitsu-format`, restored from the tool manifest `.config/dotnet-tools.json` (`dotnet tool restore`,
-  pinned there next to `dotnet-sonarscanner` so Dependabot raises them with the analyzer), on the same release line as the
-  **Reihitsu.Analyzer** version pinned in `Directory.Packages.props`; otherwise the formatter can revert
+  pinned there next to `dotnet-sonarscanner` so Dependabot raises them with the analyzer), at the same version as the
+  **Reihitsu.Analyzer** pinned in `Directory.Packages.props`; otherwise the formatter can revert
   code the analyzer considers correct.
 - Analyzers in every project via `Directory.Build.props`: **Reihitsu.Analyzer** and **SonarAnalyzer.CSharp**
   (the Sonar C# rules locally, so SonarQube issues surface before the push); no StyleCop.Analyzers. The
-  MSTest analyzers come with the `MSTest` package in the test project.
+  MSTest analyzers come with the `MSTest` package, which `Directory.Build.props` references for every `*.Tests`
+  project.
+- One build structure in every .NET repository of the template: `Directory.Build.props` sets the target framework
+  and `Nullable`, `ImplicitUsings`, `GenerateDocumentationFile`, `TreatWarningsAsErrors`, `EnforceCodeStyleInBuild`
+  and `AnalysisLevel` `latest-recommended` for every project, and no project file sets one again or gives a package a
+  version; there is no rule set, no rule in `NoWarn` and no assembly-wide `SuppressMessage`, and C# files are checked
+  out with CRLF. `dotnet_config.py` checks all of it in the *Analyzer gate*, also with `--lint-only`; the values of the
+  target framework, the SDK and the packages are the project's (`LangVersion` `latest` and `Deterministic` `False`
+  are this repository's own).
 - The SessionStart hook `.claude/hooks/session-start.sh` installs the formatter, sets `DOTNET_ROOT` and
   restores the solution in remote sessions.
 
@@ -27,7 +36,7 @@ profile and owned by this repository: keep it true when the build changes.
 
 - Production code: `src/` — `PlexToJellyfinSync.Core` (interfaces, options, models),
   `PlexToJellyfinSync.Data` (Plex JSON DTOs), `PlexToJellyfinSync.Service` (sync pipeline, DI registration),
-  `PlexToJellyfinSync` (Blazor Server host); `src/GlobalSuppressions.cs` holds the justified suppressions.
+  `PlexToJellyfinSync` (Blazor Server host). A suppression is member-scoped with a reason, never assembly-wide.
 - Tests: `tests/PlexToJellyfinSync.Tests/`, one test class per type under test in `{TypeUnderTest}Tests.cs`,
   placed flat in the test project.
 - Test data: JSON samples of real Plex responses under `tests/PlexToJellyfinSync.Tests/TestData/<source>/` (for
@@ -62,11 +71,25 @@ anywhere. Do not grep console build output instead: an incremental build prints 
 Easy to get wrong by hand: `#region` blocks on every type, XML documentation on every member, no
 underscores in member names, a region for an interface implementation named after the interface.
 
+The C# rules and their severities are the template's, the same in every .NET repository: `python3
+.squad/tools/dotnet-rules.py` writes its baseline (`.squad/dotnet-rules.editorconfig`, the stricter setting of the
+repositories winning) into the `squad:dotnet-rules` blocks of `.editorconfig` (`--check` reports them out of date).
+No section of every C# file sets a rule or a code-style option outside the blocks; the project's own sections of paths
+(generated code, migrations) come after them. A rule the code does not meet yet goes into `DOTNET_RULES_PENDING` in
+`squad_settings.py` with the issue that brings the code up to it: it is written as `suggestion`, which the *Analyzer
+gate* still reports in a changed file, and the entry goes once the issue is done; that holds for a rule the baseline
+does not set too (one on only through `AnalysisLevel`, CA1848). The blocks do not reach the code the Razor compiler
+generates from a `.razor` file's markup; the rules the baseline switches off (S1125) are off there too through the
+template-managed global analyzer config `.squad/dotnet-rules.globalconfig`, which `Directory.Build.props` names in
+`GlobalAnalyzerConfigFiles`.
+
 SonarAnalyzer.CSharp runs only the rules of *Sonar way core* by default. The rules the project's SonarQube Cloud C#
 profile adds (*Sonar way comprehensive*: S3776, S1192, S107, …), and the core rules it switches off, are set in the
 `squad:sonar-rules` block of `.editorconfig`, which `python3 .squad/tools/sonar-rules.py` writes from the two
-profiles (`--check` reports a block out of date; severity `SONAR_RULES_SEVERITY` in `squad_settings.py`): the
-*Analyzer gate* reports them in a changed file, so no rule of the profile is "one no local analyzer reports". Its
+profiles at `error` (`--check` reports a block out of date; a pending rule at `suggestion`), except the rules the
+dotnet-rules baseline already sets, which keep the baseline's severity: the
+*Analyzer gate* reports them in a changed file, so no rule of the profile is "one no local analyzer reports". A Sonar
+rule the projects keep off is switched off in the baseline, since the built-in profile cannot be changed (S1125). Its
 non-Roslyn checks (hotspots, taint analysis, duplication) have no local equivalent: the *Sonar gate*
 below reports their issues and hotspots and the quality gate, duplication included, on the draft pull request.
 

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Microsoft.AspNetCore.Components;
 
 using PlexToJellyfinSync.Core.Abstractions;
@@ -27,6 +29,11 @@ public sealed partial class Dashboard : IDisposable
     [Inject]
     private ISyncStatusProvider StatusProvider { get; set; } = default!;
 
+    /// <summary>
+    /// Gets a value indicating whether the last run reported an error to show
+    /// </summary>
+    private bool HasLastError => string.IsNullOrWhiteSpace(_status.LastError) == false;
+
     #endregion // Properties
 
     #region Methods
@@ -38,7 +45,7 @@ public sealed partial class Dashboard : IDisposable
     /// <returns>Formatted local time, or a dash when no value is present</returns>
     private static string Format(DateTimeOffset? value)
     {
-        return value.HasValue ? value.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") : "-";
+        return value.HasValue ? value.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture) : "-";
     }
 
     /// <summary>

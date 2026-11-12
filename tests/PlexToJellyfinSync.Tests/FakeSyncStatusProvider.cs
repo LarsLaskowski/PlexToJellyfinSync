@@ -14,7 +14,7 @@ internal sealed class FakeSyncStatusProvider : ISyncStatusProvider
     /// <summary>
     /// Synchronizes access to the recorded values
     /// </summary>
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     /// <summary>
     /// Results of <see cref="DispatcherCheck"/> for every snapshot request
