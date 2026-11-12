@@ -221,3 +221,19 @@ a new logged value); `SecretLogRedactor` is untouched.
 ## Out of scope / follow-ups
 
 - #300 (in the same pull request) is planned and approved separately.
+
+## Challenge notes
+
+Devil's Advocate, minor: fact 14 is wrong about the two Worker information lines. `WorkerTests` create a
+`RecordingWorkerLogger` in every test (`WorkerTests.cs:64, 90, 118, 141, 166`), which records "Worker started; poll every
+{Poll}, reconcile every {Reconcile}" (`Worker.cs:104`) and "Worker stopping" (`Worker.cs:135`); nothing asserts them. The
+Tester's coverage pass uses `RecordingWorkerLogger` to assert one Information entry with the started text and both
+intervals and one with "Worker stopping".
+
+## Security notes
+
+Security, non-blocking: the method name `UntrustedForwardedHeaders` of `ForwardedHeadersWarningLog` contains "trusted",
+which `.squad/stack.md` (*Logger arguments*) lists for CodeQL's `cs/cleartext-storage-of-sensitive-information`. Name the
+method and event `ForwardedHeadersNotApplied` instead; the message template stays, and
+`ForwardedHeadersWarningUntrustedForwardedForLogsOnce` still pins it. Facts 11 and 12 stay with the Tester (step 5); Security
+checks the measurement of fact 12 in the diff review.
