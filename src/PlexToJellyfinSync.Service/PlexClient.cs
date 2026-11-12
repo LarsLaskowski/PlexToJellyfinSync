@@ -140,12 +140,12 @@ public sealed class PlexClient : IPlexClient
     /// <returns>List of unique identifiers</returns>
     private static List<UniqueId> ParseUniqueIds(PlexMetadata metadata)
     {
-        if (metadata.Guid is null)
+        if (metadata.ExternalIds is null)
         {
             return [];
         }
 
-        return metadata.Guid
+        return metadata.ExternalIds
                        .OfType<PlexGuid>()
                        .Select(guid => guid.Id)
                        .OfType<string>()

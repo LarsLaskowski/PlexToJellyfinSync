@@ -1893,7 +1893,7 @@ public sealed class SyncOrchestratorTests
     {
         var options = Options.Create(syncOptions ?? new SyncOptions());
         var itemWriter = new MediaItemWriter(_nfoWriter, _pathMapper, _status, NullLogger<MediaItemWriter>.Instance);
-        var aggregateWriter = new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter, new WatchAggregator());
+        var aggregateWriter = new SeriesAggregateWriter(_plexClient, _pathMapper, itemWriter);
         var reconciler = new LibraryReconciler(_plexClient, itemWriter, aggregateWriter, _status, options, NullLogger<LibraryReconciler>.Instance);
 
         var dependencies = new SyncOrchestratorDependencies

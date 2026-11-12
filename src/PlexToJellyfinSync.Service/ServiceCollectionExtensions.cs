@@ -40,7 +40,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILogStore, InMemoryLogStore>();
         services.AddSingleton<ILogRedactor, SecretLogRedactor>();
         services.AddSingleton<ISyncStatusProvider, SyncStatusService>();
-        services.AddSingleton<WatchAggregator>();
         services.AddSingleton<IPathMapper, PathMapper>();
         services.AddSingleton<INfoWriter, NfoWriter>();
         services.AddSingleton<IStateStore, StateStore>();

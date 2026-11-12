@@ -17,7 +17,6 @@ public sealed class WatchAggregatorTests
     [TestMethod]
     public void WatchAggregatorAllWatchedReturnsWatched()
     {
-        var aggregator = new WatchAggregator();
         var children = new List<WatchInfo>
                        {
                            new()
@@ -34,7 +33,7 @@ public sealed class WatchAggregatorTests
                            }
                        };
 
-        var result = aggregator.Aggregate(children);
+        var result = WatchAggregator.Aggregate(children);
 
         Assert.IsTrue(result.Watched, "Aggregate should be watched!");
         Assert.AreEqual(DateTimeOffset.UnixEpoch.AddDays(2), result.LastPlayed, "Last played should be the maximum!");
@@ -46,7 +45,6 @@ public sealed class WatchAggregatorTests
     [TestMethod]
     public void WatchAggregatorPartiallyWatchedReturnsNotWatched()
     {
-        var aggregator = new WatchAggregator();
         var children = new List<WatchInfo>
                        {
                            new()
@@ -59,7 +57,7 @@ public sealed class WatchAggregatorTests
                            }
                        };
 
-        var result = aggregator.Aggregate(children);
+        var result = WatchAggregator.Aggregate(children);
 
         Assert.IsFalse(result.Watched, "Aggregate should not be watched!");
     }
@@ -71,7 +69,6 @@ public sealed class WatchAggregatorTests
     [TestMethod]
     public void WatchAggregatorPartiallyWatchedReturnsNoLastPlayed()
     {
-        var aggregator = new WatchAggregator();
         var children = new List<WatchInfo>
                        {
                            new()
@@ -86,7 +83,7 @@ public sealed class WatchAggregatorTests
                            }
                        };
 
-        var result = aggregator.Aggregate(children);
+        var result = WatchAggregator.Aggregate(children);
 
         Assert.IsFalse(result.Watched, "Aggregate should not be watched!");
         Assert.IsNull(result.LastPlayed, "Partially watched aggregate should have no last played!");
@@ -99,7 +96,6 @@ public sealed class WatchAggregatorTests
     [TestMethod]
     public void WatchAggregatorAllWatchedWithMinValueLastPlayedReturnsMinValue()
     {
-        var aggregator = new WatchAggregator();
         var children = new List<WatchInfo>
                        {
                            new()
@@ -110,7 +106,7 @@ public sealed class WatchAggregatorTests
                            }
                        };
 
-        var result = aggregator.Aggregate(children);
+        var result = WatchAggregator.Aggregate(children);
 
         Assert.AreEqual(DateTimeOffset.MinValue, result.LastPlayed, "A genuine minimum-value last played should be preserved, not treated as absent!");
     }
@@ -122,7 +118,6 @@ public sealed class WatchAggregatorTests
     [TestMethod]
     public void WatchAggregatorAllWatchedWithMixedLastPlayedReturnsMaxOfPresentValues()
     {
-        var aggregator = new WatchAggregator();
         var children = new List<WatchInfo>
                        {
                            new()
@@ -139,7 +134,7 @@ public sealed class WatchAggregatorTests
                            }
                        };
 
-        var result = aggregator.Aggregate(children);
+        var result = WatchAggregator.Aggregate(children);
 
         Assert.AreEqual(DateTimeOffset.UnixEpoch.AddDays(1), result.LastPlayed, "The last played value that is present should be used!");
     }
@@ -151,7 +146,6 @@ public sealed class WatchAggregatorTests
     [TestMethod]
     public void WatchAggregatorAllWatchedWithoutLastPlayedReturnsNull()
     {
-        var aggregator = new WatchAggregator();
         var children = new List<WatchInfo>
                        {
                            new()
@@ -162,7 +156,7 @@ public sealed class WatchAggregatorTests
                            }
                        };
 
-        var result = aggregator.Aggregate(children);
+        var result = WatchAggregator.Aggregate(children);
 
         Assert.IsNull(result.LastPlayed, "An aggregate with no last played value among its children should have none either!");
     }
@@ -173,9 +167,7 @@ public sealed class WatchAggregatorTests
     [TestMethod]
     public void WatchAggregatorNoChildrenReturnsDefault()
     {
-        var aggregator = new WatchAggregator();
-
-        var result = aggregator.Aggregate([]);
+        var result = WatchAggregator.Aggregate([]);
 
         Assert.IsFalse(result.Watched, "Empty aggregate should not be watched!");
         Assert.IsNull(result.LastPlayed, "Empty aggregate should have no last played!");

@@ -139,7 +139,7 @@ public sealed class PlexMetadata
     /// External identifiers
     /// </summary>
     [JsonPropertyName("Guid")]
-    public List<PlexGuid?>? Guid { get; set; }
+    public List<PlexGuid?>? ExternalIds { get; set; }
 
     /// <summary>
     /// Media elements

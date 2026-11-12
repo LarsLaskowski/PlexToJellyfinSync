@@ -14,7 +14,6 @@ public sealed class SeriesAggregateWriter : ISeriesAggregateWriter
     private readonly IPlexClient _plexClient;
     private readonly IPathMapper _pathMapper;
     private readonly IMediaItemWriter _itemWriter;
-    private readonly WatchAggregator _aggregator;
 
     #endregion // Fields
 
@@ -26,16 +25,13 @@ public sealed class SeriesAggregateWriter : ISeriesAggregateWriter
     /// <param name="plexClient">Plex client</param>
     /// <param name="pathMapper">Path mapper</param>
     /// <param name="itemWriter">Media item writer</param>
-    /// <param name="aggregator">Watch aggregator</param>
     public SeriesAggregateWriter(IPlexClient plexClient,
                                  IPathMapper pathMapper,
-                                 IMediaItemWriter itemWriter,
-                                 WatchAggregator aggregator)
+                                 IMediaItemWriter itemWriter)
     {
         _plexClient = plexClient;
         _pathMapper = pathMapper;
         _itemWriter = itemWriter;
-        _aggregator = aggregator;
     }
 
     #endregion // Constructors
@@ -87,7 +83,7 @@ public sealed class SeriesAggregateWriter : ISeriesAggregateWriter
                                  Kind = MediaKind.Season,
                                  SeasonNumber = season.Key,
                                  Title = season.Key.HasValue ? $"Season {season.Key.Value}" : "Season",
-                                 Watch = _aggregator.Aggregate(season.Select(x => x.Episode.Watch).ToList())
+                                 Watch = WatchAggregator.Aggregate(season.Select(x => x.Episode.Watch).ToList())
                              };
 
             await _itemWriter.WriteAggregateAsync(seasonItem, seasonDirectory, cancellationToken).ConfigureAwait(false);
@@ -108,7 +104,7 @@ public sealed class SeriesAggregateWriter : ISeriesAggregateWriter
                                 };
 
         seriesItem.Kind = MediaKind.Series;
-        seriesItem.Watch = _aggregator.Aggregate(mapped.Select(x => x.Episode.Watch).ToList());
+        seriesItem.Watch = WatchAggregator.Aggregate(mapped.Select(x => x.Episode.Watch).ToList());
 
         await _itemWriter.WriteAggregateAsync(seriesItem, showDirectory, cancellationToken).ConfigureAwait(false);
     }

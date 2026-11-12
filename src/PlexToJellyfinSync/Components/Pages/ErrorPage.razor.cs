@@ -7,7 +7,7 @@ namespace PlexToJellyfinSync.Components.Pages;
 /// <summary>
 /// Code-behind for the error page
 /// </summary>
-public partial class Error
+public partial class ErrorPage
 {
     #region Fields
 
