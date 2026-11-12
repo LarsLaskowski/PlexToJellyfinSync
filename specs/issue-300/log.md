@@ -7,3 +7,5 @@ are quoted in full.
 | ---- | ---- | ------ | ------ |
 | 2026-11-12 16:53 | 1 Intake | Orchestrator | Docs issue (fork-scope workflow in ARCHITECTURE.md); branch claude/brave-gauss-t6uabb off main 82a4ecf |
 | 2026-11-12 16:54 | 2 Plan | Lead | RESULT: DONE — tier docs; one Fork scope bullet in docs/ARCHITECTURE.md Deployment, AC1-AC3 (opus/medium · 35,235 tokens · 15 tool uses · 49 s · 18 in · 4,713 out · 213,926 cache read · 33,148 cache write · 151,429 weighted) |
+| 2026-11-12 16:54 | tier docs edits | Orchestrator | Applied the Lead's Fork scope bullet to docs/ARCHITECTURE.md |
+| 2026-11-12 16:54 | 7 Gate stamp | Orchestrator | PASS on 85e3a2d6ff6c126725b2694e4cd8c265ce84422f (tier docs): Format check pass; scope-check.py --tier docs pass |
