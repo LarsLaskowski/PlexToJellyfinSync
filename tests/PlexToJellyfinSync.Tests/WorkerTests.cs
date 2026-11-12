@@ -77,6 +77,28 @@ public sealed class WorkerTests
     }
 
     /// <summary>
+    /// The worker logs its start with both intervals and its stop, each once at information level
+    /// </summary>
+    /// <returns>Task</returns>
+    [TestMethod]
+    public async Task WorkerStartAndStopLogStartedWithIntervalsAndStopping()
+    {
+        var orchestrator = new FakeSyncOrchestrator();
+        var logger = new RecordingWorkerLogger();
+        using var worker = CreateWorker(orchestrator, logger);
+
+        await worker.StartAsync(_testContext.CancellationToken);
+        await worker.StopAsync(_testContext.CancellationToken);
+
+        var information = logger.GetEntries().Where(e => e.Level == LogLevel.Information).Select(e => e.Message).ToList();
+        var started = $"Worker started; poll every {TimeSpan.FromSeconds(3600)}, reconcile every {TimeSpan.FromHours(24)}";
+
+        Assert.ContainsSingle(m => m == started, information, "The start entry should carry both intervals and be logged once!");
+        Assert.ContainsSingle(m => m == "Worker stopping", information, "The stop entry should be logged once!");
+        Assert.HasCount(2, information, "No other information entry should be logged!");
+    }
+
+    /// <summary>
     /// A failing startup reconcile is swallowed so the worker keeps running and stops cleanly
     /// </summary>
     /// <returns>Task</returns>
