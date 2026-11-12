@@ -197,30 +197,33 @@ public sealed class NfoWriter : INfoWriter
     /// <returns>File content and the encoding detected from its byte order mark, if any; null when the file is larger than the size bound</returns>
     private static async Task<(string Content, Encoding Encoding)?> ReadExistingAsync(string path, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-        var buffer = ArrayPool<byte>.Shared.Rent(MaxExistingFileBytes + 1);
-
-        try
+        await using (stream.ConfigureAwait(false))
         {
-            var bytesRead = await stream.ReadAtLeastAsync(buffer.AsMemory(0, MaxExistingFileBytes + 1), MaxExistingFileBytes + 1, throwOnEndOfStream: false, cancellationToken)
-                                        .ConfigureAwait(false);
+            var buffer = ArrayPool<byte>.Shared.Rent(MaxExistingFileBytes + 1);
 
-            if (bytesRead > MaxExistingFileBytes)
+            try
             {
-                return null;
+                var bytesRead = await stream.ReadAtLeastAsync(buffer.AsMemory(0, MaxExistingFileBytes + 1), MaxExistingFileBytes + 1, throwOnEndOfStream: false, cancellationToken)
+                                            .ConfigureAwait(false);
+
+                if (bytesRead > MaxExistingFileBytes)
+                {
+                    return null;
+                }
+
+                using var content = new MemoryStream(buffer, 0, bytesRead, writable: false);
+                using var reader = new StreamReader(content, _utf8NoBom, detectEncodingFromByteOrderMarks: true);
+
+                var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
+                return (text, reader.CurrentEncoding);
             }
-
-            using var content = new MemoryStream(buffer, 0, bytesRead, writable: false);
-            using var reader = new StreamReader(content, _utf8NoBom, detectEncodingFromByteOrderMarks: true);
-
-            var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-
-            return (text, reader.CurrentEncoding);
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
     }
 
@@ -271,11 +274,18 @@ public sealed class NfoWriter : INfoWriter
     /// <returns>Task</returns>
     private static async Task WriteTempFileAsync(XDocument document, string tempPath, XmlWriterSettings settings, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await using var writer = XmlWriter.Create(stream, settings);
+        var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
-        await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
-        await writer.FlushAsync().ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
+        {
+            var writer = XmlWriter.Create(stream, settings);
+
+            await using (writer.ConfigureAwait(false))
+            {
+                await document.SaveAsync(writer, cancellationToken).ConfigureAwait(false);
+                await writer.FlushAsync().ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>

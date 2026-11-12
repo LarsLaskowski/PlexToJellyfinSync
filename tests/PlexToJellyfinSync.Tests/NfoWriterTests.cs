@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Xml.Linq;
@@ -871,10 +872,10 @@ public sealed class NfoWriterTests
         {
             var reference = $"&e{level - 1};";
 
-            builder.Append($"<!ENTITY e{level} '{string.Concat(Enumerable.Repeat(reference, 10))}'>");
+            builder.Append(CultureInfo.InvariantCulture, $"<!ENTITY e{level} '{string.Concat(Enumerable.Repeat(reference, 10))}'>");
         }
 
-        builder.Append($"]><movie><title>&e{levels};</title></movie>");
+        builder.Append(CultureInfo.InvariantCulture, $"]><movie><title>&e{levels};</title></movie>");
 
         return builder.ToString();
     }
@@ -905,7 +906,7 @@ public sealed class NfoWriterTests
         Encoding encoding = utf16 ? new UnicodeEncoding(bigEndian: false, byteOrderMark: true) : new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         var preambleLength = encoding.GetPreamble().Length;
         var bytesPerChar = utf16 ? 2 : 1;
-        var paddingLength = (fileLength - preambleLength) / bytesPerChar - xml.Length;
+        var paddingLength = ((fileLength - preambleLength) / bytesPerChar) - xml.Length;
         var text = xml + new string(' ', paddingLength);
 
         return [.. encoding.GetPreamble(), .. encoding.GetBytes(text)];

@@ -12,7 +12,7 @@ internal sealed class RecordingNfoWriter : INfoWriter
     #region Fields
 
     private readonly Lock _lock = new();
-    private readonly Dictionary<string, int> _concurrentCallsByPath = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _concurrentCallsByPath = [with(StringComparer.Ordinal)];
 
     private readonly TaskCompletionSource<bool> _concurrencyReached = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -65,7 +65,7 @@ internal sealed class RecordingNfoWriter : INfoWriter
     /// <summary>
     /// Highest number of writes observed in flight at the same time, keyed by target local path
     /// </summary>
-    public Dictionary<string, int> MaxObservedConcurrencyByPath { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, int> MaxObservedConcurrencyByPath { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// All captured writes, in order they completed
@@ -75,7 +75,7 @@ internal sealed class RecordingNfoWriter : INfoWriter
     /// <summary>
     /// Exceptions to throw instead of recording the write, keyed by the item's rating key
     /// </summary>
-    public Dictionary<string, Exception> FailuresByRatingKey { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, Exception> FailuresByRatingKey { get; } = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Cancellation source cancelled by <see cref="WriteAsync"/> when <see cref="CancelWhen"/> matches the item

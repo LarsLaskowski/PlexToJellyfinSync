@@ -153,13 +153,13 @@ public sealed class PlexClient : IPlexClient
                        .Select((id, index) =>
                                {
                                    var separatorIndex = id.IndexOf("://", StringComparison.Ordinal);
-                                   var type = id.Substring(0, separatorIndex);
-                                   var value = id.Substring(separatorIndex + 3);
+                                   var type = id[..separatorIndex];
+                                   var value = id[(separatorIndex + 3)..];
                                    var queryIndex = value.IndexOf('?', StringComparison.Ordinal);
 
                                    if (queryIndex >= 0)
                                    {
-                                       value = value.Substring(0, queryIndex);
+                                       value = value[..queryIndex];
                                    }
 
                                    return new UniqueId
@@ -236,7 +236,7 @@ public sealed class PlexClient : IPlexClient
 
         var end = maxLength > 0 && char.IsHighSurrogate(text[maxLength - 1]) ? maxLength - 1 : maxLength;
 
-        return text.Substring(0, end);
+        return text[..end];
     }
 
     /// <summary>
@@ -520,9 +520,12 @@ public sealed class PlexClient : IPlexClient
 
         response.EnsureSuccessStatusCode();
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
 
-        return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
+        {
+            return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     #endregion // Methods

@@ -29,7 +29,7 @@ public sealed class LoginThrottle : ILoginThrottle
     private static readonly TimeSpan _maxLockout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan _retentionWindow = TimeSpan.FromMinutes(15);
 
-    private readonly Dictionary<string, LoginAttemptState> _attempts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LoginAttemptState> _attempts = [with(StringComparer.Ordinal)];
     private readonly Lock _lock = new();
     private readonly LoginAttemptState _sharedRecord = new();
     private readonly TimeProvider _timeProvider;

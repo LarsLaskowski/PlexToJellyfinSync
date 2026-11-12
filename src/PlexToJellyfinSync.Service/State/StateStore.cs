@@ -85,9 +85,12 @@ public sealed class StateStore : IStateStore
     /// <returns>Task</returns>
     private static async Task WriteTempFileAsync(string tempPath, SyncStateFile state, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
-        await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
+        {
+            await JsonSerializer.SerializeAsync(stream, state, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>

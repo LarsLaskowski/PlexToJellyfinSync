@@ -113,7 +113,7 @@ public static partial class Program
             app.MapPost("/logout", LoginEndpoints.HandleLogout);
         }
 
-        await app.RunAsync();
+        await app.RunAsync().ConfigureAwait(false);
     }
 
     #endregion // Main entry point

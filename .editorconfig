@@ -183,7 +183,8 @@ dotnet_style_require_accessibility_modifiers = for_non_interface_members:silent
 dotnet_diagnostic.ASP0015.severity = error
 
 # Diagnostics: CA
-dotnet_diagnostic.CA1001.severity = warning
+# pending: #304 (DOTNET_RULES_PENDING)
+dotnet_diagnostic.CA1001.severity = suggestion
 dotnet_diagnostic.CA1016.severity = warning
 dotnet_diagnostic.CA1033.severity = warning
 dotnet_diagnostic.CA1060.severity = warning
@@ -547,7 +548,8 @@ dotnet_diagnostic.S107.severity = warning
 # == false is the binding style; off in the source, since the built-in Sonar way comprehensive profile of SonarQube Cloud cannot switch it off (#338)
 dotnet_diagnostic.S1125.severity = none
 dotnet_diagnostic.S1192.severity = warning
-dotnet_diagnostic.S3776.severity = warning
+# pending: #309 (DOTNET_RULES_PENDING)
+dotnet_diagnostic.S3776.severity = suggestion
 dotnet_diagnostic.S8949.severity = error
 
 # Diagnostics: SYSLIB

@@ -12,7 +12,7 @@ internal sealed class StubPathMapper : IPathMapper
     /// <summary>
     /// Plex paths for which no mapping exists
     /// </summary>
-    public HashSet<string> Unmapped { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> Unmapped { get; } = [with(StringComparer.Ordinal)];
 
     #endregion // Properties
 
