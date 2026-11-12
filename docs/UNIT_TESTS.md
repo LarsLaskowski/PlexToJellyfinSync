@@ -277,8 +277,9 @@ This writes a `coverage.cobertura.xml` report. CI runs the same command with
 the `coverage.opencover.xml` it feeds into SonarQube Cloud (see `.github/workflows/ci.yml`). For the local
 coverage gate, use the commands below.
 
-**Threshold: at least 80 % line coverage on new or changed production code, and at least 80 % overall**
-— the same measure as SonarQube's "coverage on new code". Both values are set in
+**Threshold: at least 80 % coverage on new or changed production code, and at least 80 % line coverage
+overall** — the same measure as SonarQube's "coverage on new code": covered lines and branch conditions together,
+so an untested arm of a `switch` or an `if` counts on a changed line. Both values are set in
 `.squad/tools/squad_settings.py` (`COVERAGE_THRESHOLD`, `COVERAGE_OVERALL_THRESHOLD`); the overall one may
 start lower in a repository adopted with a coverage debt and is only ever raised. Check it locally before a
 push:
@@ -299,8 +300,8 @@ accepted.
 - [ ] New production code has accompanying unit tests — this is mandatory, not optional.
 - [ ] `python3 .squad/tools/analyzer-check.py` reports no diagnostic in a changed test file (MSTest
       analyzer rules are info-level and only visible there or in SonarQube Cloud).
-- [ ] At least 80 % line coverage on new/changed production code and overall
-      (`.squad/tools/coverage-check.py`).
+- [ ] At least 80 % coverage (lines and branch conditions) on new/changed production code and 80 % line
+      coverage overall (`.squad/tools/coverage-check.py`).
 - [ ] Test class named `{TypeUnderTest}Tests`, placed directly in
       `tests/PlexToJellyfinSync.Tests/` (no subfolders).
 - [ ] Test method named `{TypeUnderTest}{Scenario}{ExpectedResult}` (PascalCase, no underscores); a test for a
