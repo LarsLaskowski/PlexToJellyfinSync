@@ -39,7 +39,7 @@ public sealed class InMemoryLoggerTests
 
         if (logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation("Processed the {Kind} library", "movie");
+            Write(logger, LogLevel.Information, "Processed the movie library");
         }
 
         var entries = store.GetEntries();
@@ -60,8 +60,8 @@ public sealed class InMemoryLoggerTests
         var store = CreateStore();
         var logger = new InMemoryLogger(store, "Test", CreateRedactor());
 
-        logger.LogDebug("noise");
-        logger.LogTrace("more noise");
+        Write(logger, LogLevel.Debug, "noise");
+        Write(logger, LogLevel.Trace, "more noise");
 
         Assert.IsEmpty(store.GetEntries(), "Messages below information should be discarded!");
     }
@@ -77,7 +77,7 @@ public sealed class InMemoryLoggerTests
 
         if (logger.IsEnabled(LogLevel.Error))
         {
-            logger.LogError(new InvalidOperationException("plex is down"), "Synchronization run failed");
+            Write(logger, LogLevel.Error, "Synchronization run failed", new InvalidOperationException("plex is down"));
         }
 
         var entries = store.GetEntries();
@@ -99,7 +99,7 @@ public sealed class InMemoryLoggerTests
 
         if (logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation("Connecting with token {Token}", "s3cr3t-token");
+            Write(logger, LogLevel.Information, "Connecting with token s3cr3t-token");
         }
 
         var entries = store.GetEntries();
@@ -120,7 +120,7 @@ public sealed class InMemoryLoggerTests
 
         if (logger.IsEnabled(LogLevel.Error))
         {
-            logger.LogError(new InvalidOperationException("failed for token s3cr3t-token"), "Request failed");
+            Write(logger, LogLevel.Error, "Request failed", new InvalidOperationException("failed for token s3cr3t-token"));
         }
 
         var entries = store.GetEntries();
@@ -139,6 +139,18 @@ public sealed class InMemoryLoggerTests
         var logger = new InMemoryLogger(CreateStore(), "Test", CreateRedactor());
 
         Assert.IsNull(logger.BeginScope("scope"), "Scopes should not be supported!");
+    }
+
+    /// <summary>
+    /// Write a pre-formatted message through <see cref="ILogger.Log{TState}"/>
+    /// </summary>
+    /// <param name="logger">Logger under test</param>
+    /// <param name="level">Log level</param>
+    /// <param name="message">Already formatted message</param>
+    /// <param name="exception">Optional exception</param>
+    private static void Write(InMemoryLogger logger, LogLevel level, string message, Exception? exception = null)
+    {
+        logger.Log(level, default, message, exception, static (state, _) => state);
     }
 
     /// <summary>

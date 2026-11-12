@@ -40,8 +40,8 @@ public sealed class InMemoryLogProviderTests
 
         using var provider = new InMemoryLogProvider(store, CreateRedactor());
 
-        provider.CreateLogger("First").LogInformation("one");
-        provider.CreateLogger("Second").LogWarning("two");
+        Write(provider.CreateLogger("First"), LogLevel.Information, "one");
+        Write(provider.CreateLogger("Second"), LogLevel.Warning, "two");
 
         var entries = store.GetEntries();
 
@@ -66,6 +66,17 @@ public sealed class InMemoryLogProviderTests
 
         Assert.IsNotNull(after, "The provider should still create loggers after disposal!");
         Assert.AreNotSame(before, after, "Disposal should drop the cached loggers!");
+    }
+
+    /// <summary>
+    /// Write a pre-formatted message through <see cref="ILogger.Log{TState}"/>
+    /// </summary>
+    /// <param name="logger">Logger to write with</param>
+    /// <param name="level">Log level</param>
+    /// <param name="message">Already formatted message</param>
+    private static void Write(ILogger logger, LogLevel level, string message)
+    {
+        logger.Log(level, default, message, null, static (state, _) => state);
     }
 
     /// <summary>
