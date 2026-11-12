@@ -81,6 +81,7 @@ public sealed class WorkerTests
     /// </summary>
     /// <returns>Task</returns>
     [TestMethod]
+    [TestCategory("AC7")]
     public async Task WorkerStartAndStopLogStartedWithIntervalsAndStopping()
     {
         var orchestrator = new FakeSyncOrchestrator();
