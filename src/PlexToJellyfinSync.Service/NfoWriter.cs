@@ -166,6 +166,28 @@ public sealed class NfoWriter : INfoWriter
     }
 
     /// <summary>
+    /// Add a uniqueid element for every provider id of an item
+    /// </summary>
+    /// <param name="root">Root element</param>
+    /// <param name="uniqueIds">Provider ids of the item</param>
+    private static void AddUniqueIds(XElement root, IEnumerable<Core.Models.UniqueId> uniqueIds)
+    {
+        foreach (var uniqueId in uniqueIds)
+        {
+            var element = new XElement("uniqueid", uniqueId.Value);
+
+            element.SetAttributeValue("type", uniqueId.Type);
+
+            if (uniqueId.IsDefault)
+            {
+                element.SetAttributeValue("default", "true");
+            }
+
+            root.Add(element);
+        }
+    }
+
+    /// <summary>
     /// Parse an existing NFO file's content with a reader that prohibits document type declarations and resolves nothing
     /// </summary>
     /// <param name="xml">Existing NFO file content</param>
@@ -508,19 +530,7 @@ public sealed class NfoWriter : INfoWriter
             root.Add(new XElement(item.Kind == MediaKind.Episode ? "aired" : "premiered", formatted));
         }
 
-        foreach (var uniqueId in item.UniqueIds)
-        {
-            var element = new XElement("uniqueid", uniqueId.Value);
-
-            element.SetAttributeValue("type", uniqueId.Type);
-
-            if (uniqueId.IsDefault)
-            {
-                element.SetAttributeValue("default", "true");
-            }
-
-            root.Add(element);
-        }
+        AddUniqueIds(root, item.UniqueIds);
 
         if (item.Kind == MediaKind.Movie && item.DateAdded.HasValue)
         {
