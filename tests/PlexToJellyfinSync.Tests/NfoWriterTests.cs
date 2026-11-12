@@ -100,6 +100,43 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
+    /// A new NFO carries one uniqueid element per provider id, the default one marked
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task NfoWriterMovieWithUniqueIdsWritesUniqueIdElements()
+    {
+        var writer = CreateWriter(createMissing: true);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var item = new MediaItem
+                   {
+                       Kind = MediaKind.Movie,
+                       Title = "Heat",
+                       UniqueIds = [
+                                       new UniqueId
+                                       {
+                                           Type = "imdb",
+                                           Value = "tt0113277",
+                                           IsDefault = true
+                                       },
+                                       new UniqueId
+                                       {
+                                           Type = "tmdb",
+                                           Value = "949"
+                                       }
+                                   ],
+                       Watch = new WatchInfo()
+                   };
+
+        await writer.WriteAsync(item, moviePath, CancellationToken.None);
+
+        var content = await File.ReadAllTextAsync(Path.ChangeExtension(moviePath, ".nfo"), _testContext.CancellationToken);
+
+        Assert.Contains("<uniqueid type=\"imdb\" default=\"true\">tt0113277</uniqueid>", content, "Default provider id missing!");
+        Assert.Contains("<uniqueid type=\"tmdb\">949</uniqueid>", content, "Second provider id missing!");
+    }
+
+    /// <summary>
     /// An existing NFO keeps unrelated nodes and only updates the watch state
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
