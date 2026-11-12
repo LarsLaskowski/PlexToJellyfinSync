@@ -290,8 +290,8 @@ dotnet test PlexToJellyfinSync.slnx -c Release --no-build --collect:"XPlat Code 
 python3 .squad/tools/coverage-check.py
 ```
 
-The script lists every changed file under `src/` with its covered/coverable changed lines and the
-uncovered line numbers, and exits non-zero below the threshold (a diff with neither production nor test code only reports overall coverage). Lines that genuinely cannot be covered by
+The script lists every changed file under `src/` with its covered/coverable changed lines, the branch
+conditions on them and the uncovered lines and conditions, and exits non-zero below the threshold (a diff with neither production nor test code only reports overall coverage). Lines that genuinely cannot be covered by
 a unit test (for example host startup glue) need an explicit, recorded decision — they are not silently
 accepted.
 
