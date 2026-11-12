@@ -43,7 +43,7 @@ public static partial class Program
 
         if (DashboardStartup.ShouldWarnAboutMissingToken(dashboardOptions))
         {
-            app.Logger.LogWarning("Dashboard is enabled with no access token configured (Dashboard:Token); it is reachable by anyone who can reach this host. Set Dashboard:Token to require authentication.");
+            ProgramLog.DashboardWithoutToken(app.Logger);
         }
 
         app.UseForwardedHeaders(DashboardStartup.CreateForwardedHeadersOptions(dashboardOptions));

@@ -183,8 +183,7 @@ dotnet_style_require_accessibility_modifiers = for_non_interface_members:silent
 dotnet_diagnostic.ASP0015.severity = error
 
 # Diagnostics: CA
-# pending: #304 (DOTNET_RULES_PENDING)
-dotnet_diagnostic.CA1001.severity = suggestion
+dotnet_diagnostic.CA1001.severity = warning
 dotnet_diagnostic.CA1016.severity = warning
 dotnet_diagnostic.CA1033.severity = warning
 dotnet_diagnostic.CA1060.severity = warning

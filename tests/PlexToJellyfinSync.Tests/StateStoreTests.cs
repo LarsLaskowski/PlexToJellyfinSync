@@ -25,6 +25,8 @@ public sealed class StateStoreTests
 
     private readonly TestContext _testContext;
 
+    private readonly List<StateStore> _stores = [];
+
     private string _tempDirectory = string.Empty;
 
     #endregion // Fields
@@ -59,6 +61,13 @@ public sealed class StateStoreTests
     [TestCleanup]
     public void Cleanup()
     {
+        foreach (var store in _stores)
+        {
+            store.Dispose();
+        }
+
+        _stores.Clear();
+
         if (Directory.Exists(_tempDirectory))
         {
             Directory.Delete(_tempDirectory, recursive: true);
@@ -77,6 +86,20 @@ public sealed class StateStoreTests
         var mark = await store.GetHighWaterMarkAsync(CancellationToken.None);
 
         Assert.IsNull(mark, "Without a state file there should be no high-water mark!");
+    }
+
+    /// <summary>
+    /// A disposed store releases its gate, so a later access fails instead of waiting
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    public async Task StateStoreDisposedThrowsObjectDisposedException()
+    {
+        var store = CreateStore();
+
+        store.Dispose();
+
+        await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => store.GetHighWaterMarkAsync(_testContext.CancellationToken), "A disposed store should refuse further access!");
     }
 
     /// <summary>
@@ -1145,7 +1168,11 @@ public sealed class StateStoreTests
                                          Directory = _tempDirectory
                                      });
 
-        return new StateStore(options, logger);
+        var store = new StateStore(options, logger);
+
+        _stores.Add(store);
+
+        return store;
     }
 
     /// <summary>

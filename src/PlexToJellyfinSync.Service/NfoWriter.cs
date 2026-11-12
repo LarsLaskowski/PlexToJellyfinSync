@@ -543,7 +543,7 @@ public sealed class NfoWriter : INfoWriter
 
         if (IsUnderMappedLocalRoot(targetPath) == false)
         {
-            _logger.LogWarning("Refusing to write NFO for {Path}: resolved target {TargetPath} escapes every mapped local root", localPath, targetPath);
+            NfoWriterLog.TargetOutsideMappedRoots(_logger, localPath, targetPath);
 
             return NfoWriteOutcome.Skipped;
         }
@@ -560,7 +560,7 @@ public sealed class NfoWriter : INfoWriter
 
                 if (existing is null)
                 {
-                    _logger.LogWarning("Skipping oversized NFO {Path}: existing file is larger than {MaxBytes} bytes", targetPath, MaxExistingFileBytes);
+                    NfoWriterLog.OversizedNfoSkipped(_logger, targetPath, MaxExistingFileBytes);
 
                     return NfoWriteOutcome.Skipped;
                 }
@@ -575,7 +575,7 @@ public sealed class NfoWriter : INfoWriter
                 }
                 catch (XmlException exception)
                 {
-                    _logger.LogWarning(exception, "Skipping malformed NFO {Path}: existing content could not be parsed as XML", targetPath);
+                    NfoWriterLog.MalformedNfoSkipped(_logger, exception, targetPath);
 
                     return NfoWriteOutcome.Skipped;
                 }
@@ -590,10 +590,7 @@ public sealed class NfoWriter : INfoWriter
 
                 await SaveAsync(document, targetPath, indent: false, encoding, cancellationToken).ConfigureAwait(false);
 
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation("Updated watch state in {Path}", targetPath);
-                }
+                NfoWriterLog.WatchStateUpdated(_logger, targetPath);
 
                 return NfoWriteOutcome.Updated;
             }
@@ -614,10 +611,7 @@ public sealed class NfoWriter : INfoWriter
 
             await SaveAsync(newDocument, targetPath, indent: true, _utf8NoBom, cancellationToken).ConfigureAwait(false);
 
-            if (_logger.IsEnabled(LogLevel.Information))
-            {
-                _logger.LogInformation("Created NFO {Path}", targetPath);
-            }
+            NfoWriterLog.NfoCreated(_logger, targetPath);
 
             return NfoWriteOutcome.Created;
         }
