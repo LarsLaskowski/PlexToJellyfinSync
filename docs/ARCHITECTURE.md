@@ -298,7 +298,8 @@ how the image is built and released.
   lines ([decision 0034](decisions/0034-base-images-pinned-in-literal-from-lines.md)).
   `ASPNETCORE_URLS` fixes the listening address inside the container, and the final stage runs as the base
   image's predefined non-root user (`USER $APP_UID`) rather than root.
-- **CI** (`.github/workflows/ci.yml`) restores, builds, runs tests with coverage
+- **CI** (`.github/workflows/ci.yml`) checks the decision records (`decision-records` job, `decision-check.py`
+  over the full history and release tags), and restores, builds, runs tests with coverage
   (`XPlat Code Coverage`, OpenCover format), and — when `SONAR_TOKEN` is available (not exposed to
   Dependabot or fork PRs) — feeds the coverage into SonarQube Cloud analysis
   (`networlddev_PlexToJellyfinSync`). CI deliberately does **not** check formatting: formatting, Reihitsu
