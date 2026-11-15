@@ -143,7 +143,9 @@ git ls-files -z | xargs -0 -I{} cp --parents {} "$scratch"
 ls "$scratch"/publish/wwwroot/_framework/blazor.web.js
 ```
 
-Keep the first copy equal to the `COPY` lines before `RUN dotnet restore` in the Dockerfile. A publish that
+In a repository checked out with CRLF line endings, a copy of the block taken from this file runs only with the
+carriage returns removed (`sed 's/\r$//'`); without them bash reports `$'\r': command not found`. Keep the first copy
+equal to the `COPY` lines before `RUN dotnet restore` in the Dockerfile. A publish that
 fails, or an output that is missing, is the defect the release build
 (`.github/workflows/release.yml`, started by publishing a release) would report only after the merge, unless the change is covered by the *Image build* workflow (`.github/workflows/image.yml`): a pull request that changes the `Dockerfile`, `.dockerignore`, `global.json` or that workflow builds and starts the image there on `linux/amd64` and `linux/arm64`. A change to the `Dockerfile` or `global.json` is proven by that workflow, not by the reproduction above, which builds with the sandbox's own SDK and so cannot see a `global.json` that names a newer SDK than the image's; a change to any other input listed above is covered only by the reproduction (or `docker build` where Docker runs), because the workflow does not run for it.
 
@@ -175,9 +177,12 @@ record — never to `sonar.exclusions`, which would drop it from the analysis to
   and the message template and the argument names of the placeholders are written once there. Tests that must reach
   a logger directly call `ILogger.Log(level, eventId, state, exception, formatter)` through a small helper, because
   a generated method checks `IsEnabled` first.
-- Names the analyzers refuse, checked by the Lead before a name goes into the plan's *Signatures*: an enum
-  whose name ends in `Flags` or `Enum` (S2344), and a nested type of any
-  visibility (RH2101 class, RH2104 struct, RH2105 interface, RH2106 record, RH2107 enum, RH2108 delegate).
+- Names and signatures the analyzers refuse, checked by the Lead before they go into the plan's *Signatures*: an
+  enum whose name ends in `Flags` or `Enum` (S2344), a nested type of any
+  visibility (RH2101 class, RH2104 struct, RH2105 interface, RH2106 record, RH2107 enum, RH2108 delegate), more than
+  seven parameters on a method or constructor outside the tests, a `[LoggerMessage]` method included (S107), and a parameter or
+  member named after a keyword of another .NET language on a public or interface member (`from`, `to`, `step`:
+  CA1716).
 
 ## Logger arguments
 
