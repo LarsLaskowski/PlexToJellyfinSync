@@ -38,12 +38,8 @@ public sealed class InMemoryLogStore : ILogStore
 
     #region ILogStore
 
-    #region Events
-
     /// <inheritdoc/>
     public event Action<LogEntry>? EntryAdded;
-
-    #endregion // Events
 
     /// <inheritdoc/>
     public IReadOnlyList<LogEntry> GetEntries()
