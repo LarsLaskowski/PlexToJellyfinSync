@@ -84,7 +84,7 @@ hand-written test doubles wherever possible.
 
 There is no mocking framework in this project. Instead, `PlexToJellyfinSync.Tests` has a small set
 of hand-written fakes and stubs, each implementing the interface or base type it stands in for
-directly; the list of them, one line per double, is below, and how each one behaves is read in its code.
+directly; they are listed below.
 
 When a new component needs a test double for one of its collaborators, follow this pattern: a
 plain `internal sealed class` implementing the interface, with public settable properties for
