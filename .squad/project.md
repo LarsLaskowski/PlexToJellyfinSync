@@ -1,14 +1,15 @@
 # Project
 
 What the squad needs to know about this project that is not stack-specific. Read by the Lead, the Devil's
-Advocate, Security, the Tester and the Reviewer. Not template-managed: `adopt-template` creates it once
-and never overwrites it. A product PR updates it when the change makes an entry untrue
-(`.squad/routing.md`, *Scope of a product PR*).
+Advocate, Security and the Reviewer; the test doubles are in `docs/UNIT_TESTS.md` (*Test doubles*). Not
+template-managed: `adopt-template` creates it once and never overwrites it. A product PR updates it when the change
+makes an entry untrue (`.squad/routing.md`, *Scope of a product PR*).
 
 Every entry points: it names files, types or endpoints and links the document that says more. Behavior, values,
 limits and sequences are written once, in the area documents (`docs/areas/README.md`), and the reasons in the
-decision records; a copy here goes stale with the next change. `config-check.py` warns when this file grows past
-`PROJECT_MAX_WORDS` words (`.squad/tools/squad_settings.py`).
+decision records; a copy here goes stale with the next change. `config-check.py` warns about an entry of more than
+`PROJECT_ENTRY_MAX_PROSE` prose words (code spans and links do not count) and about a change that adds more than
+`PROJECT_MAX_GROWTH` words to this file (`.squad/tools/squad_settings.py`).
 
 ## Security areas
 
@@ -122,28 +123,3 @@ change with it.
 
 **A new logged value** touches `SecretLogRedactor` and the masking rules in `docs/areas/dashboard-and-auth.md`:
 a token, a credential or a full Plex URL with query string in a log statement is a finding.
-
-## Test doubles
-
-No mocking library; hand-written fakes and stubs in `tests/PlexToJellyfinSync.Tests`, each implementing the
-interface or base type it stands in for directly (pattern and details in `docs/UNIT_TESTS.md`, *Test doubles*), one
-line each: the double, where it lives and what it stands in for; how it behaves is read in its code:
-
-- `FakePlexClient` (`FakePlexClient.cs`) — `IPlexClient`
-- `FakeStateStore` (`FakeStateStore.cs`) — `IStateStore`
-- `StubPathMapper` (`StubPathMapper.cs`) — `IPathMapper`
-- `RecordingNfoWriter` (`RecordingNfoWriter.cs`, records `NfoWriteRecord`) — `INfoWriter`
-- `FakeSyncOrchestrator` (`FakeSyncOrchestrator.cs`) — `ISyncOrchestrator` for the `Worker`
-- `FakeSyncStatusProvider` (`FakeSyncStatusProvider.cs`) — `ISyncStatusProvider` for the dashboard
-- `StubDashboardLoginService` (`StubDashboardLoginService.cs`) — `IDashboardLoginService` for the login endpoints
-- `StubHttpMessageHandler` (`StubHttpMessageHandler.cs`) — Plex's HTTP answers behind the real `HttpClient`
-- `FakeHttpClientFactory` (`FakeHttpClientFactory.cs`) — `IHttpClientFactory`
-- `StubAntiforgery` (`StubAntiforgery.cs`) — ASP.NET Core's `IAntiforgery`
-- `TestTimeProvider` (`TestTimeProvider.cs`) — the clock (`TimeProvider`)
-- `RecordingWorkerLogger` (`RecordingWorkerLogger.cs`) — `ILogger<Worker>`
-- `RecordingSyncStatusLogger` (`RecordingSyncStatusLogger.cs`) — `ILogger<SyncStatusService>`
-- `RecordingStateStoreLogger` (`RecordingStateStoreLogger.cs`) — `ILogger<StateStore>`
-- `RecordingNfoWriterLogger` (`RecordingNfoWriterLogger.cs`) — `ILogger<NfoWriter>`
-- `RecordingPlexClientLogger` (`RecordingPlexClientLogger.cs`) — `ILogger<PlexClient>`
-- `RecordingForwardedHeadersWarningLogger` (`RecordingForwardedHeadersWarningLogger.cs`) —
-  `ILogger<ForwardedHeadersWarning>`

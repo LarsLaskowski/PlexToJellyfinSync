@@ -84,13 +84,33 @@ hand-written test doubles wherever possible.
 
 There is no mocking framework in this project. Instead, `PlexToJellyfinSync.Tests` has a small set
 of hand-written fakes and stubs, each implementing the interface or base type it stands in for
-directly; the list of them, one line per double, is in [`.squad/project.md`](../.squad/project.md)
-(*Test doubles*), and how each one behaves is read in its code.
+directly; they are listed below.
 
 When a new component needs a test double for one of its collaborators, follow this pattern: a
 plain `internal sealed class` implementing the interface, with public settable properties for
 input data and public gettable properties/lists for anything the test needs to assert was
 called. Do not reach for a mocking library instead.
+
+The doubles, one line each: the double, where it lives and what it stands in for; how it behaves is read in its code:
+
+- `FakePlexClient` (`FakePlexClient.cs`) — `IPlexClient`
+- `FakeStateStore` (`FakeStateStore.cs`) — `IStateStore`
+- `StubPathMapper` (`StubPathMapper.cs`) — `IPathMapper`
+- `RecordingNfoWriter` (`RecordingNfoWriter.cs`, records `NfoWriteRecord`) — `INfoWriter`
+- `FakeSyncOrchestrator` (`FakeSyncOrchestrator.cs`) — `ISyncOrchestrator` for the `Worker`
+- `FakeSyncStatusProvider` (`FakeSyncStatusProvider.cs`) — `ISyncStatusProvider` for the dashboard
+- `StubDashboardLoginService` (`StubDashboardLoginService.cs`) — `IDashboardLoginService` for the login endpoints
+- `StubHttpMessageHandler` (`StubHttpMessageHandler.cs`) — Plex's HTTP answers behind the real `HttpClient`
+- `FakeHttpClientFactory` (`FakeHttpClientFactory.cs`) — `IHttpClientFactory`
+- `StubAntiforgery` (`StubAntiforgery.cs`) — ASP.NET Core's `IAntiforgery`
+- `TestTimeProvider` (`TestTimeProvider.cs`) — the clock (`TimeProvider`)
+- `RecordingWorkerLogger` (`RecordingWorkerLogger.cs`) — `ILogger<Worker>`
+- `RecordingSyncStatusLogger` (`RecordingSyncStatusLogger.cs`) — `ILogger<SyncStatusService>`
+- `RecordingStateStoreLogger` (`RecordingStateStoreLogger.cs`) — `ILogger<StateStore>`
+- `RecordingNfoWriterLogger` (`RecordingNfoWriterLogger.cs`) — `ILogger<NfoWriter>`
+- `RecordingPlexClientLogger` (`RecordingPlexClientLogger.cs`) — `ILogger<PlexClient>`
+- `RecordingForwardedHeadersWarningLogger` (`RecordingForwardedHeadersWarningLogger.cs`) —
+  `ILogger<ForwardedHeadersWarning>`
 
 ## Naming your tests
 
@@ -113,7 +133,8 @@ public void ServiceCollectionExtensionsRegistersSharedStateAsSingleton()
 ```
 
 Test class names follow `{TypeUnderTest}Tests` (for example `WatchAggregatorTests`,
-`ServiceCollectionExtensionsTests`, `PlexClientTests`), `[TestClass]`, `public sealed class`.
+`ServiceCollectionExtensionsTests`, `PlexClientTests`), `[TestClass]`, `public sealed class`. A type whose tests grow
+large is split by concern into `{TypeUnderTest}{Concern}Tests` (for example `PlexClientFailureTests`), one file each.
 
 ## Criterion ids
 
