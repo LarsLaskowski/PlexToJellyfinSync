@@ -134,7 +134,7 @@ members (English, no `<remarks>`); `.ConfigureAwait(false)` in library/service c
 <!-- stack:end code-style -->
 <!-- project:begin code-style -->
 - Line endings and the final newline as [`.editorconfig`](/.editorconfig) sets them.
-- **No mocking library**: the hand-written test doubles are listed in `.squad/project.md` (*Test doubles*).
+- **No mocking library**: the hand-written test doubles are listed in `docs/UNIT_TESTS.md` (*Test doubles*).
 <!-- project:end code-style -->
 
 ## Testing
