@@ -430,16 +430,17 @@ public sealed class NfoWriterTests
     /// non-regular warning, whether or not missing NFOs are created
     /// </summary>
     /// <param name="devicePath">Device the symbolic link points to</param>
+    /// <param name="createMissing">Whether the writer creates missing NFOs</param>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
     [TestCategory("AC1")]
     [OSCondition(OperatingSystems.Linux)]
-    [DataRow("/dev/null", DisplayName = "Link to /dev/null")]
-    [DataRow("/dev/zero", DisplayName = "Link to /dev/zero")]
-    public async Task NfoWriterExistingNfoLinkedToDeviceSkips(string devicePath)
+    [DataRow("/dev/null", true, DisplayName = "Link to /dev/null, creating missing NFOs")]
+    [DataRow("/dev/zero", false, DisplayName = "Link to /dev/zero, not creating missing NFOs")]
+    public async Task NfoWriterExistingNfoLinkedToDeviceSkips(string devicePath, bool createMissing)
     {
         var logger = new RecordingNfoWriterLogger();
-        var writer = CreateWriter(createMissing: true, logger: logger);
+        var writer = CreateWriter(createMissing: createMissing, logger: logger);
         var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
         var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
 
@@ -455,7 +456,7 @@ public sealed class NfoWriterTests
 
     /// <summary>
     /// A target that is a FIFO is not opened (which would block until a writer appears) and is skipped with
-    /// the non-regular warning
+    /// the non-regular warning, and it stays a FIFO
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
@@ -495,6 +496,7 @@ public sealed class NfoWriterTests
         }
 
         Assert.AreEqual(NfoWriteOutcome.Skipped, await write, "A FIFO target must be skipped!");
+        Assert.AreEqual("fifo", ReadFileType(nfoPath), "The target entry must still be a FIFO!");
         Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind for a FIFO target!");
         AssertNonRegularWarning(logger, nfoPath);
     }
@@ -520,7 +522,7 @@ public sealed class NfoWriterTests
         var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
 
         Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "A socket target must be skipped!");
-        Assert.IsTrue(File.Exists(nfoPath), "The target entry must still exist!");
+        Assert.AreEqual("socket", ReadFileType(nfoPath), "The target entry must still be a socket!");
         Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind for a socket target!");
         AssertNonRegularWarning(logger, nfoPath);
     }
@@ -1021,6 +1023,35 @@ public sealed class NfoWriterTests
         Assert.IsNotNull(process, "mkfifo must start!");
         process.WaitForExit();
         Assert.AreEqual(0, process.ExitCode, "mkfifo must create the FIFO!");
+    }
+
+    /// <summary>
+    /// Read the file type of a path with <c>stat</c>, independent of the code under test
+    /// </summary>
+    /// <param name="path">Path to inspect</param>
+    /// <returns>Returns the file type name, such as "fifo" or "socket"</returns>
+    private static string ReadFileType(string path)
+    {
+        var startInfo = new ProcessStartInfo("/usr/bin/stat")
+                        {
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true
+                        };
+
+        startInfo.ArgumentList.Add("-c");
+        startInfo.ArgumentList.Add("%F");
+        startInfo.ArgumentList.Add(path);
+
+        using var process = Process.Start(startInfo);
+
+        Assert.IsNotNull(process, "stat must start!");
+
+        var output = process.StandardOutput.ReadToEnd().Trim();
+
+        process.WaitForExit();
+        Assert.AreEqual(0, process.ExitCode, "stat must read the file type!");
+
+        return output;
     }
 
     /// <summary>
