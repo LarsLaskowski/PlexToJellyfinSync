@@ -1,6 +1,6 @@
 # 0036: An existing NFO target that is not a regular file is skipped before it is opened
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-28
 - **Area:** Path mapping and NFO
 - **Source:** Issue #278
