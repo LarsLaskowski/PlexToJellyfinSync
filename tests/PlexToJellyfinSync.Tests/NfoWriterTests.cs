@@ -475,15 +475,22 @@ public sealed class NfoWriterTests
 
         // Hang guard: on a regression the write blocks in the open of the FIFO and never returns, so the wait is
         // bounded; the limit is no assertion of a duration
+        var timedOut = false;
+
         try
         {
             await write.WaitAsync(TimeSpan.FromSeconds(8), _testContext.CancellationToken);
         }
         catch (TimeoutException)
         {
+            timedOut = true;
+
             // Opening the FIFO for writing releases the blocked open of the read
             await using var releaser = new FileStream(nfoPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+        }
 
+        if (timedOut)
+        {
             Assert.Fail("The write blocked on the FIFO instead of skipping it!");
         }
 

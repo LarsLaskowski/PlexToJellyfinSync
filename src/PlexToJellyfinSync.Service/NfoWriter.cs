@@ -542,6 +542,61 @@ public sealed class NfoWriter : INfoWriter
         return new XDocument(new XDeclaration("1.0", "utf-8", null), root);
     }
 
+    /// <summary>
+    /// Update the watch state of an existing NFO file; a target that is not a regular file, is oversized or is malformed is skipped
+    /// </summary>
+    /// <param name="item">Media item</param>
+    /// <param name="targetPath">Full path of the NFO file</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Returns the outcome of the write</returns>
+    private async Task<NfoWriteOutcome> UpdateExistingAsync(MediaItem item, string targetPath, CancellationToken cancellationToken)
+    {
+        if (OperatingSystem.IsLinux() && NativeMethods.IsRegularFile(targetPath) == false)
+        {
+            NfoWriterLog.NonRegularNfoSkipped(_logger, targetPath);
+
+            return NfoWriteOutcome.Skipped;
+        }
+
+        var existing = await ReadExistingAsync(targetPath, cancellationToken).ConfigureAwait(false);
+
+        if (existing is null)
+        {
+            NfoWriterLog.OversizedNfoSkipped(_logger, targetPath, MaxExistingFileBytes);
+
+            return NfoWriteOutcome.Skipped;
+        }
+
+        var (xml, encoding) = existing.Value;
+
+        XDocument document;
+
+        try
+        {
+            document = ParseExisting(xml);
+        }
+        catch (XmlException exception)
+        {
+            NfoWriterLog.MalformedNfoSkipped(_logger, exception, targetPath);
+
+            return NfoWriteOutcome.Skipped;
+        }
+
+        var root = document.Root!;
+        var changed = ApplyWatchState(root, item.Watch);
+
+        if (changed == false)
+        {
+            return NfoWriteOutcome.Skipped;
+        }
+
+        await SaveAsync(document, targetPath, indent: false, encoding, cancellationToken).ConfigureAwait(false);
+
+        NfoWriterLog.WatchStateUpdated(_logger, targetPath);
+
+        return NfoWriteOutcome.Updated;
+    }
+
     #endregion // Methods
 
     #region INfoWriter
@@ -566,50 +621,7 @@ public sealed class NfoWriter : INfoWriter
         {
             if (File.Exists(targetPath))
             {
-                if (OperatingSystem.IsLinux() && NativeMethods.IsRegularFile(targetPath) == false)
-                {
-                    NfoWriterLog.NonRegularNfoSkipped(_logger, targetPath);
-
-                    return NfoWriteOutcome.Skipped;
-                }
-
-                var existing = await ReadExistingAsync(targetPath, cancellationToken).ConfigureAwait(false);
-
-                if (existing is null)
-                {
-                    NfoWriterLog.OversizedNfoSkipped(_logger, targetPath, MaxExistingFileBytes);
-
-                    return NfoWriteOutcome.Skipped;
-                }
-
-                var (xml, encoding) = existing.Value;
-
-                XDocument document;
-
-                try
-                {
-                    document = ParseExisting(xml);
-                }
-                catch (XmlException exception)
-                {
-                    NfoWriterLog.MalformedNfoSkipped(_logger, exception, targetPath);
-
-                    return NfoWriteOutcome.Skipped;
-                }
-
-                var root = document.Root!;
-                var changed = ApplyWatchState(root, item.Watch);
-
-                if (changed == false)
-                {
-                    return NfoWriteOutcome.Skipped;
-                }
-
-                await SaveAsync(document, targetPath, indent: false, encoding, cancellationToken).ConfigureAwait(false);
-
-                NfoWriterLog.WatchStateUpdated(_logger, targetPath);
-
-                return NfoWriteOutcome.Updated;
+                return await UpdateExistingAsync(item, targetPath, cancellationToken).ConfigureAwait(false);
             }
 
             if (_syncOptions.CreateMissingNfo == false)
