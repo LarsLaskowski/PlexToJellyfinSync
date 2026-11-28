@@ -47,12 +47,13 @@ write stops every later run until restart. A socket fails the open (`ENXIO`, an 
 
 | AC | Test(s) | Test file |
 | -- | ------- | --------- |
-| AC1 | `NfoWriterExistingNfoLinkedToDeviceSkips` (DataRows `/dev/null`, `/dev/zero`), `NfoWriterExistingNfoFifoSkips`, `NfoWriterExistingNfoSocketSkips` | `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs` |
+| AC1 | `NfoWriterExistingNfoLinkedToDeviceSkips` (DataRows `/dev/null` with `createMissing: true`, `/dev/zero` with `createMissing: false`), `NfoWriterExistingNfoFifoSkips`, `NfoWriterExistingNfoSocketSkips` | `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs` |
 | AC2 | `NfoWriterExistingNfoLinkedToRegularFileUpdates` (passes on today's code: deferred to step 6) | `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs` |
 | AC3 | `NfoWriterExistingNfoDanglingLinkThrows` | `tests/PlexToJellyfinSync.Tests/NfoWriterTests.cs` |
 
 Test notes for the Tester: all of them `[OSCondition(OperatingSystems.Linux)]`, writer with `createMissing: true`
-for AC1 and AC3. The FIFO is created with `Process` on the absolute path `/usr/bin/mkfifo` (`ArgumentList`, no
+for AC1 and AC3, except the `createMissing: false` row of `NfoWriterExistingNfoLinkedToDeviceSkips`; the FIFO and
+socket tests also assert the entry is still a FIFO or socket, checked without `NativeMethods`. The FIFO is created with `Process` on the absolute path `/usr/bin/mkfifo` (`ArgumentList`, no
 shell, no PATH lookup), the socket by binding a `Socket` to a `UnixDomainSocketEndPoint` kept open for the test.
 `NfoWriterExistingNfoFifoSkips` blocks forever on today's code, so it runs the write in `Task.Run` and bounds the wait
 (`WaitAsync` with a generous limit and `TestContext.CancellationToken`) as a hang guard: on timeout it opens the FIFO
