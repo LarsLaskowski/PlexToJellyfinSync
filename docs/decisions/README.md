@@ -96,4 +96,5 @@ once in the [area document](../areas/README.md) of the record's area, and the re
 | [0033](0033-follow-the-current-dotnet-major.md) | The solution moves to .NET 11, an STS release, instead of staying on .NET 10 LTS | Accepted | 2026-11-11 |
 | [0034](0034-base-images-pinned-in-literal-from-lines.md) | Both base images are pinned by tag and index digest in literal FROM lines | Accepted | 2026-11-11 |
 | [0035](0035-image-built-on-pull-requests-that-change-its-base.md) | Pull requests that change the image's base build and start it in a path-filtered workflow | Accepted | 2026-11-11 |
+| [0036](0036-non-regular-nfo-target-is-skipped.md) | An existing NFO target that is not a regular file is skipped before it is opened | Accepted | 2026-11-28 |
 <!-- project:end index -->

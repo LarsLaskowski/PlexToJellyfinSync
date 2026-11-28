@@ -5,7 +5,7 @@
 How a file path reported by Plex becomes a path in this application's file system, and what is written there:
 the prefix mapping, the rejection of traversal forms, the containment check against the configured local roots,
 the `.nfo` target name per kind of item, the fields an update may change, the content of a new file, the
-encoding, the atomic replace, malformed files, document type declarations and entities, the size bound of an existing file, and concurrent
+encoding, the atomic replace, malformed files, document type declarations and entities, the size bound of an existing file, targets that are not regular files, and concurrent
 writers on one target. Users rely on it because their `.nfo` files are shared with Jellyfin and often with other
 tools; operators rely on it to know which part of the media volume the application may write.
 
@@ -153,8 +153,17 @@ tools; operators rely on it to know which part of the media volume the applicati
   with the same warning, which carries the parser's message that the DTD is prohibited. External entities are
   never resolved and no entity is expanded. The predefined entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;`)
   and character references need no DTD and are read normally.
+- On Linux, an existing target that is not a regular file after following symbolic links (a FIFO, a character
+  or block device, a socket) is skipped before it is opened, whatever `Sync:CreateMissingNfo` is, with the warning
+  `Skipping NFO <target>: existing target is not a regular file`. Nothing is read, replaced or created, it counts
+  as neither created nor updated, and the same item is tried again on its next write. On other systems no such
+  check is made. A file type that cannot be read (for example a dangling symbolic link) fails the item with
+  `Could not read the file type of '<target>': <system error message>`; a host that refuses the file-type call
+  fails every update of an existing NFO with that message. An entry replaced between the check and the open is
+  not caught.
 - An existing file larger than 1,048,576 bytes (counted on the bytes as stored, byte-order mark included, before
-  decoding), or a target that never reaches its end (for example a symbolic link to `/dev/zero`), is skipped and
+  decoding), or a target that never reaches its end (on systems other than Linux, for example a symbolic link to
+  `/dev/zero`; on Linux such a target is skipped earlier, see above), is skipped and
   left untouched: it is read no further than one byte past the bound and never parsed, with the warning `Skipping
   oversized NFO <target>: existing file is larger than 1048576 bytes`. It counts as neither created nor updated,
   and the same item is tried again on its next write. A file of exactly 1,048,576 bytes is updated as usual.
@@ -167,8 +176,8 @@ tools; operators rely on it to know which part of the media volume the applicati
   cannot be deleted stays next to the target and is overwritten by the next write to that target.
 - The log lines of this area name the Plex path and the local target path in full. The malformed-file warning
   carries the XML parser's message, which can quote a name or character from the file and its line and
-  position; no line carries the file's content beyond that. The oversized-file warning names the target path in
-  full and carries no content.
+  position; no line carries the file's content beyond that. The oversized-file warning and the warning for a target that is not a regular file name the target path in
+  full and carry no content.
 - Containment is lexical and case-sensitive and does not follow symbolic links (see *Root containment*): it is
   no protection against links inside a root.
 - The kept content of an updated file is its XML content, not its bytes (see *Updating an existing file*).
@@ -183,6 +192,8 @@ tools; operators rely on it to know which part of the media volume the applicati
   file with a document type declaration is refused like a malformed file; no entity is resolved or expanded.
 - [`decisions/0032-existing-nfo-size-bound.md`](../decisions/0032-existing-nfo-size-bound.md) — an existing file is
   read only up to a fixed byte bound; a larger one is skipped with a warning.
+- [`decisions/0036-non-regular-nfo-target-is-skipped.md`](../decisions/0036-non-regular-nfo-target-is-skipped.md) —
+  an existing target that is not a regular file is skipped before it is opened (Linux).
 
 ## Not here
 
@@ -192,5 +203,5 @@ tools; operators rely on it to know which part of the media volume the applicati
   the fact that they are not validated at startup, and the writable media volume of the container:
   [Configuration](configuration.md).
 - Where it is implemented: `src/PlexToJellyfinSync.Service/PathMapper.cs` (mapping, traversal rejection),
-  `MediaItemWriter.cs` (skip of unmapped items), `SeriesAggregateWriter.cs` (season and series folders) and
+  `MediaItemWriter.cs` (skip of unmapped items), `NativeMethods.cs` (the file type check), `SeriesAggregateWriter.cs` (season and series folders) and
   `NfoWriter.cs` (containment, targets, update, creation, replace, locks) in the same folder.
