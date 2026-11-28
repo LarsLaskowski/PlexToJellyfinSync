@@ -566,6 +566,13 @@ public sealed class NfoWriter : INfoWriter
         {
             if (File.Exists(targetPath))
             {
+                if (OperatingSystem.IsLinux() && NativeMethods.IsRegularFile(targetPath) == false)
+                {
+                    NfoWriterLog.NonRegularNfoSkipped(_logger, targetPath);
+
+                    return NfoWriteOutcome.Skipped;
+                }
+
                 var existing = await ReadExistingAsync(targetPath, cancellationToken).ConfigureAwait(false);
 
                 if (existing is null)

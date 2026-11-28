@@ -12,3 +12,4 @@ are quoted in full.
 | 2026-11-28 11:34 | 2 Challenge notes | Orchestrator | minor objections appended verbatim to plan.md |
 | 2026-11-28 11:36 | 4 Skeleton | Dev | RESULT: DONE — NativeMethods, event 6, AllowUnsafeBlocks; build clean; no deviations (sonnet/medium · 90,367 tokens · 13 tool uses · 52 s · 16 in · 4,308 out · 640,960 cache read · 34,788 cache write · 129,137 weighted) |
 | 2026-11-28 11:37 | 5 Tests first | Tester | RESULT: PASS — 5 new tests fail as expected (confirmed by orchestrator), AC2 test passes today. Deferred: NfoWriterExistingNfoLinkedToRegularFileUpdates (sonnet/medium · 95,501 tokens · 8 tool uses · 81 s · 16 in · 8,168 out · 657,564 cache read · 38,924 cache write · 155,267 weighted) |
+| 2026-11-28 11:38 | 6 Implement | Dev | RESULT: green — 652 tests pass; check wired in NfoWriter; docs updated (sonnet/medium · 93,217 tokens · 10 tool uses · 49 s · 18 in · 4,753 out · 733,683 cache read · 37,223 cache write · 143,680 weighted) |

@@ -10,9 +10,6 @@ internal static partial class NativeMethods
 {
     #region Constants
 
-    // Skeleton: removed with the implementation
-#pragma warning disable S1144
-
     /// <summary>
     /// Directory descriptor that makes a relative path resolve against the working directory
     /// </summary>
@@ -43,8 +40,6 @@ internal static partial class NativeMethods
     /// </summary>
     private const int RegularFileType = 0x8000;
 
-#pragma warning restore S1144
-
     #endregion // Constants
 
     #region Methods
@@ -58,10 +53,16 @@ internal static partial class NativeMethods
     [SupportedOSPlatform("linux")]
     internal static bool IsRegularFile(string path)
     {
-        // Skeleton: removed with the implementation
-#pragma warning disable RH2003
-        throw new NotImplementedException();
-#pragma warning restore RH2003
+        var buffer = new byte[StatxBufferSize];
+
+        if (Statx(AtFdCwd, path, 0, StatxType, buffer) == -1)
+        {
+            var errno = Marshal.GetLastPInvokeError();
+
+            throw new IOException($"Could not read the file type of '{path}': {Marshal.GetPInvokeErrorMessage(errno)}");
+        }
+
+        return (BitConverter.ToUInt16(buffer, ModeOffset) & FileTypeMask) == RegularFileType;
     }
 
     /// <summary>
