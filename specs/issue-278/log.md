@@ -15,3 +15,4 @@ are quoted in full.
 | 2026-11-28 11:38 | 6 Implement | Dev | RESULT: green — 652 tests pass; check wired in NfoWriter; docs updated (sonnet/medium · 93,217 tokens · 10 tool uses · 49 s · 18 in · 4,753 out · 733,683 cache read · 37,223 cache write · 143,680 weighted) |
 | 2026-11-28 11:39 | 6 Coverage | Tester | RESULT: PASS — deferred test meaningful, no edits; coverage gate PASS (100% new/changed) (sonnet/medium · 81,712 tokens · 5 tool uses · 26 s · 8 in · 1,814 out · 282,487 cache read · 25,771 cache write · 69,540 weighted) |
 | 2026-11-28 11:39 | 6 Documentation | Orchestrator | written in 6 Implement |
+| 2026-11-28 11:40 | 7 Gate stamp | Orchestrator | FAIL on 563d92eda1a217c59ab932ed7c83f3044ea495ab (tier standard): Format check pass; Analyzer gate FAIL; Test with coverage pass; Coverage gate pass; decision-check.py pass; scope-check.py pass · figure-check.py 0 hit(s) |
