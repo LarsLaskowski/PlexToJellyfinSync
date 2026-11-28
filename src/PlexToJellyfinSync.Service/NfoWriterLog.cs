@@ -52,5 +52,13 @@ internal static partial class NfoWriterLog
     [LoggerMessage(EventId = 5, EventName = "NfoCreated", Level = LogLevel.Information, Message = "Created NFO {Path}")]
     public static partial void NfoCreated(ILogger logger, string path);
 
+    /// <summary>
+    /// Log that an existing NFO target is not a regular file and was skipped
+    /// </summary>
+    /// <param name="logger">Logging interface</param>
+    /// <param name="path">NFO path</param>
+    [LoggerMessage(EventId = 6, EventName = "NonRegularNfoSkipped", Level = LogLevel.Warning, Message = "Skipping NFO {Path}: existing target is not a regular file")]
+    public static partial void NonRegularNfoSkipped(ILogger logger, string path);
+
     #endregion // Methods
 }
