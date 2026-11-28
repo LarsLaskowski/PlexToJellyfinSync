@@ -247,6 +247,10 @@ branching within one test.
   in the same test (the base input and a multiple of it) and assert their **ratio**, never an absolute
   duration; set the limit to at least three times the highest ratio measured, with the coverage
   instrumentation of *Test with coverage* (`.squad/stack.md`) included.
+- **Hang guard.** A test whose regression would block a thread for good (the open of a FIFO) runs the call in
+  `Task.Run`, bounds the wait with `WaitAsync` and a generous real-time limit, releases what blocks (opens the FIFO
+  for writing) and fails on the timeout; the limit only keeps the run from hanging and is never the assertion of a
+  duration.
 
 ## Testing the DI registration
 

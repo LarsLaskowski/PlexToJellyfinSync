@@ -1,4 +1,7 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Xml.Linq;
@@ -423,32 +426,149 @@ public sealed class NfoWriterTests
     }
 
     /// <summary>
-    /// A target that delivers bytes without end (a symbolic link to /dev/zero) is skipped with the oversized
-    /// warning and the write completes
+    /// A target that is a symbolic link to a character device is not opened and is skipped with the
+    /// non-regular warning, whether or not missing NFOs are created
+    /// </summary>
+    /// <param name="devicePath">Device the symbolic link points to</param>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC1")]
+    [OSCondition(OperatingSystems.Linux)]
+    [DataRow("/dev/null", DisplayName = "Link to /dev/null")]
+    [DataRow("/dev/zero", DisplayName = "Link to /dev/zero")]
+    public async Task NfoWriterExistingNfoLinkedToDeviceSkips(string devicePath)
+    {
+        var logger = new RecordingNfoWriterLogger();
+        var writer = CreateWriter(createMissing: true, logger: logger);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        File.CreateSymbolicLink(nfoPath, devicePath);
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "A device target must be skipped!");
+        Assert.AreEqual(devicePath, new FileInfo(nfoPath).LinkTarget, "The target must still be the symbolic link!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind for a device target!");
+        AssertNonRegularWarning(logger, nfoPath);
+    }
+
+    /// <summary>
+    /// A target that is a FIFO is not opened (which would block until a writer appears) and is skipped with
+    /// the non-regular warning
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC1")]
+    [OSCondition(OperatingSystems.Linux)]
+    public async Task NfoWriterExistingNfoFifoSkips()
+    {
+        var logger = new RecordingNfoWriterLogger();
+        var writer = CreateWriter(createMissing: true, logger: logger);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        CreateFifo(nfoPath);
+
+        var item = CreateWatchedMovie();
+        var write = Task.Run(() => writer.WriteAsync(item, moviePath, CancellationToken.None), CancellationToken.None);
+
+        // Hang guard: on a regression the write blocks in the open of the FIFO and never returns, so the wait is
+        // bounded; the limit is no assertion of a duration
+        try
+        {
+            await write.WaitAsync(TimeSpan.FromSeconds(8), _testContext.CancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            // Opening the FIFO for writing releases the blocked open of the read
+            await using var releaser = new FileStream(nfoPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+
+            Assert.Fail("The write blocked on the FIFO instead of skipping it!");
+        }
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, await write, "A FIFO target must be skipped!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind for a FIFO target!");
+        AssertNonRegularWarning(logger, nfoPath);
+    }
+
+    /// <summary>
+    /// A target that is a socket is skipped with the non-regular warning and stays a socket
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC1")]
+    [OSCondition(OperatingSystems.Linux)]
+    public async Task NfoWriterExistingNfoSocketSkips()
+    {
+        var logger = new RecordingNfoWriterLogger();
+        var writer = CreateWriter(createMissing: true, logger: logger);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+
+        using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+
+        socket.Bind(new UnixDomainSocketEndPoint(nfoPath));
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+
+        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "A socket target must be skipped!");
+        Assert.IsTrue(File.Exists(nfoPath), "The target entry must still exist!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind for a socket target!");
+        AssertNonRegularWarning(logger, nfoPath);
+    }
+
+    /// <summary>
+    /// A target that is a symbolic link to a regular file is updated as before
+    /// </summary>
+    /// <returns>Returns a task representing the asynchronous operation</returns>
+    [TestMethod]
+    [TestCategory("AC2")]
+    [OSCondition(OperatingSystems.Linux)]
+    public async Task NfoWriterExistingNfoLinkedToRegularFileUpdates()
+    {
+        var writer = CreateWriter(createMissing: false);
+        var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
+        var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
+        var realPath = Path.Combine(_tempDirectory, "real.nfo");
+
+        await File.WriteAllTextAsync(realPath, "<movie><title>Heat</title></movie>", _testContext.CancellationToken);
+        File.CreateSymbolicLink(nfoPath, realPath);
+
+        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
+
+        Assert.AreEqual(NfoWriteOutcome.Updated, outcome, "A link to a regular file must be updated!");
+
+        var content = await File.ReadAllTextAsync(nfoPath, _testContext.CancellationToken);
+
+        Assert.Contains("<watched>true</watched>", content, "The watched flag must be written through the link!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind after the update!");
+    }
+
+    /// <summary>
+    /// A target whose file type cannot be read (a dangling symbolic link) fails the write with an I/O
+    /// exception that names the target and the system error, and nothing is logged or created
     /// </summary>
     /// <returns>Returns a task representing the asynchronous operation</returns>
     [TestMethod]
     [TestCategory("AC3")]
-    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
-    [UnsupportedOSPlatform("windows")]
-    public async Task NfoWriterExistingNfoWithoutEndSkips()
+    [OSCondition(OperatingSystems.Linux)]
+    public async Task NfoWriterExistingNfoDanglingLinkThrows()
     {
         var logger = new RecordingNfoWriterLogger();
-        var writer = CreateWriter(createMissing: false, logger: logger);
+        var writer = CreateWriter(createMissing: true, logger: logger);
         var moviePath = Path.Combine(_tempDirectory, "Heat (1995).mkv");
         var nfoPath = Path.ChangeExtension(moviePath, ".nfo");
 
-        File.CreateSymbolicLink(nfoPath, "/dev/zero");
+        File.CreateSymbolicLink(nfoPath, Path.Combine(_tempDirectory, "missing.nfo"));
 
-        var outcome = await writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None);
-        var expectedMessage = $"Skipping oversized NFO {Path.GetFullPath(nfoPath)}: existing file is larger than 1048576 bytes";
+        var exception = await Assert.ThrowsExactlyAsync<IOException>(() => writer.WriteAsync(CreateWatchedMovie(), moviePath, CancellationToken.None));
+        var expectedMessage = $"Could not read the file type of '{Path.GetFullPath(nfoPath)}': {Marshal.GetPInvokeErrorMessage(2)}";
 
-        Assert.AreEqual(NfoWriteOutcome.Skipped, outcome, "A target without end must be skipped!");
+        Assert.AreEqual(expectedMessage, exception.Message, "The message must name the target and carry the system error text!");
         Assert.IsNotNull(new FileInfo(nfoPath).LinkTarget, "The target must still be the symbolic link!");
-        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind for a target without end!");
-        Assert.HasCount(1, logger.Entries, "Exactly one log entry is expected for a target without end!");
-        Assert.AreEqual(LogLevel.Warning, logger.Entries[0].Level, "The oversized entry must be a warning!");
-        Assert.AreEqual(expectedMessage, logger.Entries[0].Message, "The warning must carry the exact oversized text with the full target path!");
+        Assert.IsFalse(File.Exists(nfoPath + ".tmp"), "No temp file should be left behind!");
+        Assert.IsEmpty(logger.Entries, "No log entry is expected when the file type cannot be read!");
     }
 
     /// <summary>
@@ -874,6 +994,40 @@ public sealed class NfoWriterTests
 
         Assert.AreEqual(NfoWriteOutcome.Created, outcome, "A mapped root that is the filesystem root should still accept writes under it!");
         Assert.IsTrue(File.Exists(Path.ChangeExtension(moviePath, ".nfo")), "NFO file should have been created!");
+    }
+
+    /// <summary>
+    /// Create a FIFO at a path with <c>mkfifo</c>
+    /// </summary>
+    /// <param name="path">Path of the FIFO</param>
+    private static void CreateFifo(string path)
+    {
+        var startInfo = new ProcessStartInfo("/usr/bin/mkfifo")
+                        {
+                            UseShellExecute = false
+                        };
+
+        startInfo.ArgumentList.Add(path);
+
+        using var process = Process.Start(startInfo);
+
+        Assert.IsNotNull(process, "mkfifo must start!");
+        process.WaitForExit();
+        Assert.AreEqual(0, process.ExitCode, "mkfifo must create the FIFO!");
+    }
+
+    /// <summary>
+    /// Assert the single non-regular warning for a target
+    /// </summary>
+    /// <param name="logger">Recording logger</param>
+    /// <param name="nfoPath">Target path</param>
+    private static void AssertNonRegularWarning(RecordingNfoWriterLogger logger, string nfoPath)
+    {
+        var expectedMessage = $"Skipping NFO {Path.GetFullPath(nfoPath)}: existing target is not a regular file";
+
+        Assert.HasCount(1, logger.Entries, "Exactly one log entry is expected for a non-regular target!");
+        Assert.AreEqual(LogLevel.Warning, logger.Entries[0].Level, "The entry must be a warning!");
+        Assert.AreEqual(expectedMessage, logger.Entries[0].Message, "The warning must carry the exact text with the full target path!");
     }
 
     /// <summary>
