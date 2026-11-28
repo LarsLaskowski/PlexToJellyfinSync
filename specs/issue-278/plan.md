@@ -185,3 +185,24 @@ Follow-up issue for the orchestrator:
   (`FileMode.CreateNew`), and state it in *Atomic replace* of Path mapping and NFO. Found while planning #278.
 
 Not changed: a directory at the target path (fails the creation as an item error today, without blocking).
+
+## Challenge notes
+
+Devil's Advocate, mode `plan`, for `/home/user/PlexToJellyfinSync/specs/issue-278/plan.md`.
+
+The plan holds up: no major objections. I checked these claims myself:
+- **Root cause is right.** `NfoWriter.cs:567` takes the update path on `File.Exists(targetPath)`. The synchronous `FileStream` open at `NfoWriter.cs:222` runs inside the target lock (line 563).
+- **No sibling path is missed.** `ResolveMoviePath` (`NfoWriter.cs:443`) is covered. `PreserveFileMode` (`NfoWriter.cs:321`) is reached only after the check. The `.tmp` open (line 299) is already a follow-up. `StateStore` reads only its own configured state file.
+- **`AllowUnsafeBlocks` passes the build-structure check.** `.squad/tools/dotnet_config.py` does not police that property in a project file (it checks only REQUIRED, TargetFramework, package versions and suppressions).
+- **`libc` resolves on a glibc host even when the `libc.so` linker script is present.** `/usr/lib/x86_64-linux-gnu/libc.so` exists here and Verified fact 4's probe still succeeded.
+- **Tier `standard` fits** *Tiers* in `.squad/routing.md` (line 100): this check keeps a non-file entry from stalling the program; it does not confine what a path reaches.
+- **The test fixture fits the plan.** `_tempDirectory` is `/tmp/pjftests<32 hex>` (`NfoWriterTests.cs:52`), so the socket path stays well under the 108-byte limit. The test to be replaced is at `NfoWriterTests.cs:425-452`, as fact 10 says.
+- **Decision 0036 does not contradict the released record 0032.** It adds a check before the read; the bound stays for what is read.
+
+Minor objections:
+
+1. **minor: the size-bound rewrite in Path mapping and NFO drops a guarantee that still holds.** The plan (*Areas*) changes "or a target that never reaches its end (for example a symbolic link to `/dev/zero`)" (`docs/areas/path-mapping-and-nfo.md:157`) to "or a regular file that grows past the bound while it is read". On systems other than Linux no type check is made (Approach step 2, `OperatingSystem.IsLinux() == false ||`), so a link to `/dev/zero` still reaches the read and only the 1 MiB bound stops it. Instruction for the Dev: keep the endless-target case in that bullet and qualify its example, e.g. "or a target that never reaches its end (on systems other than Linux, for example a symbolic link to `/dev/zero`; on Linux such a target is skipped earlier, see above)". Why minor: the wording is a documentation detail, but as planned the area document would stop stating a guarantee the code still gives.
+
+2. **minor: a host that refuses `statx` fails every update, and the plan only names the missing-symbol case.** Verified fact 8 checks the image's C library. But a container runtime whose seccomp profile predates `statx` makes the call fail with `EPERM`, not `ENOSYS`. The C library's built-in fallback to a plain `stat` covers only `ENOSYS`, so every existing target then fails as an item error under AC3. I have not run this; it comes from how seccomp profiles and the libc fallback behave. Instruction for the Dev: in the new *Limits and errors* bullet, say that a host that refuses the file-type call fails every update of an existing NFO with the AC3 message ("Could not read the file type of '<target>': <system error message>"). The operator then recognizes the cause. Why minor: it is a documentation addition; the fail-closed design itself stays.
+
+3. **minor: the platform guard form may not satisfy CA1416.** Approach step 2 calls the `[SupportedOSPlatform("linux")]` method behind `OperatingSystem.IsLinux() == false || NativeMethods.IsRegularFile(path)`. Every existing platform guard in the service uses the positive form (`OperatingSystem.IsWindows() || ...` at `NfoWriter.cs:321` and `StateStore.cs:71`). Whether CA1416's flow analysis accepts the `== false ||` form is unchecked. Instruction for the Dev: if CA1416 reports the call, write the check at the call site as `if (OperatingSystem.IsLinux() && NativeMethods.IsRegularFile(targetPath) == false)` instead of the helper. Leave the analyzer settings alone. Why minor: the Dev or the Code Officer can do this without changing the plan.
